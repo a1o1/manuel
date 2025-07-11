@@ -1,0 +1,67 @@
+{
+  "extends": ["@commitlint/config-conventional"],
+  "rules": {
+    "type-enum": [
+      2,
+      "always",
+      [
+        "feat",
+        "fix",
+        "docs", 
+        "style",
+        "refactor",
+        "perf",
+        "test",
+        "build",
+        "ci",
+        "chore",
+        "revert"
+      ]
+    ],
+    "type-case": [2, "always", "lower-case"],
+    "type-empty": [2, "never"],
+    "scope-case": [2, "always", "lower-case"],
+    "subject-case": [2, "never", ["sentence-case", "start-case", "pascal-case", "upper-case"]],
+    "subject-empty": [2, "never"],
+    "subject-full-stop": [2, "never", "."],
+    "header-max-length": [2, "always", 72],
+    "body-leading-blank": [1, "always"],
+    "body-max-line-length": [2, "always", 100],
+    "footer-leading-blank": [1, "always"],
+    "footer-max-line-length": [2, "always", 100]
+  },
+  "prompt": {
+    "questions": {
+      "type": {
+        "description": "Select the type of change that you're committing"
+      },
+      "scope": {
+        "description": "What is the scope of this change (auth, api, security, etc.)"
+      },
+      "subject": {
+        "description": "Write a short, imperative tense description of the change"
+      },
+      "body": {
+        "description": "Provide a longer description of the change (optional)"
+      },
+      "isBreaking": {
+        "description": "Are there any breaking changes?"
+      },
+      "breakingBody": {
+        "description": "A BREAKING CHANGE commit requires a body. Please enter a longer description of the commit itself"
+      },
+      "breaking": {
+        "description": "Describe the breaking changes"
+      },
+      "isIssueAffected": {
+        "description": "Does this change affect any open issues?"
+      },
+      "issuesBody": {
+        "description": "If issues are closed, the commit requires a body. Please enter a longer description of the commit itself"
+      },
+      "issues": {
+        "description": "Add issue references (e.g. \"fix #123\", \"re #123\".)"
+      }
+    }
+  }
+}

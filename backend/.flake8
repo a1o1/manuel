@@ -1,0 +1,76 @@
+[flake8]
+# Manuel Backend - Flake8 Configuration
+# Code linting configuration for consistent code style
+
+# Maximum line length (matches Black)
+max-line-length = 88
+
+# Maximum complexity for functions
+max-complexity = 10
+
+# Ignore specific error codes
+extend-ignore = 
+    # E203: whitespace before ':' (conflicts with Black)
+    E203,
+    # W503: line break before binary operator (conflicts with Black)
+    W503,
+    # E501: line too long (handled by Black)
+    E501,
+    # F401: module imported but unused (handled by isort/mypy)
+    F401,
+    # E402: module level import not at top of file
+    E402
+
+# Select specific error codes to check
+select = 
+    E,      # pycodestyle errors
+    W,      # pycodestyle warnings
+    F,      # pyflakes
+    C,      # complexity
+    B,      # flake8-bugbear
+    I,      # isort
+    N,      # naming conventions
+    D,      # docstrings
+
+# Files and directories to exclude
+exclude = 
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .mypy_cache,
+    .venv,
+    venv,
+    build,
+    dist,
+    *.egg-info,
+    .aws-sam,
+    node_modules,
+    tests/fixtures,
+    migrations
+
+# File patterns to include
+filename = *.py
+
+# Docstring conventions
+docstring-convention = google
+
+# Per-file ignores
+per-file-ignores =
+    # Tests can have longer lines and ignore docstring requirements
+    tests/*:D100,D101,D102,D103,D104,E501
+    # __init__.py files can skip docstring requirements
+    __init__.py:D104
+    # Lambda handlers can skip some docstring requirements
+    src/functions/*/app.py:D100,D101
+    # Shared modules should have full documentation
+    src/shared/*.py:D100
+
+# Import order style (compatible with isort)
+import-order-style = google
+
+# Application import names
+application-import-names = manuel,shared,functions
+
+# Count statistics
+count = True
+statistics = True

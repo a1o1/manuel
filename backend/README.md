@@ -962,6 +962,104 @@ aws cloudwatch get-metric-statistics \
 
 ## Development
 
+### Development Setup
+
+#### Prerequisites
+- Python 3.11+
+- AWS CLI configured
+- SAM CLI installed
+- Git with conventional commits
+
+#### Quick Setup
+```bash
+# Install all development dependencies
+make install
+
+# Setup pre-commit hooks
+make install-pre-commit
+
+# Complete development setup
+make setup
+```
+
+### Code Quality Standards
+
+This project enforces strict code quality standards through automated tools:
+
+#### Code Formatting
+- **Black**: Automatic code formatting (line length: 88)
+- **isort**: Import sorting with Black compatibility
+- **Format command**: `make format`
+
+#### Linting & Analysis
+- **Ruff**: Fast Python linter (modern flake8 replacement)
+- **flake8**: Traditional Python linting with plugins
+- **pylint**: Advanced static analysis
+- **mypy**: Static type checking
+- **Lint command**: `make lint`
+
+#### Security Scanning
+- **bandit**: Security vulnerability scanner
+- **safety**: Dependency vulnerability checking
+- **semgrep**: Advanced security pattern detection
+- **Security command**: `make security`
+
+#### Documentation
+- **interrogate**: Docstring coverage checking (minimum 70%)
+- **pydocstyle**: Google-style docstring validation
+- **Documentation command**: `make docstring-check`
+
+### Development Workflow
+
+#### Daily Development Commands
+```bash
+# Quick development check (format + lint)
+make quick-check
+
+# Full development check (format + lint + security + test)
+make dev-check
+
+# Format code
+make format
+
+# Run all linting
+make lint
+
+# Run security scans
+make security
+
+# Check if code is ready for commit
+make commit-ready
+```
+
+#### Pre-commit Hooks
+Pre-commit hooks run automatically before each commit:
+- Code formatting (Black, isort)
+- Linting (flake8, ruff)
+- Type checking (mypy)
+- Security scanning (bandit, safety)
+- Documentation checks
+- Conventional commit validation
+- AWS template validation
+
+```bash
+# Run pre-commit hooks manually
+make pre-commit
+
+# Update pre-commit hook versions
+make pre-commit-update
+```
+
+#### Code Quality Gates
+All code must pass these quality gates:
+
+1. **Formatting**: Code must be formatted with Black
+2. **Linting**: No linting errors from flake8/ruff
+3. **Type Checking**: All type annotations validated
+4. **Security**: No high/critical security issues
+5. **Documentation**: Minimum 70% docstring coverage
+6. **Tests**: All tests passing with >80% coverage
+
 ### Local Testing
 ```bash
 # Start SAM local API
@@ -969,6 +1067,15 @@ sam local start-api --parameter-overrides-file parameters.json
 
 # Test individual functions
 sam local invoke TranscribeFunction --event test-events/transcribe.json
+
+# Run unit tests
+make test
+
+# Run tests with coverage
+make test-cov
+
+# Run integration tests
+make test-integration
 ```
 
 ### Debugging
