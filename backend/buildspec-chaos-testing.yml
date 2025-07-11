@@ -1,0 +1,61 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Installing chaos testing dependencies..."
+      - pip install --upgrade pip
+      - pip install -r tests/integration/fixtures/requirements.txt
+
+  pre_build:
+    commands:
+      - echo "Setting up chaos testing environment..."
+      - cd tests/integration
+      - echo "Environment: production (chaos testing)"
+      - cp test_config_production.json test_config.json || cp test_config.json
+        test_config.json
+
+  build:
+    commands:
+      - echo "Running comprehensive chaos engineering tests..."
+      - echo "→ Running failure scenario tests..."
+      - make test-failure-scenarios
+      - echo "→ Running chaos engineering suite..."
+      - make test-chaos
+      - echo "→ Testing Bedrock throttling scenarios..."
+      - python test_runner.py --category chaos --scenario bedrock_throttling
+      - echo "→ Testing DynamoDB failure scenarios..."
+      - python test_runner.py --category chaos --scenario dynamodb_failure
+      - echo "→ Testing network timeout scenarios..."
+      - python test_runner.py --category chaos --scenario network_timeout
+      - echo "→ Testing circuit breaker validation..."
+      - python test_runner.py --category chaos --scenario circuit_breaker
+      - echo "→ Testing error recovery scenarios..."
+      - python test_runner.py --category chaos --scenario error_recovery
+
+  post_build:
+    commands:
+      - echo "Chaos testing completed successfully"
+      - echo "System resilience validated"
+
+artifacts:
+  files:
+    - tests/integration/results/**/*
+    - tests/integration/chaos-reports/**/*
+  name: ChaosTestResults
+
+reports:
+  chaos-tests:
+    files:
+      - tests/integration/results/chaos-test-results.xml
+    file-format: JUNITXML
+  resilience-report:
+    files:
+      - tests/integration/chaos-reports/**/*.json
+    file-format: JSON
+
+cache:
+  paths:
+    - "/root/.cache/pip/**/*"

@@ -1,8 +1,8 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
   Manuel - Voice Assistant for Product Manuals Backend
-  
+
   Serverless application using AWS Bedrock for RAG-powered question answering
   from product manuals via voice input.
 
@@ -34,11 +34,14 @@ Globals:
         RATE_LIMIT_REQUESTS: !Ref RateLimitRequests
         IP_ALLOWLIST: !Ref IPAllowlist
         HMAC_SIGNING_KEY: !Ref HMACSigningKey
-        RATE_LIMIT_TABLE_NAME: !If [EnableAdvancedSecurityMiddleware, !Ref RateLimitTable, ""]
+        RATE_LIMIT_TABLE_NAME:
+          !If [EnableAdvancedSecurityMiddleware, !Ref RateLimitTable, ""]
         # Error Handling Configuration
         ENABLE_ADVANCED_ERROR_HANDLING: !Ref EnableAdvancedErrorHandling
-        DLQ_URL: !If [EnableErrorHandling, !Ref ErrorHandlingDeadLetterQueue, ""]
-        ERROR_TOPIC_ARN: !If [EnableErrorHandling, !Ref ErrorNotificationTopic, ""]
+        DLQ_URL:
+          !If [EnableErrorHandling, !Ref ErrorHandlingDeadLetterQueue, ""]
+        ERROR_TOPIC_ARN:
+          !If [EnableErrorHandling, !Ref ErrorNotificationTopic, ""]
         ERROR_TABLE_NAME: !If [EnableErrorHandling, !Ref ErrorTrackingTable, ""]
         MAX_RETRY_ATTEMPTS: !Ref MaxRetryAttempts
         BASE_RETRY_DELAY: !Ref BaseRetryDelay
@@ -50,7 +53,12 @@ Globals:
         CONNECTION_TIMEOUT: !Ref ConnectionTimeout
         READ_TIMEOUT: !Ref ReadTimeout
         CACHE_MEMORY_SIZE: !Ref CacheMemorySize
-        REDIS_URL: !If [EnableRedisCaching, !Sub "redis://${RedisCache.RedisEndpoint.Address}:${RedisCache.RedisEndpoint.Port}", ""]
+        REDIS_URL:
+          !If [
+            EnableRedisCaching,
+            !Sub "redis://${RedisCache.RedisEndpoint.Address}:${RedisCache.RedisEndpoint.Port}",
+            "",
+          ]
   Api:
     Cors:
       AllowMethods: "'GET,POST,OPTIONS'"
@@ -61,6 +69,13 @@ Globals:
       Authorizers:
         CognitoAuth:
           UserPoolArn: !GetAtt CognitoUserPool.Arn
+    CanarySetting: !If
+      - IsCanaryEnabled
+      - PercentTraffic: !Ref CanaryTrafficPercent
+        UseStageCache: false
+        StageVariableOverrides:
+          DeploymentId: !Ref DeploymentId
+      - !Ref AWS::NoValue
 
 Parameters:
   Stage:
@@ -68,17 +83,34 @@ Parameters:
     Default: dev
     AllowedValues: [dev, staging, prod]
     Description: Deployment stage
-  
+
+  ApiVersionStage:
+    Type: String
+    Default: v1
+    Description: API Gateway stage for versioning
+
+  CanaryTrafficPercent:
+    Type: Number
+    Default: 0
+    MinValue: 0
+    MaxValue: 100
+    Description: Percentage of traffic for canary deployment
+
+  DeploymentId:
+    Type: String
+    Default: ""
+    Description: Unique deployment identifier for canary deployments
+
   DailyQuotaLimit:
     Type: Number
     Default: 50
     Description: Maximum queries per user per day
-  
+
   MonthlyQuotaLimit:
     Type: Number
     Default: 1000
     Description: Maximum queries per user per month
-  
+
   EmbeddingModelId:
     Type: String
     Default: amazon.titan-embed-text-v2:0
@@ -88,7 +120,7 @@ Parameters:
       - amazon.titan-embed-text-v1
       - cohere.embed-english-v3
       - cohere.embed-multilingual-v3
-  
+
   TextModelId:
     Type: String
     Default: anthropic.claude-3-5-sonnet-20241022-v2:0
@@ -99,41 +131,41 @@ Parameters:
       - anthropic.claude-3-haiku-20240307-v1:0
       - us.anthropic.claude-sonnet-4-20250514-v1:0
       - us.anthropic.claude-opus-4-20250514-v1:0
-  
+
   UseInferenceProfile:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
     Description: Whether to use cross-region inference profiles for newer models
-  
+
   # Runtime Configuration
   LambdaRuntime:
     Type: String
     Default: python3.11
     AllowedValues: [python3.9, python3.10, python3.11, python3.12]
     Description: Python runtime version for Lambda functions
-  
+
   LambdaMemorySize:
     Type: Number
     Default: 256
     MinValue: 128
     MaxValue: 10240
     Description: Memory allocation for Lambda functions (MB)
-  
+
   LambdaTimeout:
     Type: Number
     Default: 30
     MinValue: 3
     MaxValue: 900
     Description: Default timeout for Lambda functions (seconds)
-  
+
   QueryTimeout:
     Type: Number
     Default: 60
     MinValue: 30
     MaxValue: 900
     Description: Timeout for query processing function (seconds)
-  
+
   # Knowledge Base Configuration
   KnowledgeBaseRetrievalResults:
     Type: Number
@@ -141,168 +173,175 @@ Parameters:
     MinValue: 1
     MaxValue: 20
     Description: Number of results to retrieve from Knowledge Base
-  
+
   # Security Configuration
   CorsAllowedOrigins:
     Type: String
     Default: "*"
     Description: CORS allowed origins (use specific domains in production)
-  
+
   TokenValidityHours:
     Type: Number
     Default: 1
     MinValue: 1
     MaxValue: 24
     Description: Access token validity period (hours)
-  
+
   RefreshTokenValidityDays:
     Type: Number
     Default: 30
     MinValue: 1
     MaxValue: 365
     Description: Refresh token validity period (days)
-  
+
   # Advanced Security Configuration
   EnableWAF:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
     Description: Enable AWS WAF for API Gateway protection
-  
+
   EnableAdvancedSecurity:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
     Description: Enable advanced security middleware
-  
+
   MaxRequestSizeMB:
     Type: Number
     Default: 10
     MinValue: 1
     MaxValue: 100
     Description: Maximum request size in MB
-  
+
   MaxAudioDurationSeconds:
     Type: Number
     Default: 300
     MinValue: 30
     MaxValue: 600
     Description: Maximum audio duration in seconds
-  
+
   RateLimitWindowMinutes:
     Type: Number
     Default: 1
     MinValue: 1
     MaxValue: 60
     Description: Rate limit window in minutes
-  
+
   RateLimitRequests:
     Type: Number
     Default: 100
     MinValue: 10
     MaxValue: 1000
     Description: Maximum requests per rate limit window
-  
+
   IPAllowlist:
     Type: String
     Default: ""
-    Description: Comma-separated list of allowed IP addresses/CIDR ranges (empty = no restrictions)
-  
+    Description:
+      Comma-separated list of allowed IP addresses/CIDR ranges (empty = no
+      restrictions)
+
   HMACSigningKey:
     Type: String
     Default: ""
     NoEcho: true
-    Description: HMAC signing key for sensitive operations (leave empty to disable)
-  
+    Description:
+      HMAC signing key for sensitive operations (leave empty to disable)
+
   # Error Handling Configuration
   EnableAdvancedErrorHandling:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
-    Description: Enable advanced error handling with dead letter queues and retry strategies
-  
+    Description:
+      Enable advanced error handling with dead letter queues and retry
+      strategies
+
   ErrorRetentionDays:
     Type: Number
     Default: 30
     MinValue: 7
     MaxValue: 365
     Description: Error data retention period (days)
-  
+
   MaxRetryAttempts:
     Type: Number
     Default: 3
     MinValue: 1
     MaxValue: 10
     Description: Maximum retry attempts for failed operations
-  
+
   BaseRetryDelay:
     Type: Number
     Default: 1000
     MinValue: 100
     MaxValue: 10000
     Description: Base retry delay in milliseconds
-  
+
   MaxRetryDelay:
     Type: Number
     Default: 30000
     MinValue: 1000
     MaxValue: 300000
     Description: Maximum retry delay in milliseconds
-  
+
   # Performance Optimization Configuration
   EnablePerformanceOptimization:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
-    Description: Enable performance optimization with connection pooling and caching
-  
+    Description:
+      Enable performance optimization with connection pooling and caching
+
   EnableRedisCache:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
     Description: Enable Redis cache for distributed caching
-  
+
   RedisCacheNodeType:
     Type: String
     Default: "cache.t3.micro"
-    AllowedValues: ["cache.t3.micro", "cache.t3.small", "cache.t3.medium", "cache.r6g.large"]
+    AllowedValues:
+      ["cache.t3.micro", "cache.t3.small", "cache.t3.medium", "cache.r6g.large"]
     Description: Redis cache node type
-  
+
   MaxConnections:
     Type: Number
     Default: 50
     MinValue: 10
     MaxValue: 200
     Description: Maximum connections per AWS service client
-  
+
   MaxIdleConnections:
     Type: Number
     Default: 10
     MinValue: 5
     MaxValue: 50
     Description: Maximum idle connections to maintain
-  
+
   ConnectionTimeout:
     Type: Number
     Default: 10
     MinValue: 1
     MaxValue: 60
     Description: Connection timeout in seconds
-  
+
   ReadTimeout:
     Type: Number
     Default: 30
     MinValue: 5
     MaxValue: 300
     Description: Read timeout in seconds
-  
+
   CacheMemorySize:
     Type: Number
     Default: 1000
     MinValue: 100
     MaxValue: 10000
     Description: In-memory cache size (number of entries)
-  
+
   # Storage Configuration
   AudioFileRetentionDays:
     Type: Number
@@ -310,64 +349,83 @@ Parameters:
     MinValue: 1
     MaxValue: 7
     Description: Audio file retention period (days)
-  
+
   UsageDataRetentionDays:
     Type: Number
     Default: 32
     MinValue: 7
     MaxValue: 365
     Description: Usage data retention period (days)
-  
+
   EnableS3Versioning:
     Type: String
     Default: "true"
     AllowedValues: ["true", "false"]
     Description: Enable S3 versioning for manual storage
-  
+
   # Backup & Disaster Recovery Configuration
   EnableCrossRegionBackup:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
     Description: Enable cross-region backup and replication
-  
+
   BackupRegion:
     Type: String
     Default: "eu-central-1"
     Description: Secondary region for backup and disaster recovery
-  
+
   BackupRetentionDays:
     Type: Number
     Default: 30
     MinValue: 7
     MaxValue: 365
     Description: Retention period for automated backups (days)
-  
+
   EnablePointInTimeRecovery:
     Type: String
     Default: "true"
     AllowedValues: ["true", "false"]
     Description: Enable DynamoDB point-in-time recovery
-  
+
   # Monitoring Configuration
   EnableXRayTracing:
     Type: String
     Default: "false"
     AllowedValues: ["true", "false"]
     Description: Enable AWS X-Ray tracing for Lambda functions
-  
+
   LogRetentionDays:
     Type: Number
     Default: 14
-    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+    AllowedValues:
+      [
+        1,
+        3,
+        5,
+        7,
+        14,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        365,
+        400,
+        545,
+        731,
+        1827,
+        3653,
+      ]
     Description: CloudWatch logs retention period (days)
-  
+
   # Alerting Configuration
   AlertEmail:
     Type: String
     Default: ""
     Description: Email address for alerts (leave empty to disable email alerts)
-  
+
   # Performance Thresholds
   ErrorRateThreshold:
     Type: Number
@@ -375,21 +433,21 @@ Parameters:
     MinValue: 1
     MaxValue: 50
     Description: Error rate threshold percentage for alarms
-  
+
   LatencyThreshold:
     Type: Number
     Default: 5000
     MinValue: 1000
     MaxValue: 30000
     Description: Latency threshold in milliseconds for alarms
-  
+
   QuotaUsageThreshold:
     Type: Number
     Default: 80
     MinValue: 50
     MaxValue: 95
     Description: Quota usage threshold percentage for warnings
-  
+
   # Cost Management
   DailyCostThreshold:
     Type: Number
@@ -397,13 +455,14 @@ Parameters:
     MinValue: 1.0
     MaxValue: 100.0
     Description: Daily cost threshold in USD for cost alerts
-  
+
   RequestCostThreshold:
     Type: Number
     Default: 0.50
     MinValue: 0.01
     MaxValue: 5.0
-    Description: Individual request cost threshold in USD for expensive request alerts
+    Description:
+      Individual request cost threshold in USD for expensive request alerts
 
 Conditions:
   EnableTracing: !Equals [!Ref EnableXRayTracing, "true"]
@@ -411,10 +470,14 @@ Conditions:
   EnableEmailAlerts: !Not [!Equals [!Ref AlertEmail, ""]]
   EnableCrossRegionReplication: !Equals [!Ref EnableCrossRegionBackup, "true"]
   EnableWAFProtection: !Equals [!Ref EnableWAF, "true"]
-  EnableAdvancedSecurityMiddleware: !Equals [!Ref EnableAdvancedSecurity, "true"]
+  EnableAdvancedSecurityMiddleware:
+    !Equals [!Ref EnableAdvancedSecurity, "true"]
   EnableErrorHandling: !Equals [!Ref EnableAdvancedErrorHandling, "true"]
-  EnablePerformanceOptimizations: !Equals [!Ref EnablePerformanceOptimization, "true"]
+  EnablePerformanceOptimizations:
+    !Equals [!Ref EnablePerformanceOptimization, "true"]
   EnableRedisCaching: !Equals [!Ref EnableRedisCache, "true"]
+  IsCanaryEnabled: !Not [!Equals [!Ref CanaryTrafficPercent, 0]]
+  IsProd: !Equals [!Ref Stage, prod]
 
 Resources:
   # Cognito User Pool for Authentication
@@ -516,8 +579,7 @@ Resources:
                 Rules:
                   - Name: prefix
                     Value: manuals/
-      ReplicationConfiguration:
-        !If
+      ReplicationConfiguration: !If
         - EnableCrossRegionReplication
         - Role: !GetAtt S3ReplicationRole.Arn
           Rules:
@@ -663,7 +725,7 @@ Resources:
                   - sqs:SendMessage
                   - sns:Publish
                   - dynamodb:PutItem
-                Resource: 
+                Resource:
                   - !Ref ErrorHandlingDeadLetterQueue
                   - !Ref ErrorNotificationTopic
                   - !Ref ErrorTrackingTable
@@ -893,7 +955,7 @@ Resources:
                 - dynamodb:RestoreTableFromBackup
                 - dynamodb:RestoreTableToPointInTime
                 - dynamodb:DescribeTable
-              Resource: 
+              Resource:
                 - !GetAtt UsageTable.Arn
                 - !Sub "${UsageTable.Arn}/backup/*"
             - Effect: Allow
@@ -998,7 +1060,7 @@ Resources:
     Properties:
       RoleName: !Sub manuel-bedrock-kb-role-${Stage}
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -1009,7 +1071,7 @@ Resources:
       Policies:
         - PolicyName: S3Access
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -1020,7 +1082,7 @@ Resources:
                   - !Sub "${ManualsBucket.Arn}/*"
         - PolicyName: OpenSearchAccess
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -1034,7 +1096,7 @@ Resources:
     Properties:
       RoleName: !Sub manuel-s3-replication-role-${Stage}
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -1043,7 +1105,7 @@ Resources:
       Policies:
         - PolicyName: S3ReplicationPolicy
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action:
@@ -1216,7 +1278,7 @@ Resources:
       Addresses: !If
         - EnableWAFProtection
         - !Split [",", !Ref IPAllowlist]
-        - ["127.0.0.1/32"]  # Default single IP if no allowlist specified
+        - ["127.0.0.1/32"] # Default single IP if no allowlist specified
       Tags:
         - Key: Project
           Value: Manuel
@@ -1461,7 +1523,7 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: 10.0.1.0/24
-      AvailabilityZone: !Select [0, !GetAZs '']
+      AvailabilityZone: !Select [0, !GetAZs ""]
       Tags:
         - Key: Project
           Value: Manuel
@@ -1476,7 +1538,7 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       CidrBlock: 10.0.2.0/24
-      AvailabilityZone: !Select [1, !GetAZs '']
+      AvailabilityZone: !Select [1, !GetAZs ""]
       Tags:
         - Key: Project
           Value: Manuel
@@ -1641,6 +1703,63 @@ Resources:
         - Key: Environment
           Value: !Ref Stage
 
+  # Canary Deployment Alarms
+  CanaryErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: IsCanaryEnabled
+    Properties:
+      AlarmName: !Sub manuel-canary-error-rate-${Stage}
+      AlarmDescription: High error rate in canary deployment
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub manuel-${Stage}
+        - Name: Stage
+          Value: !Ref ApiVersionStage
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: DeploymentType
+          Value: Canary
+
+  CanaryLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: IsCanaryEnabled
+    Properties:
+      AlarmName: !Sub manuel-canary-latency-${Stage}
+      AlarmDescription: High latency in canary deployment
+      MetricName: Latency
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5000
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub manuel-${Stage}
+        - Name: Stage
+          Value: !Ref ApiVersionStage
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: DeploymentType
+          Value: Canary
+
   # Lambda Function Alarms
   TranscribeFunctionErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -1744,7 +1863,7 @@ Resources:
       MetricName: DailyCostAccumulation
       Namespace: Manuel/Costs
       Statistic: Sum
-      Period: 86400  # 24 hours
+      Period: 86400 # 24 hours
       EvaluationPeriods: 1
       Threshold: !Ref DailyCostThreshold
       ComparisonOperator: GreaterThanThreshold
@@ -1788,7 +1907,7 @@ Resources:
       Statistic: Sum
       Period: 300
       EvaluationPeriods: 1
-      Threshold: 1.0  # $1 in 5 minutes
+      Threshold: 1.0 # $1 in 5 minutes
       ComparisonOperator: GreaterThanThreshold
       Dimensions:
         - Name: Service
@@ -2058,56 +2177,56 @@ Outputs:
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
     Export:
       Name: !Sub "${AWS::StackName}-ApiUrl"
-  
+
   UserPoolId:
     Description: Cognito User Pool ID
     Value: !Ref CognitoUserPool
     Export:
       Name: !Sub "${AWS::StackName}-UserPoolId"
-  
+
   UserPoolClientId:
     Description: Cognito User Pool Client ID
     Value: !Ref CognitoUserPoolClient
     Export:
       Name: !Sub "${AWS::StackName}-UserPoolClientId"
-  
+
   ManualsBucketName:
     Description: S3 bucket for storing manuals
     Value: !Ref ManualsBucket
     Export:
       Name: !Sub "${AWS::StackName}-ManualsBucket"
-  
+
   AudioBucketName:
     Description: S3 bucket for temporary audio storage
     Value: !Ref AudioBucket
     Export:
       Name: !Sub "${AWS::StackName}-AudioBucket"
-  
+
   KnowledgeBaseId:
     Description: Bedrock Knowledge Base ID
     Value: !Ref BedrockKnowledgeBase
     Export:
       Name: !Sub "${AWS::StackName}-KnowledgeBaseId"
-  
+
   UsageTableName:
     Description: DynamoDB table for usage tracking
     Value: !Ref UsageTable
     Export:
       Name: !Sub "${AWS::StackName}-UsageTable"
-  
+
   # Monitoring Outputs
   DashboardURL:
     Description: CloudWatch Dashboard URL
     Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=Manuel-${Stage}"
     Export:
       Name: !Sub "${AWS::StackName}-DashboardURL"
-  
+
   AlertTopicArn:
     Description: SNS Topic ARN for alerts
     Value: !Ref AlertTopic
     Export:
       Name: !Sub "${AWS::StackName}-AlertTopic"
-  
+
   LogGroupNames:
     Description: CloudWatch Log Groups for Lambda functions
     Value: !Sub "/aws/lambda/manuel-*-${Stage}"

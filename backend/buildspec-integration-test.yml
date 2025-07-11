@@ -1,0 +1,61 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Installing test dependencies..."
+      - pip install --upgrade pip
+      - pip install -r tests/integration/fixtures/requirements.txt
+
+  pre_build:
+    commands:
+      - echo "Setting up integration test environment..."
+      - cd tests/integration
+      - echo "Environment: $ENVIRONMENT"
+      - cp test_config_${ENVIRONMENT}.json test_config.json || cp
+        test_config.json test_config.json
+
+  build:
+    commands:
+      - echo "Running integration tests for $ENVIRONMENT environment..."
+      - echo "→ Running smoke tests..."
+      - make test-smoke
+      - echo "→ Running security tests..."
+      - make test-security
+      - echo "→ Running API functionality tests..."
+      - make test-api
+      - echo "→ Running authentication tests..."
+      - make test-auth
+      - echo "→ Running quota management tests..."
+      - make test-quota
+      - echo "→ Running error handling tests..."
+      - make test-error-handling
+      - echo "→ Running performance tests..."
+      - make test-performance
+
+  post_build:
+    commands:
+      - echo "Integration tests completed successfully"
+      - echo "Test results generated"
+
+artifacts:
+  files:
+    - tests/integration/results/**/*
+    - tests/integration/reports/**/*
+  name: IntegrationTestResults
+
+reports:
+  integration-tests:
+    files:
+      - tests/integration/results/test-results.xml
+    file-format: JUNITXML
+  test-reports:
+    files:
+      - tests/integration/reports/**/*.json
+    file-format: JSON
+
+cache:
+  paths:
+    - "/root/.cache/pip/**/*"

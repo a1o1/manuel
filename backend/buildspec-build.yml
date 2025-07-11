@@ -1,0 +1,65 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Installing build dependencies..."
+      - pip install --upgrade pip
+      - pip install -e ".[dev]"
+      - pip install aws-sam-cli
+
+  pre_build:
+    commands:
+      - echo "Running security scans and unit tests..."
+      - echo "→ Running bandit security scan..."
+      - bandit -r src/ -f json -o bandit-report.json || echo "Bandit scan
+        completed with warnings"
+      - bandit -r src/ -f screen
+      - echo "→ Running safety vulnerability check..."
+      - safety check --short-report || echo "Safety check completed with
+        warnings"
+      - echo "→ Running unit tests with coverage..."
+      - pytest tests/unit/ --cov=src --cov-report=xml --cov-report=html
+        --cov-report=term --cov-fail-under=80
+      - echo "→ Running code quality checks..."
+      - flake8 src/
+      - mypy src/ --ignore-missing-imports
+
+  build:
+    commands:
+      - echo "Building SAM application..."
+      - sam build --use-container
+      - echo "Validating SAM template..."
+      - sam validate --template template.yaml
+      - echo "Packaging for deployment..."
+      - sam package --s3-bucket $ARTIFACTS_BUCKET --output-template-file
+        packaged-template.yaml
+
+  post_build:
+    commands:
+      - echo "Build completed successfully"
+      - echo "Build artifacts ready for deployment"
+
+artifacts:
+  files:
+    - packaged-template.yaml
+    - parameters-*.json
+    - tests/**/*
+  name: BuildArtifacts
+
+reports:
+  coverage:
+    files:
+      - coverage.xml
+    file-format: COBERTURAXML
+  security:
+    files:
+      - bandit-report.json
+    file-format: JSON
+
+cache:
+  paths:
+    - "/root/.cache/pip/**/*"
+    - ".venv/**/*"
