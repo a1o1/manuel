@@ -325,8 +325,13 @@ def transcribe_audio(s3_key: str, logger, health_checker) -> tuple:
 
         health_checker.circuit_breakers["transcribe"].call(start_transcription)
 
-        # Wait for transcription to complete
+        # Wait for transcription to complete with exponential backoff
+        poll_interval = 2  # Start with 2 seconds
+        max_poll_interval = 30  # Maximum 30 seconds between polls
+        poll_count = 0
+        
         while True:
+            poll_count += 1
 
             def check_transcription():
                 return transcribe_client.get_transcription_job(
@@ -378,10 +383,14 @@ def transcribe_audio(s3_key: str, logger, health_checker) -> tuple:
                 )
                 raise Exception(f"Transcription failed: {error}")
 
-            # Wait before checking again
+            # Wait before checking again with exponential backoff
             import time
-
-            time.sleep(2)
+            
+            logger.info(f"Transcription status: {status}, poll #{poll_count}, waiting {poll_interval}s")
+            time.sleep(poll_interval)
+            
+            # Increase poll interval exponentially, but cap at max_poll_interval
+            poll_interval = min(poll_interval * 1.5, max_poll_interval)
 
     except Exception as e:
         logger.error(
