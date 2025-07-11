@@ -7,8 +7,8 @@
 .DEFAULT_GOAL := help
 
 # Variables
-PYTHON := python3.11
-PIP := pip
+PYTHON := python3
+PIP := pip3
 VENV := .venv
 VENV_BIN := $(VENV)/bin
 PYTHON_VENV := $(VENV_BIN)/python
@@ -40,16 +40,21 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(GREEN)%-15s$(RESET) %s\n", $$1, $$2}' $(MAKEFILE_LIST) | grep -E "(security|safety|bandit)"
 
 # Setup and Installation
-install: ## Install development dependencies
+$(VENV):
+	@echo "$(CYAN)Creating virtual environment...$(RESET)"
+	$(PYTHON) -m venv $(VENV)
+	@echo "$(GREEN)✓ Virtual environment created$(RESET)"
+
+install: $(VENV) ## Install development dependencies
 	@echo "$(CYAN)Installing Manuel Backend dependencies...$(RESET)"
-	$(PIP) install --upgrade pip
-	$(PIP) install -e ".[dev]"
+	$(PIP_VENV) install --upgrade pip
+	$(PIP_VENV) install -e ".[dev]"
 	@echo "$(GREEN)✓ Dependencies installed$(RESET)"
 
 install-pre-commit: install ## Install and setup pre-commit hooks
 	@echo "$(CYAN)Setting up pre-commit hooks...$(RESET)"
-	pre-commit install --install-hooks
-	pre-commit install --hook-type commit-msg
+	$(VENV_BIN)/pre-commit install --install-hooks
+	$(VENV_BIN)/pre-commit install --hook-type commit-msg
 	@echo "$(GREEN)✓ Pre-commit hooks installed$(RESET)"
 
 setup: install install-pre-commit ## Complete development setup
@@ -68,37 +73,37 @@ clean: ## Clean build artifacts and caches
 	@echo "$(GREEN)✓ Cleaned$(RESET)"
 
 # Code Quality
-lint: ## Run all linting tools
+lint: install ## Run all linting tools
 	@echo "$(CYAN)Running linting tools...$(RESET)"
 	@echo "$(YELLOW)→ Running flake8...$(RESET)"
-	flake8 src/
+	$(VENV_BIN)/flake8 src/
 	@echo "$(YELLOW)→ Running pylint...$(RESET)"
-	pylint src/ --exit-zero
+	$(VENV_BIN)/pylint src/ --exit-zero
 	@echo "$(YELLOW)→ Running mypy...$(RESET)"
-	mypy src/ --ignore-missing-imports
+	$(VENV_BIN)/mypy src/ --ignore-missing-imports
 	@echo "$(GREEN)✓ Linting complete$(RESET)"
 
-format: ## Format code with black and isort
+format: install ## Format code with black and isort
 	@echo "$(CYAN)Formatting code...$(RESET)"
 	@echo "$(YELLOW)→ Running isort...$(RESET)"
-	isort src/ tests/
+	$(VENV_BIN)/isort src/ tests/
 	@echo "$(YELLOW)→ Running black...$(RESET)"
-	black src/ tests/
+	$(VENV_BIN)/black src/ tests/
 	@echo "$(GREEN)✓ Code formatted$(RESET)"
 
-format-check: ## Check code formatting without making changes
+format-check: install ## Check code formatting without making changes
 	@echo "$(CYAN)Checking code formatting...$(RESET)"
-	black --check --diff src/ tests/
-	isort --check-only --diff src/ tests/
+	$(VENV_BIN)/black --check --diff src/ tests/
+	$(VENV_BIN)/isort --check-only --diff src/ tests/
 
-type-check: ## Run type checking with mypy
+type-check: install ## Run type checking with mypy
 	@echo "$(CYAN)Running type checking...$(RESET)"
-	mypy src/ --ignore-missing-imports --show-error-codes
+	$(VENV_BIN)/mypy src/ --ignore-missing-imports --show-error-codes
 	@echo "$(GREEN)✓ Type checking complete$(RESET)"
 
-docstring-check: ## Check docstring coverage
+docstring-check: install ## Check docstring coverage
 	@echo "$(CYAN)Checking docstring coverage...$(RESET)"
-	interrogate src/ --ignore-init-method --ignore-init-module --ignore-magic --ignore-nested-functions --ignore-private --ignore-property-decorators --ignore-semiprivate --fail-under=70
+	$(VENV_BIN)/interrogate src/ --ignore-init-method --ignore-init-module --ignore-magic --ignore-nested-functions --ignore-private --ignore-property-decorators --ignore-semiprivate --fail-under=70
 	@echo "$(GREEN)✓ Docstring check complete$(RESET)"
 
 check: format-check lint type-check docstring-check ## Run all code quality checks
@@ -106,27 +111,26 @@ check: format-check lint type-check docstring-check ## Run all code quality chec
 # Security
 security: bandit safety ## Run all security checks
 
-bandit: ## Run bandit security scanner
+bandit: install ## Run bandit security scanner
 	@echo "$(CYAN)Running bandit security scan...$(RESET)"
-	bandit -r src/ -f json -o bandit-report.json
-	bandit -r src/ -f screen
+	$(VENV_BIN)/bandit -r src/ -f json -o bandit-report.json
+	$(VENV_BIN)/bandit -r src/ -f screen
 	@echo "$(GREEN)✓ Security scan complete$(RESET)"
 
-safety: ## Check for known security vulnerabilities
+safety: install ## Check for known security vulnerabilities
 	@echo "$(CYAN)Running safety vulnerability check...$(RESET)"
-	safety check --json --output safety-report.json
-	safety check
+	$(VENV_BIN)/safety check --short-report
 	@echo "$(GREEN)✓ Vulnerability check complete$(RESET)"
 
 # Testing
-test: ## Run unit tests
+test: install ## Run unit tests
 	@echo "$(CYAN)Running unit tests...$(RESET)"
-	pytest tests/unit/ -v --tb=short
+	$(VENV_BIN)/pytest tests/unit/ -v --tb=short
 	@echo "$(GREEN)✓ Unit tests complete$(RESET)"
 
-test-cov: ## Run tests with coverage report
+test-cov: install ## Run tests with coverage report
 	@echo "$(CYAN)Running tests with coverage...$(RESET)"
-	pytest tests/unit/ --cov=src --cov-report=html --cov-report=term --cov-report=xml
+	$(VENV_BIN)/pytest tests/unit/ --cov=src --cov-report=html --cov-report=term --cov-report=xml
 	@echo "$(GREEN)✓ Coverage report generated$(RESET)"
 
 test-integration: ## Run integration tests
@@ -157,7 +161,7 @@ deploy-dev: build ## Deploy to development environment
 	sam deploy --parameter-overrides-file parameters.json
 	@echo "$(GREEN)✓ Development deployment complete$(RESET)"
 
-deploy-staging: build ## Deploy to staging environment  
+deploy-staging: build ## Deploy to staging environment
 	@echo "$(CYAN)Deploying to staging...$(RESET)"
 	sam deploy --parameter-overrides-file parameters-staging.json
 	@echo "$(GREEN)✓ Staging deployment complete$(RESET)"
@@ -168,14 +172,14 @@ deploy-prod: build ## Deploy to production environment
 	@echo "$(GREEN)✓ Production deployment complete$(RESET)"
 
 # Pre-commit and Git Hooks
-pre-commit: ## Run pre-commit hooks on all files
+pre-commit: install ## Run pre-commit hooks on all files
 	@echo "$(CYAN)Running pre-commit hooks...$(RESET)"
-	pre-commit run --all-files
+	$(VENV_BIN)/pre-commit run --all-files
 	@echo "$(GREEN)✓ Pre-commit hooks complete$(RESET)"
 
-pre-commit-update: ## Update pre-commit hook versions
+pre-commit-update: install ## Update pre-commit hook versions
 	@echo "$(CYAN)Updating pre-commit hooks...$(RESET)"
-	pre-commit autoupdate
+	$(VENV_BIN)/pre-commit autoupdate
 	@echo "$(GREEN)✓ Pre-commit hooks updated$(RESET)"
 
 # Development Workflow
@@ -192,10 +196,10 @@ docs-serve: ## Serve documentation locally
 	python -m http.server 8000 --directory docs/
 
 # Utility
-info: ## Show development environment information
+info: $(VENV) ## Show development environment information
 	@echo "$(CYAN)Development Environment Information$(RESET)"
-	@echo "$(YELLOW)Python Version:$(RESET) $(shell python --version)"
-	@echo "$(YELLOW)Pip Version:$(RESET) $(shell pip --version)"
+	@echo "$(YELLOW)Python Version:$(RESET) $(shell $(PYTHON_VENV) --version 2>/dev/null || echo 'Virtual environment not found')"
+	@echo "$(YELLOW)Pip Version:$(RESET) $(shell $(PIP_VENV) --version 2>/dev/null || echo 'Virtual environment not found')"
 	@echo "$(YELLOW)Current Directory:$(RESET) $(shell pwd)"
 	@echo "$(YELLOW)Git Branch:$(RESET) $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'Not a git repository')"
 	@echo "$(YELLOW)Git Status:$(RESET) $(shell git status --porcelain 2>/dev/null | wc -l | sed 's/^ *//' || echo '0') modified files"
