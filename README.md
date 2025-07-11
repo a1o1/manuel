@@ -2,8 +2,8 @@
 
 > Enterprise-grade voice assistant for product manuals using AWS Bedrock
 
-[![CI/CD](https://github.com/YOUR_USERNAME/manuel/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/manuel/actions/workflows/backend-ci.yml)
-[![Security](https://github.com/YOUR_USERNAME/manuel/actions/workflows/security.yml/badge.svg)](https://github.com/YOUR_USERNAME/manuel/actions/workflows/security.yml)
+[![CI/CD](https://github.com/a1o1/manuel/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/a1o1/manuel/actions/workflows/backend-ci.yml)
+[![Security](https://github.com/a1o1/manuel/actions/workflows/security.yml/badge.svg)](https://github.com/a1o1/manuel/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 
@@ -134,7 +134,7 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 ### Quick Contribution Setup
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/manuel.git
+git clone https://github.com/a1o1/manuel.git
 cd manuel
 
 # Install commitizen for conventional commits
