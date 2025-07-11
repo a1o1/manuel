@@ -13,7 +13,7 @@ sys.path.append("../../shared")
 
 from api_versioning import ApiVersion, get_versioning_handler
 from logger import get_logger
-from utils import create_response, handle_options_request
+from utils import handle_options_request
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -157,7 +157,9 @@ def handle_compatibility_info(version: ApiVersion, handler, logger) -> Dict[str,
                     "version={version} query parameter",
                     "/v{version}/ path prefix",
                 ],
-                "default_behavior": f"Uses v{handler.current_version.value} when no version specified",
+                "default_behavior": (
+                    f"Uses v{handler.current_version.value} when no version specified"
+                ),
             },
         }
 
@@ -297,7 +299,10 @@ def create_versioned_response(
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,API-Version",
+            "Access-Control-Allow-Headers": (
+                "Content-Type,X-Amz-Date,Authorization,X-Api-Key,"
+                "X-Amz-Security-Token,API-Version"
+            ),
             "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
             **version_headers,
         },
@@ -321,7 +326,10 @@ def create_versioned_error_response(
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,API-Version",
+            "Access-Control-Allow-Headers": (
+                "Content-Type,X-Amz-Date,Authorization,X-Api-Key,"
+                "X-Amz-Security-Token,API-Version"
+            ),
             "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
             **version_headers,
         },
