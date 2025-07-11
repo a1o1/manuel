@@ -262,11 +262,16 @@ def get_users_list(logger) -> Dict[str, Any]:
             # Sort by usage
             users_list.sort(key=lambda x: x['total_monthly_usage'], reverse=True)
             
+            total_monthly_usage = sum(u['total_monthly_usage'] for u in users_list)
             summary = {
                 'total_users': len(users_list),
-                'active_users_last_7_days': sum(1 for u in users_list if is_recent_activity(u['last_activity'], 7)),
-                'total_requests_this_month': sum(u['total_monthly_usage'] for u in users_list),
-                'average_requests_per_user': sum(u['total_monthly_usage'] for u in users_list) / len(users_list) if users_list else 0
+                'active_users_last_7_days': sum(
+                    1 for u in users_list if is_recent_activity(u['last_activity'], 7)
+                ),
+                'total_requests_this_month': total_monthly_usage,
+                'average_requests_per_user': (
+                    total_monthly_usage / len(users_list) if users_list else 0
+                )
             }
             
             logger.info("Users list retrieved", 

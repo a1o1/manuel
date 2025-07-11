@@ -4,28 +4,30 @@ Handles RAG-powered question answering using AWS Bedrock
 """
 import json
 import os
+import sys
 import time
-from typing import Dict, Any
+from typing import Any, Dict
+
 import boto3
 from botocore.exceptions import ClientError
-import sys
+
 sys.path.append('/opt/python')
 sys.path.append('../../shared')
 
-from utils import (
-    create_response, 
-    get_user_id_from_event, 
-    UsageTracker,
-    validate_json_body,
-    handle_options_request
-)
-from logger import get_logger, LoggingContext
-from cost_calculator import get_cost_calculator
-from health_checker import get_health_checker, CircuitBreakerOpenError
+from advanced_error_handler import ErrorContext, get_error_handler
 from api_versioning import get_versioning_handler
-from security_middleware import get_security_middleware
-from advanced_error_handler import get_error_handler, ErrorContext
+from cost_calculator import get_cost_calculator
+from health_checker import CircuitBreakerOpenError, get_health_checker
+from logger import LoggingContext, get_logger
 from performance_optimizer import get_performance_optimizer
+from security_middleware import get_security_middleware
+from utils import (
+    UsageTracker,
+    create_response,
+    get_user_id_from_event,
+    handle_options_request,
+    validate_json_body,
+)
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -151,11 +153,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             # Get relevant context from Knowledge Base
             with LoggingContext(logger, "KnowledgeBaseRetrieval"):
-                relevant_context, embedding_cost_info = retrieve_relevant_context(question, logger, cost_params, health_checker, performance_optimizer)
+                relevant_context, embedding_cost_info = retrieve_relevant_context(
+                    question, logger, cost_params, health_checker, performance_optimizer
+                )
             
             # Generate answer using Bedrock
             with LoggingContext(logger, "AnswerGeneration"):
-                answer, generation_cost_info = generate_answer(question, relevant_context, logger, cost_params, health_checker, performance_optimizer)
+                answer, generation_cost_info = generate_answer(
+                    question, relevant_context, logger, cost_params, health_checker, performance_optimizer
+                )
             
             # Calculate final costs
             cost_params["lambda_duration_ms"] = (time.time() - start_time) * 1000

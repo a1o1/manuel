@@ -279,8 +279,8 @@ def transcribe_audio(s3_key: str, logger, health_checker) -> tuple:
                     transcribe_client.delete_transcription_job(
                         TranscriptionJobName=job_name
                     )
-                except:
-                    pass  # Job cleanup is not critical
+                except Exception as e:
+                    logger.warning("Failed to cleanup transcription job", error=str(e))
                 
                 return transcript_text, duration_seconds
                 
@@ -299,8 +299,8 @@ def transcribe_audio(s3_key: str, logger, health_checker) -> tuple:
             transcribe_client.delete_transcription_job(
                 TranscriptionJobName=job_name
             )
-        except:
-            pass
+        except Exception as e:
+            logger.warning("Failed to cleanup transcription job during error", error=str(e))
         raise
 
 

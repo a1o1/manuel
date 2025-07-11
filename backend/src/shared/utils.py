@@ -4,7 +4,8 @@ Shared utilities for Manuel backend functions
 import json
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
+
 import boto3
 from botocore.exceptions import ClientError
 
