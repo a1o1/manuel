@@ -1,6 +1,7 @@
 """
-Manuel - Query Function
-Handles RAG-powered question answering using AWS Bedrock
+Manuel - Query Function.
+
+Handles RAG-powered question answering using AWS Bedrock.
 """
 
 import json
@@ -14,14 +15,14 @@ import boto3
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
 
-from advanced_error_handler import ErrorContext, get_error_handler
-from api_versioning import get_versioning_handler
-from cost_calculator import get_cost_calculator
-from health_checker import CircuitBreakerOpenError, get_health_checker
-from logger import LoggingContext, get_logger
-from performance_optimizer import get_performance_optimizer
-from security_middleware import get_security_middleware
-from utils import (
+from advanced_error_handler import ErrorContext, get_error_handler  # noqa: E402
+from api_versioning import get_versioning_handler  # noqa: E402
+from cost_calculator import get_cost_calculator  # noqa: E402
+from health_checker import CircuitBreakerOpenError, get_health_checker  # noqa: E402
+from logger import LoggingContext, get_logger  # noqa: E402
+from performance_optimizer import get_performance_optimizer  # noqa: E402
+from security_middleware import get_security_middleware  # noqa: E402
+from utils import (  # noqa: E402
     UsageTracker,
     create_response,
     get_user_id_from_event,
@@ -30,8 +31,7 @@ from utils import (
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """
-    Handle query requests using Bedrock RAG
+    """Handle query requests using Bedrock RAG.
 
     Expected request:
     {
@@ -118,7 +118,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info("Processing query request", user_id=user_id)
 
-        # Use normalized request body (handles version-specific transformations)
+        # Use normalized request body (handles version-specific
+        # transformations)
         body = versioned_request.normalized_body
 
         # Validate required fields
@@ -160,7 +161,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         try:
             # Get relevant context from Knowledge Base
             with LoggingContext(logger, "KnowledgeBaseRetrieval"):
-                relevant_context, embedding_cost_info = retrieve_relevant_context(
+                (
+                    relevant_context,
+                    embedding_cost_info,
+                ) = retrieve_relevant_context(
                     question,
                     logger,
                     cost_params,
@@ -240,7 +244,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 503,
                 {
                     "error": "Service temporarily unavailable",
-                    "details": "One or more required services are currently unavailable. Please try again later.",
+                    "details": (
+                        "One or more required services are currently "
+                        "unavailable. Please try again later."
+                    ),
                     "retry_after": 60,
                 },
             )
@@ -279,7 +286,7 @@ def retrieve_relevant_context(
     context=None,
     user_id: str = "",
 ) -> tuple:
-    """Retrieve relevant context from Bedrock Knowledge Base"""
+    """Retrieve relevant context from Bedrock Knowledge Base."""
     # Use performance optimizer for optimized client if available
     if performance_optimizer:
         bedrock_client = (
@@ -362,7 +369,11 @@ def retrieve_relevant_context(
 
             if text:
                 context_passages.append(
-                    {"text": text, "source": source, "score": result.get("score", 0.0)}
+                    {
+                        "text": text,
+                        "source": source,
+                        "score": result.get("score", 0.0),
+                    }
                 )
 
         duration_ms = (time.time() - start_time) * 1000
@@ -395,7 +406,9 @@ def retrieve_relevant_context(
         duration_ms = (time.time() - start_time) * 1000
         logger.log_knowledge_base_query(question, 0, duration_ms, False)
         logger.error(
-            "Error retrieving context", error=str(e), error_type=type(e).__name__
+            "Error retrieving context",
+            error=str(e),
+            error_type=type(e).__name__,
         )
         return [], {"embedding_tokens": 0, "results_count": 0}
 
@@ -411,7 +424,7 @@ def generate_answer(
     context=None,
     user_id: str = "",
 ) -> tuple:
-    """Generate answer using Bedrock with retrieved context"""
+    """Generate answer using Bedrock with retrieved context."""
     # Use performance optimizer for optimized client if available
     if performance_optimizer:
         bedrock_client = performance_optimizer.connection_pool.get_bedrock_client()
@@ -541,42 +554,59 @@ def generate_answer(
             model_id=model_id,
         )
 
-        cost_info = {"input_tokens": 0, "output_tokens": 0, "model_id": model_id}
+        cost_info = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "model_id": model_id,
+        }
 
         return (
-            "I apologize, but I'm having trouble processing your question right now. Please try again later.",
+            (
+                "I apologize, but I'm having trouble processing your question "
+                "right now. Please try again later."
+            ),
             cost_info,
         )
 
 
 def build_prompt(question: str, context_text: str) -> str:
-    """Build the prompt for the language model"""
-
-    base_prompt = """You are Manuel, an intelligent assistant that helps users with questions about product manuals. Your role is to provide clear, accurate, and helpful answers based on the product documentation provided.
-
-Guidelines:
-1. Answer questions directly and clearly
-2. Use the provided manual context when available
-3. If you need to provide step-by-step instructions, format them as numbered lists
-4. For complex procedures, you can suggest creating diagrams using mermaid syntax
-5. If the context doesn't contain enough information, say so honestly
-6. Always be helpful and professional
-7. Focus on practical, actionable advice
-
-"""
+    """Build the prompt for the language model."""
+    base_prompt = (
+        "You are Manuel, an intelligent assistant that helps users with "
+        "questions about product manuals. Your role is to provide clear, "
+        "accurate, and helpful answers based on the product documentation "
+        "provided.\n\n"
+        "Guidelines:\n"
+        "1. Answer questions directly and clearly\n"
+        "2. Use the provided manual context when available\n"
+        "3. If you need to provide step-by-step instructions, format them "
+        "as numbered lists\n"
+        "4. For complex procedures, you can suggest creating diagrams using "
+        "mermaid syntax\n"
+        "5. If the context doesn't contain enough information, say so "
+        "honestly\n"
+        "6. Always be helpful and professional\n"
+        "7. Focus on practical, actionable advice\n\n"
+    )
 
     if context_text:
         prompt = (
-            f"{base_prompt}\n{context_text}\n\nUser Question: {question}\n\nAnswer:"
+            f"{base_prompt}\n{context_text}\n\n" f"User Question: {question}\n\nAnswer:"
         )
     else:
-        prompt = f"{base_prompt}\n\nNote: No specific manual context was found for this question. Please provide a general helpful response or ask the user to rephrase their question.\n\nUser Question: {question}\n\nAnswer:"
+        prompt = (
+            f"{base_prompt}\n\n"
+            "Note: No specific manual context was found for this question. "
+            "Please provide a general helpful response or ask the user to "
+            "rephrase their question.\n\n"
+            f"User Question: {question}\n\nAnswer:"
+        )
 
     return prompt
 
 
 def format_response_with_sources(answer: str, context_passages: list) -> str:
-    """Add source information to the answer"""
+    """Add source information to the answer."""
     if not context_passages:
         return answer
 
@@ -587,7 +617,7 @@ def format_response_with_sources(answer: str, context_passages: list) -> str:
             sources.append(passage["source"])
 
     if sources:
-        answer += f"\n\n**Sources:**\n"
+        answer += "\n\n**Sources:**\n"
         for source in sources:
             answer += f"- {source}\n"
 
@@ -597,7 +627,7 @@ def format_response_with_sources(answer: str, context_passages: list) -> str:
 def create_versioned_api_response(
     data: dict, version, handler, status_code: int = 200
 ) -> dict:
-    """Create a versioned API response"""
+    """Create a versioned API response."""
     import json
 
     versioned_response = handler.format_response(version, data, status_code)
@@ -608,7 +638,10 @@ def create_versioned_api_response(
         "headers": {
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,API-Version",
+            "Access-Control-Allow-Headers": (
+                "Content-Type,X-Amz-Date,Authorization,X-Api-Key,"
+                "X-Amz-Security-Token,API-Version"
+            ),
             "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
             **version_headers,
         },

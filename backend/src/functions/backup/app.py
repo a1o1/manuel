@@ -1,6 +1,7 @@
 """
-Manuel - Backup and Disaster Recovery Function
-Handles automated backup verification and disaster recovery procedures
+Manuel - Backup and Disaster Recovery Function.
+
+Handles automated backup verification and disaster recovery procedures.
 """
 
 import json
@@ -16,14 +17,12 @@ from botocore.exceptions import ClientError
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
 
-from health_checker import get_health_checker
-from logger import LoggingContext, get_logger
-from utils import create_response, handle_options_request
+from logger import LoggingContext, get_logger  # noqa: E402
+from utils import create_response, handle_options_request  # noqa: E402
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """
-    Handle backup and disaster recovery operations
+    """Handle backup and disaster recovery operations.
 
     Endpoints:
     GET /backup/status - Get backup status for all services
@@ -31,13 +30,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     POST /backup/restore - Initiate disaster recovery procedure
     GET /backup/metrics - Get backup metrics and statistics
     """
-
     # Handle CORS preflight
     if event["httpMethod"] == "OPTIONS":
         return handle_options_request()
 
     logger = get_logger("manuel-backup", context)
-    health_checker = get_health_checker()
 
     try:
         path = event.get("path", "")
@@ -66,7 +63,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(
-            "Error in backup operation", error=str(e), error_type=type(e).__name__
+            "Error in backup operation",
+            error=str(e),
+            error_type=type(e).__name__,
         )
         return create_response(
             500, {"error": "Backup operation failed", "details": str(e)}
@@ -74,14 +73,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def handle_backup_status(logger) -> Dict[str, Any]:
-    """Get backup status for all services"""
-
+    """Get backup status for all services."""
     try:
         with LoggingContext(logger, "BackupStatusCheck"):
             backup_status = get_backup_status()
 
         logger.info(
-            "Backup status retrieved", services_checked=len(backup_status["services"])
+            "Backup status retrieved",
+            services_checked=len(backup_status["services"]),
         )
 
         return create_response(200, backup_status)
@@ -94,8 +93,7 @@ def handle_backup_status(logger) -> Dict[str, Any]:
 
 
 def handle_backup_verify(event: Dict[str, Any], logger) -> Dict[str, Any]:
-    """Verify backup integrity"""
-
+    """Verify backup integrity."""
     try:
         # Parse request body for verification options
         body = {}
@@ -126,8 +124,7 @@ def handle_backup_verify(event: Dict[str, Any], logger) -> Dict[str, Any]:
 
 
 def handle_disaster_recovery(event: Dict[str, Any], logger) -> Dict[str, Any]:
-    """Initiate disaster recovery procedure"""
-
+    """Initiate disaster recovery procedure."""
     try:
         # Parse request body for recovery options
         body = json.loads(event.get("body", "{}"))
@@ -158,8 +155,7 @@ def handle_disaster_recovery(event: Dict[str, Any], logger) -> Dict[str, Any]:
 
 
 def handle_backup_metrics(logger) -> Dict[str, Any]:
-    """Get backup metrics and statistics"""
-
+    """Get backup metrics and statistics."""
     try:
         with LoggingContext(logger, "BackupMetrics"):
             metrics = get_backup_metrics()
@@ -176,8 +172,7 @@ def handle_backup_metrics(logger) -> Dict[str, Any]:
 
 
 def get_backup_status() -> Dict[str, Any]:
-    """Get comprehensive backup status for all services"""
-
+    """Get comprehensive backup status for all services."""
     status = {
         "timestamp": datetime.utcnow().isoformat(),
         "overall_status": "healthy",
@@ -208,8 +203,7 @@ def get_backup_status() -> Dict[str, Any]:
 
 
 def check_dynamodb_backup_status() -> Dict[str, Any]:
-    """Check DynamoDB backup and point-in-time recovery status"""
-
+    """Check DynamoDB backup and point-in-time recovery status."""
     try:
         dynamodb = boto3.client("dynamodb")
         table_name = os.environ.get("USAGE_TABLE_NAME")
@@ -237,7 +231,7 @@ def check_dynamodb_backup_status() -> Dict[str, Any]:
                 else "unhealthy"
             ),
             "point_in_time_recovery": {
-                "enabled": pitr_status["PointInTimeRecoveryStatus"] == "ENABLED",
+                "enabled": (pitr_status["PointInTimeRecoveryStatus"] == "ENABLED"),
                 "earliest_restorable_time": (
                     pitr_status.get("EarliestRestorableDateTime", "").isoformat()
                     if pitr_status.get("EarliestRestorableDateTime")
@@ -268,17 +262,22 @@ def check_dynamodb_backup_status() -> Dict[str, Any]:
 
 
 def check_s3_backup_status() -> Dict[str, Any]:
-    """Check S3 backup and replication status"""
-
+    """Check S3 backup and replication status."""
     try:
         s3 = boto3.client("s3")
 
         # Get primary bucket info
         primary_bucket = os.environ.get("MANUALS_BUCKET")
-        backup_bucket = f"manuel-manuals-backup-{os.environ.get('STAGE', 'dev')}-{os.environ.get('AWS_ACCOUNT_ID', '')}"
+        backup_bucket = (
+            f"manuel-manuals-backup-{os.environ.get('STAGE', 'dev')}-"
+            f"{os.environ.get('AWS_ACCOUNT_ID', '')}"
+        )
 
         if not primary_bucket:
-            return {"status": "unknown", "error": "Primary bucket name not configured"}
+            return {
+                "status": "unknown",
+                "error": "Primary bucket name not configured",
+            }
 
         status_info = {
             "status": "healthy",
@@ -334,18 +333,16 @@ def check_s3_backup_status() -> Dict[str, Any]:
 
 
 def check_opensearch_backup_status() -> Dict[str, Any]:
-    """Check OpenSearch backup status"""
-
+    """Check OpenSearch backup status."""
     try:
         # OpenSearch Serverless doesn't support traditional snapshots
         # Check collection health instead
-        opensearch = boto3.client("opensearchserverless")
 
         # This would need to be implemented based on actual collection name
         # For now, return a placeholder status
         return {
             "status": "not_implemented",
-            "note": "OpenSearch Serverless backup monitoring not yet implemented",
+            "note": ("OpenSearch Serverless backup monitoring not yet implemented"),
         }
 
     except Exception as e:
@@ -353,8 +350,7 @@ def check_opensearch_backup_status() -> Dict[str, Any]:
 
 
 def verify_backup_integrity(services: List[str], logger) -> Dict[str, Any]:
-    """Verify backup integrity for specified services"""
-
+    """Verify backup integrity for specified services."""
     results = {
         "timestamp": datetime.utcnow().isoformat(),
         "overall_status": "healthy",
@@ -387,8 +383,7 @@ def verify_backup_integrity(services: List[str], logger) -> Dict[str, Any]:
 
 
 def verify_dynamodb_backup(logger) -> Dict[str, Any]:
-    """Verify DynamoDB backup integrity"""
-
+    """Verify DynamoDB backup integrity."""
     try:
         # This is a simplified verification
         # In a real scenario, you might restore to a test table and verify data
@@ -416,14 +411,16 @@ def verify_dynamodb_backup(logger) -> Dict[str, Any]:
 
 
 def verify_s3_backup(logger) -> Dict[str, Any]:
-    """Verify S3 backup integrity"""
-
+    """Verify S3 backup integrity."""
     try:
         s3 = boto3.client("s3")
         primary_bucket = os.environ.get("MANUALS_BUCKET")
 
         if not primary_bucket:
-            return {"status": "failed", "error": "Primary bucket name not configured"}
+            return {
+                "status": "failed",
+                "error": "Primary bucket name not configured",
+            }
 
         # Sample a few objects and verify they exist
         response = s3.list_objects_v2(Bucket=primary_bucket, MaxKeys=10)
@@ -438,7 +435,9 @@ def verify_s3_backup(logger) -> Dict[str, Any]:
                 pass
 
         return {
-            "status": "passed" if verified_objects == len(objects[:5]) else "degraded",
+            "status": (
+                "passed" if verified_objects == len(objects[:5]) else "degraded"
+            ),
             "total_objects": len(objects),
             "verified_objects": verified_objects,
             "verification_time": datetime.utcnow().isoformat(),
@@ -452,8 +451,7 @@ def verify_s3_backup(logger) -> Dict[str, Any]:
 def initiate_disaster_recovery(
     recovery_type: str, target_time: str, services: List[str], logger
 ) -> Dict[str, Any]:
-    """Initiate disaster recovery procedure"""
-
+    """Initiate disaster recovery procedure."""
     results = {
         "recovery_id": f"recovery_{int(time.time())}",
         "timestamp": datetime.utcnow().isoformat(),
@@ -487,13 +485,11 @@ def initiate_disaster_recovery(
 def initiate_dynamodb_recovery(
     recovery_type: str, target_time: str, logger
 ) -> Dict[str, Any]:
-    """Initiate DynamoDB disaster recovery"""
-
+    """Initiate DynamoDB disaster recovery."""
     try:
-        # This is a safe simulation - in production, this would create a new table
+        # This is a safe simulation - in production, this would create a new
+        # table
         # from backup or point-in-time recovery
-
-        dynamodb = boto3.client("dynamodb")
         table_name = os.environ.get("USAGE_TABLE_NAME")
         recovery_table_name = f"{table_name}-recovery-{int(time.time())}"
 
@@ -505,7 +501,8 @@ def initiate_dynamodb_recovery(
             target_time=target_time,
         )
 
-        # In a real scenario, you would call restore_table_from_backup or restore_table_to_point_in_time
+        # In a real scenario, you would call restore_table_from_backup or
+        # restore_table_to_point_in_time
         # For safety, we're just returning a simulation result
 
         return {
@@ -514,7 +511,10 @@ def initiate_dynamodb_recovery(
             "recovery_table": recovery_table_name,
             "recovery_type": recovery_type,
             "target_time": target_time,
-            "note": "This is a simulation. In production, this would restore to a new table.",
+            "note": (
+                "This is a simulation. In production, this would restore to a "
+                "new table."
+            ),
         }
 
     except Exception as e:
@@ -523,17 +523,18 @@ def initiate_dynamodb_recovery(
 
 
 def get_backup_metrics() -> Dict[str, Any]:
-    """Get backup metrics and statistics"""
-
+    """Get backup metrics and statistics."""
     metrics = {
         "timestamp": datetime.utcnow().isoformat(),
         "retention_policies": {
             "dynamodb_pitr": "35 days (AWS default)",
             "s3_versioning": "Configured based on lifecycle policy",
-            "backup_retention": f"{os.environ.get('BACKUP_RETENTION_DAYS', '30')} days",
+            "backup_retention": (
+                f"{os.environ.get('BACKUP_RETENTION_DAYS', '30')} days"
+            ),
         },
         "backup_costs": {
-            "estimated_monthly": "Calculated based on storage and request usage",
+            "estimated_monthly": ("Calculated based on storage and request usage"),
             "pitr_cost": "Continuous backups charged per GB-hour",
             "s3_replication_cost": "Cross-region transfer and storage costs",
         },
