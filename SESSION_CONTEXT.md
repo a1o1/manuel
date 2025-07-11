@@ -1,17 +1,24 @@
 # Manuel Project - Session Context for Claude Code
 
 ## Project Overview
-Manuel is an enterprise-grade voice assistant for product manuals using AWS Bedrock and React Native. The project has been successfully implemented with comprehensive backend architecture, security, testing, and remote repository setup.
+
+Manuel is an enterprise-grade voice assistant for product manuals using AWS
+Bedrock and React Native. The project has been successfully implemented with
+comprehensive backend architecture, security, testing, and remote repository
+setup.
 
 ## Repository Information
+
 - **Repository**: https://github.com/a1o1/manuel
 - **Type**: Public GitHub repository
 - **Description**: "Voice Assistant for product manuals"
-- **Current State**: Fully functional backend with remote repository, conventional commits configured
+- **Current State**: Fully functional backend with remote repository,
+  conventional commits configured
 
 ## Project Architecture
 
 ### Backend (AWS Serverless)
+
 - **Framework**: AWS SAM (Serverless Application Model)
 - **Runtime**: Python 3.11
 - **Region**: eu-west-1 (Dublin, Ireland)
@@ -21,6 +28,7 @@ Manuel is an enterprise-grade voice assistant for product manuals using AWS Bedr
 - **Monitoring**: CloudWatch Dashboard, Alarms, Custom Metrics
 
 ### Frontend (React Native)
+
 - **Framework**: React Native with Expo
 - **Platform**: iOS (primary target)
 - **Authentication**: Integration with AWS Cognito
@@ -29,7 +37,9 @@ Manuel is an enterprise-grade voice assistant for product manuals using AWS Bedr
 ## Current Implementation Status
 
 ### ✅ Completed (Backend)
+
 1. **Enterprise Security Framework**
+
    - Multi-layer WAF protection with OWASP Top 10 rules
    - Advanced security middleware with input validation
    - Rate limiting (IP-based and user-based)
@@ -37,40 +47,55 @@ Manuel is an enterprise-grade voice assistant for product manuals using AWS Bedr
    - HMAC signature validation
 
 2. **Performance Optimization**
+
    - Multi-layer caching (L1 memory, L2 Redis)
    - Connection pooling for AWS services
    - Intelligent cache promotion/demotion
    - Redis ElastiCache cluster integration
 
 3. **Advanced Error Handling**
+
    - Sophisticated retry strategies (exponential, linear, jittered)
    - Dead letter queue processing
    - Error classification and tracking
    - SNS notifications for critical errors
 
 4. **Comprehensive Testing Framework**
-   - 7 test categories: Auth, API, Security, Performance, Error Handling, Failure Scenarios, E2E
+
+   - 7 test categories: Auth, API, Security, Performance, Error Handling,
+     Failure Scenarios, E2E
    - Chaos engineering with failure simulation
    - Mock AWS services for isolated testing
    - Pytest integration with custom markers
 
 5. **Monitoring & Observability**
+
    - CloudWatch dashboards with custom metrics
    - Structured logging with correlation IDs
    - Real-time alerting and notifications
    - Cost tracking and optimization
 
 6. **Configuration Management**
+
    - Environment-specific parameters (dev, staging, production)
    - Parameter files for easy deployment
    - Support for Claude 4 model upgrades
 
+7. **CI/CD Pipeline Infrastructure**
+   - Complete AWS CodePipeline with source, build, test, deploy stages
+   - CodeBuild projects for build, integration testing, chaos testing
+   - Canary deployment support with automatic rollback
+   - Multi-environment deployment (dev, staging, production)
+   - Pipeline CloudFormation template and deployment automation
+
 ### 🔄 In Progress
-- React Native mobile application development
-- Voice recording and playback functionality
-- Authentication integration with Cognito
+
+- Code quality improvements (631 mypy type errors to resolve)
+- CI/CD pipeline deployment and testing
+- Integration test implementation (replacing stubs)
 
 ### 📋 Planned
+
 - Multi-language support
 - Advanced analytics dashboard
 - Custom model fine-tuning
@@ -79,6 +104,7 @@ Manuel is an enterprise-grade voice assistant for product manuals using AWS Bedr
 ## Key File Locations
 
 ### Backend Structure
+
 ```
 backend/
 ├── src/
@@ -105,6 +131,7 @@ backend/
 ```
 
 ### Frontend Structure
+
 ```
 frontend/
 ├── src/
@@ -116,12 +143,14 @@ frontend/
 ## Development Workflow
 
 ### Git & Conventional Commits
+
 - **Branch**: `main` (default)
 - **Commit Standard**: Conventional Commits with Commitizen
 - **Pre-commit Hooks**: Configured for code quality
 - **Remote**: git@github.com:a1o1/manuel.git
 
 ### Deployment Commands
+
 ```bash
 # Backend deployment
 cd backend
@@ -144,6 +173,7 @@ make test-chaos      # Chaos engineering
 ```
 
 ### Key Configuration Files
+
 - **Backend**: `template.yaml`, `parameters*.json`, `pyproject.toml`
 - **Testing**: `test_config.json`, `pytest.ini`, `Makefile`
 - **Git**: `.gitignore`, `.pre-commit-config.yaml`, `.cz.json`
@@ -152,6 +182,7 @@ make test-chaos      # Chaos engineering
 ## Technical Specifications
 
 ### AWS Services Used
+
 - **Lambda**: Python 3.11 functions (configurable memory: 256MB-512MB)
 - **API Gateway**: RESTful API with Cognito authorizer
 - **DynamoDB**: Usage tracking with TTL cleanup
@@ -163,6 +194,7 @@ make test-chaos      # Chaos engineering
 - **ElastiCache**: Redis for performance optimization
 
 ### Security Implementation
+
 - **WAF Rules**: Common attacks, SQL injection, known bad inputs
 - **Input Validation**: Pattern matching, size limits, content scanning
 - **Rate Limiting**: DynamoDB-backed per-IP throttling
@@ -171,6 +203,7 @@ make test-chaos      # Chaos engineering
 - **Security Headers**: Comprehensive header implementation
 
 ### Performance Features
+
 - **L1 Cache**: In-memory LRU cache (thread-safe)
 - **L2 Cache**: Redis distributed cache with compression
 - **Connection Pooling**: AWS service connection optimization
@@ -178,6 +211,7 @@ make test-chaos      # Chaos engineering
 - **Monitoring**: Real-time performance metrics
 
 ### Testing Capabilities
+
 - **Unit Tests**: Component-level testing
 - **Integration Tests**: End-to-end system testing
 - **Security Tests**: Vulnerability scanning and penetration testing
@@ -188,6 +222,7 @@ make test-chaos      # Chaos engineering
 ## Environment Configurations
 
 ### Development Environment
+
 - Basic resource allocation (256MB Lambda memory)
 - Permissive CORS settings
 - No email alerts
@@ -195,6 +230,7 @@ make test-chaos      # Chaos engineering
 - Security features disabled for development ease
 
 ### Production Environment
+
 - Enhanced performance (512MB Lambda memory)
 - Restricted CORS to specific domains
 - Email alerts enabled
@@ -203,6 +239,7 @@ make test-chaos      # Chaos engineering
 - Full security features enabled
 
 ### Claude 4 Testing Environment
+
 - Conservative quotas (30 daily, 500 monthly)
 - Enhanced monitoring and alerting
 - Claude 4 Sonnet model with inference profiles
@@ -211,12 +248,14 @@ make test-chaos      # Chaos engineering
 ## Development Tools & Dependencies
 
 ### Backend Dependencies
+
 - **Core**: boto3, botocore, structlog
 - **Performance**: redis, hiredis, pickle-mixin
 - **Security**: cryptography
 - **Testing**: pytest, moto, requests, safety, bandit
 
 ### Development Tools
+
 - **Commitizen**: Conventional commits (`cz commit`)
 - **Pre-commit**: Automated quality checks
 - **GitHub CLI**: Repository management (`gh`)
@@ -225,14 +264,16 @@ make test-chaos      # Chaos engineering
 
 ## Current Development Focus
 
-### Immediate Next Steps
-1. **Frontend Development**: Complete React Native mobile app
-2. **Voice Integration**: Implement audio recording and playback
-3. **Authentication Flow**: Integrate Cognito authentication in frontend
-4. **Testing Enhancement**: Add more comprehensive test coverage
-5. **Performance Optimization**: Fine-tune caching strategies
+### Immediate Next Steps (See BACKEND_IMPROVEMENT_PLAN.md)
+
+1. **Code Quality**: Address 631 mypy type errors and flake8 violations
+2. **Pipeline Deployment**: Deploy and test CI/CD infrastructure
+3. **Integration Testing**: Implement real tests to replace stubs
+4. **Security Validation**: Address security scanning findings
+5. **Documentation**: Complete API docs and operational runbooks
 
 ### Technical Debt
+
 - None identified - project follows enterprise best practices
 - Regular security updates and dependency management needed
 - Performance monitoring and optimization ongoing
@@ -240,24 +281,28 @@ make test-chaos      # Chaos engineering
 ## Key Architectural Decisions
 
 ### Security-First Approach
+
 - Multi-layer security implementation
 - Defense in depth strategy
 - Comprehensive input validation
 - Regular security testing
 
 ### Performance-Focused Design
+
 - Multi-layer caching strategy
 - Connection pooling optimization
 - Intelligent cache management
 - Real-time performance monitoring
 
 ### Enterprise-Grade Testing
+
 - Comprehensive test coverage
 - Chaos engineering integration
 - Automated testing pipeline
 - Multiple testing environments
 
 ### Cost Optimization
+
 - Real-time cost tracking
 - Usage-based quotas
 - Efficient resource allocation
@@ -266,12 +311,14 @@ make test-chaos      # Chaos engineering
 ## Monitoring & Observability
 
 ### CloudWatch Integration
+
 - Custom dashboards with business metrics
 - Structured JSON logging with correlation IDs
 - Real-time alerting for critical events
 - Performance tracking and optimization
 
 ### Custom Metrics
+
 - Request duration and count
 - Quota usage percentage
 - Bedrock call duration and token consumption
@@ -279,6 +326,7 @@ make test-chaos      # Chaos engineering
 - Error rates and patterns
 
 ### Alerting Configuration
+
 - API Gateway errors (4xx/5xx thresholds)
 - Lambda function errors and timeouts
 - DynamoDB throttling detection
@@ -288,18 +336,21 @@ make test-chaos      # Chaos engineering
 ## Repository Management
 
 ### Branch Strategy
+
 - **main**: Production-ready code
-- **feature/***: Feature development branches
-- **hotfix/***: Critical bug fixes
-- **release/***: Release preparation
+- **feature/\***: Feature development branches
+- **hotfix/\***: Critical bug fixes
+- **release/\***: Release preparation
 
 ### CI/CD Pipeline
+
 - Automated testing on push/PR
 - Security scanning integration
 - Conventional commit validation
 - Quality gate enforcement
 
 ### Documentation
+
 - Comprehensive README with architecture diagrams
 - Contributing guidelines with conventional commits
 - Security policy and best practices
@@ -308,18 +359,21 @@ make test-chaos      # Chaos engineering
 ## Future Enhancements Planned
 
 ### Phase 2: Frontend & Mobile
+
 - React Native mobile application
 - Voice recording and playback
 - Authentication integration
 - Offline capability
 
 ### Phase 3: Advanced Features
+
 - Multi-language support
 - Advanced analytics dashboard
 - Custom model fine-tuning
 - Enterprise SSO integration
 
 ### Phase 4: Scale & Optimization
+
 - Multi-region deployment
 - Advanced caching strategies
 - Performance optimization
@@ -360,4 +414,5 @@ cd backend/tests/integration
 make test-smoke
 ```
 
-This context document provides all necessary information to seamlessly continue development on the Manuel project in future Claude Code sessions.
+This context document provides all necessary information to seamlessly continue
+development on the Manuel project in future Claude Code sessions.
