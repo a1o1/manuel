@@ -133,7 +133,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             cleanup_audio_file(s3_key, health_checker)
 
             # Calculate final costs
-            cost_params["lambda_duration_ms"] = (time.time() - start_time) * 1000
+            cost_params["lambda_duration_ms"] = int((time.time() - start_time) * 1000)
 
             request_cost = cost_calculator.calculate_request_cost(
                 context.aws_request_id if context else "unknown",

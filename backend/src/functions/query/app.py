@@ -163,7 +163,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Get relevant context from Knowledge Base
             with LoggingContext(logger, "KnowledgeBaseRetrieval"):
                 relevant_context, embedding_cost_info = retrieve_relevant_context(
-                    question, logger, cost_params, health_checker, performance_optimizer
+                    question,
+                    logger,
+                    cost_params,
+                    health_checker,
+                    performance_optimizer,
+                    error_handler,
+                    context,
+                    user_id,
                 )
 
             # Generate answer using Bedrock
@@ -175,6 +182,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     cost_params,
                     health_checker,
                     performance_optimizer,
+                    error_handler,
+                    context,
+                    user_id,
                 )
 
             # Calculate final costs
@@ -262,7 +272,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def retrieve_relevant_context(
-    question: str, logger, cost_params: dict, health_checker, performance_optimizer=None
+    question: str,
+    logger,
+    cost_params: dict,
+    health_checker,
+    performance_optimizer=None,
+    error_handler=None,
+    context=None,
+    user_id: str = "",
 ) -> tuple:
     """Retrieve relevant context from Bedrock Knowledge Base"""
     # Use performance optimizer for optimized client if available
@@ -392,6 +409,9 @@ def generate_answer(
     cost_params: dict,
     health_checker,
     performance_optimizer=None,
+    error_handler=None,
+    context=None,
+    user_id: str = "",
 ) -> tuple:
     """Generate answer using Bedrock with retrieved context"""
     # Use performance optimizer for optimized client if available

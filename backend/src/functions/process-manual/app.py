@@ -8,7 +8,7 @@ import json
 import os
 import sys
 import urllib.parse
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -106,7 +106,7 @@ def start_knowledge_base_ingestion(bucket_name: str, s3_key: str) -> None:
         raise
 
 
-def get_data_source_id(knowledge_base_id: str) -> str:
+def get_data_source_id(knowledge_base_id: str) -> Optional[str]:
     """Get the data source ID for the Knowledge Base"""
 
     bedrock_client = boto3.client("bedrock-agent")

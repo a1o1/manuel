@@ -13,6 +13,9 @@ from typing import Any, Dict, List, Optional
 import boto3
 from botocore.exceptions import ClientError
 
+# Import logger type for type annotations
+from logger import ManuelLogger
+
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
 
@@ -604,7 +607,7 @@ def get_cognito_user_info(user_id: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 
-def get_lambda_metrics(cloudwatch) -> Dict[str, Any]:
+def get_lambda_metrics(cloudwatch: Any) -> Dict[str, Any]:
     """Get Lambda function metrics"""
     try:
         # This is a simplified version - in production you'd get more comprehensive metrics
@@ -618,7 +621,7 @@ def get_lambda_metrics(cloudwatch) -> Dict[str, Any]:
         return {"error": "Failed to retrieve Lambda metrics"}
 
 
-def get_api_gateway_metrics(cloudwatch) -> Dict[str, Any]:
+def get_api_gateway_metrics(cloudwatch: Any) -> Dict[str, Any]:
     """Get API Gateway metrics"""
     try:
         return {
@@ -631,7 +634,7 @@ def get_api_gateway_metrics(cloudwatch) -> Dict[str, Any]:
         return {"error": "Failed to retrieve API Gateway metrics"}
 
 
-def get_dynamodb_metrics(cloudwatch) -> Dict[str, Any]:
+def get_dynamodb_metrics(cloudwatch: Any) -> Dict[str, Any]:
     """Get DynamoDB metrics"""
     try:
         return {
@@ -644,7 +647,7 @@ def get_dynamodb_metrics(cloudwatch) -> Dict[str, Any]:
         return {"error": "Failed to retrieve DynamoDB metrics"}
 
 
-def get_current_cost_summary(cost_calculator) -> Dict[str, Any]:
+def get_current_cost_summary(cost_calculator: Any) -> Dict[str, Any]:
     """Get current cost summary"""
     try:
         return {
@@ -695,28 +698,30 @@ def generate_cost_recommendations(cost_data: List[Dict[str, Any]]) -> List[str]:
     return ["Consider implementing caching for frequent queries"]
 
 
-def cleanup_expired_usage_data(dry_run: bool, logger) -> int:
+def cleanup_expired_usage_data(dry_run: bool, logger: ManuelLogger) -> int:
     """Clean up expired usage data"""
     # Placeholder - would clean up old DynamoDB records
     logger.info("Cleanup expired usage data", dry_run=dry_run)
     return 0
 
 
-def cleanup_old_logs(dry_run: bool, logger) -> int:
+def cleanup_old_logs(dry_run: bool, logger: ManuelLogger) -> int:
     """Clean up old CloudWatch logs"""
     # Placeholder - would clean up old log groups
     logger.info("Cleanup old logs", dry_run=dry_run)
     return 0
 
 
-def cleanup_old_cost_data(dry_run: bool, logger) -> int:
+def cleanup_old_cost_data(dry_run: bool, logger: ManuelLogger) -> int:
     """Clean up old cost data"""
     # Placeholder - would clean up old cost tracking records
     logger.info("Cleanup old cost data", dry_run=dry_run)
     return 0
 
 
-def update_user_quota(event: Dict[str, Any], user_id: str, logger) -> Dict[str, Any]:
+def update_user_quota(
+    event: Dict[str, Any], user_id: str, logger: ManuelLogger
+) -> Dict[str, Any]:
     """Update user quota limits"""
     logger.info("Update user quota placeholder", user_id=user_id)
     return create_response(
@@ -724,7 +729,7 @@ def update_user_quota(event: Dict[str, Any], user_id: str, logger) -> Dict[str, 
     )
 
 
-def delete_user_data(user_id: str, logger) -> Dict[str, Any]:
+def delete_user_data(user_id: str, logger: ManuelLogger) -> Dict[str, Any]:
     """Delete all user data"""
     logger.warning("Delete user data placeholder", user_id=user_id)
     return create_response(
@@ -732,7 +737,7 @@ def delete_user_data(user_id: str, logger) -> Dict[str, Any]:
     )
 
 
-def get_system_metrics(logger) -> Dict[str, Any]:
+def get_system_metrics(logger: ManuelLogger) -> Dict[str, Any]:
     """Get detailed system metrics"""
     logger.info("Get system metrics placeholder")
     return create_response(
@@ -740,7 +745,9 @@ def get_system_metrics(logger) -> Dict[str, Any]:
     )
 
 
-def toggle_maintenance_mode(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def toggle_maintenance_mode(
+    event: Dict[str, Any], logger: ManuelLogger
+) -> Dict[str, Any]:
     """Toggle system maintenance mode"""
     logger.info("Toggle maintenance mode placeholder")
     return create_response(
@@ -748,7 +755,9 @@ def toggle_maintenance_mode(event: Dict[str, Any], logger) -> Dict[str, Any]:
     )
 
 
-def get_user_cost_breakdown(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def get_user_cost_breakdown(
+    event: Dict[str, Any], logger: ManuelLogger
+) -> Dict[str, Any]:
     """Get cost breakdown by user"""
     logger.info("Get user cost breakdown placeholder")
     return create_response(
@@ -756,7 +765,7 @@ def get_user_cost_breakdown(event: Dict[str, Any], logger) -> Dict[str, Any]:
     )
 
 
-def get_cost_forecast(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def get_cost_forecast(event: Dict[str, Any], logger: ManuelLogger) -> Dict[str, Any]:
     """Get cost forecasting"""
     logger.info("Get cost forecast placeholder")
     return create_response(
@@ -764,7 +773,9 @@ def get_cost_forecast(event: Dict[str, Any], logger) -> Dict[str, Any]:
     )
 
 
-def perform_data_migration(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def perform_data_migration(
+    event: Dict[str, Any], logger: ManuelLogger
+) -> Dict[str, Any]:
     """Perform data migration"""
     logger.info("Perform data migration placeholder")
     return create_response(
@@ -772,7 +783,9 @@ def perform_data_migration(event: Dict[str, Any], logger) -> Dict[str, Any]:
     )
 
 
-def perform_scaling_operation(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def perform_scaling_operation(
+    event: Dict[str, Any], logger: ManuelLogger
+) -> Dict[str, Any]:
     """Perform scaling operation"""
     logger.info("Perform scaling operation placeholder")
     return create_response(
