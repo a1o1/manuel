@@ -7,7 +7,7 @@ import json
 import os
 import sys
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import boto3
 
@@ -55,7 +55,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
                 # Extract error details
                 error_data = {
-                    "error_id": f"{message_body.get('request_id', 'unknown')}#{int(datetime.utcnow().timestamp())}",
+                    "error_id": (
+                        f"{message_body.get('request_id', 'unknown')}"
+                        f"#{int(datetime.utcnow().timestamp())}"
+                    ),
                     "timestamp": message_body.get(
                         "timestamp", datetime.utcnow().isoformat()
                     ),

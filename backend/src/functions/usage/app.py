@@ -3,7 +3,6 @@ Manuel - Usage Function
 Handles user usage statistics and quota information
 """
 
-import json
 import os
 import sys
 from typing import Any, Dict

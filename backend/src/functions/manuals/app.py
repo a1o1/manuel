@@ -4,14 +4,12 @@ Handles manual listing and upload operations
 """
 
 import base64
-import json
 import os
 import sys
 import uuid
 from typing import Any, Dict
 
 import boto3
-from botocore.exceptions import ClientError
 
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
@@ -99,7 +97,10 @@ def handle_upload_manual(event: Dict[str, Any], user_id: str) -> Dict[str, Any]:
         return create_response(
             400,
             {
-                "error": "Invalid file type. Supported formats: PDF, DOC, DOCX, TXT, MD, HTML"
+                "error": (
+                    "Invalid file type. Supported formats: "
+                    "PDF, DOC, DOCX, TXT, MD, HTML"
+                )
             },
         )
 

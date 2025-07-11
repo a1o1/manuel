@@ -220,6 +220,7 @@ max-line-length = 88
 python_version = "3.11"
 # Strict mode settings
 strict = true
+explicit_package_bases = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -244,7 +245,6 @@ error_summary = true
 
 # Import discovery
 namespace_packages = true
-explicit_package_bases = true
 
 # Exclude patterns
 exclude = [

@@ -3,8 +3,6 @@ Manuel - Health Check Function
 Provides comprehensive health checks and service monitoring
 """
 
-import json
-import os
 import sys
 from typing import Any, Dict
 
@@ -75,10 +73,11 @@ def handle_basic_health_check(health_checker, logger) -> Dict[str, Any]:
         health_report = health_checker.perform_health_check(include_deep_checks=False)
 
         # Determine HTTP status code based on health
-        if health_report.overall_status == HealthStatus.HEALTHY:
-            status_code = 200
-        elif health_report.overall_status == HealthStatus.DEGRADED:
-            status_code = 200  # Still operational, but degraded
+        if (
+            health_report.overall_status == HealthStatus.HEALTHY
+            or health_report.overall_status == HealthStatus.DEGRADED
+        ):
+            status_code = 200  # Healthy or degraded but operational
         else:
             status_code = 503  # Service unavailable
 
@@ -114,10 +113,11 @@ def handle_deep_health_check(health_checker, logger) -> Dict[str, Any]:
         health_report = health_checker.perform_health_check(include_deep_checks=True)
 
         # Determine HTTP status code based on health
-        if health_report.overall_status == HealthStatus.HEALTHY:
-            status_code = 200
-        elif health_report.overall_status == HealthStatus.DEGRADED:
-            status_code = 200  # Still operational, but degraded
+        if (
+            health_report.overall_status == HealthStatus.HEALTHY
+            or health_report.overall_status == HealthStatus.DEGRADED
+        ):
+            status_code = 200  # Healthy or degraded but operational
         else:
             status_code = 503  # Service unavailable
 

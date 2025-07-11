@@ -177,7 +177,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 503,
                 {
                     "error": "Service temporarily unavailable",
-                    "details": "Transcription service is currently unavailable. Please try again later.",
+                    "details": (
+                        "Transcription service is currently unavailable. "
+                        "Please try again later."
+                    ),
                     "retry_after": 60,
                 },
             )
