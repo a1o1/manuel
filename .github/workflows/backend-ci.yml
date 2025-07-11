@@ -1,0 +1,65 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: [ 'backend/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'backend/**' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        cd backend
+        pip install -r requirements.txt
+        pip install -r tests/integration/fixtures/requirements.txt
+    
+    - name: Run smoke tests
+      run: |
+        cd backend/tests/integration
+        make test-smoke
+    
+    - name: Run security tests
+      run: |
+        cd backend/tests/integration
+        make test-security
+    
+    - name: Run linting
+      run: |
+        cd backend/tests/integration
+        make lint
+    
+    - name: Validate SAM template
+      run: |
+        cd backend
+        sam validate
+    
+    - name: Security scan
+      run: |
+        cd backend
+        bandit -r src/ || true
+        safety check -r requirements.txt || true
+
+  conventional-commits:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Conventional Commits
+      uses: wagoid/commitlint-github-action@v5
