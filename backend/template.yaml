@@ -214,6 +214,13 @@ Parameters:
     MaxValue: 100
     Description: Maximum request size in MB
 
+  MaxManualSizeMB:
+    Type: Number
+    Default: 50
+    MinValue: 1
+    MaxValue: 200
+    Description: Maximum manual file size for upload/download in MB
+
   MaxAudioDurationSeconds:
     Type: Number
     Default: 300
@@ -784,11 +791,16 @@ Resources:
       CodeUri: src/functions/manuals/
       Handler: app.lambda_handler
       Description: Manage product manuals
+      Environment:
+        Variables:
+          MAX_MANUAL_SIZE_MB: !Ref MaxManualSizeMB
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref ManualsBucket
         - S3WritePolicy:
             BucketName: !Ref ManualsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
         - !If
           - EnableAdvancedSecurityMiddleware
           - DynamoDBCrudPolicy:
@@ -817,6 +829,11 @@ Resources:
           Type: Api
           Properties:
             Path: /api/manuals/upload
+            Method: post
+        DownloadManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/download
             Method: post
 
   ProcessManualFunction:

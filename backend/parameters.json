@@ -32,6 +32,7 @@
     "EnableWAF": "false",
     "EnableAdvancedSecurity": "false",
     "MaxRequestSizeMB": "10",
+    "MaxManualSizeMB": "50",
     "MaxAudioDurationSeconds": "300",
     "RateLimitWindowMinutes": "1",
     "RateLimitRequests": "100",

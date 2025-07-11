@@ -28,6 +28,7 @@
     "LatencyThreshold": "8000",
     "QuotaUsageThreshold": "75",
     "DailyCostThreshold": "25.0",
-    "RequestCostThreshold": "2.0"
+    "RequestCostThreshold": "2.0",
+    "MaxManualSizeMB": "50"
   }
 }
