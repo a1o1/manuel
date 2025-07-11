@@ -11,12 +11,9 @@ import urllib.parse
 from typing import Any, Dict, Optional
 
 import boto3
-from botocore.exceptions import ClientError
 
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
-
-from utils import create_response
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

@@ -6,22 +6,18 @@ Provides administrative APIs for system management and operations
 import json
 import os
 import sys
-import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import boto3
 from botocore.exceptions import ClientError
-
-# Import logger type for type annotations
-from logger import ManuelLogger
 
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
 
 from cost_calculator import get_cost_calculator
 from health_checker import get_health_checker
-from logger import LoggingContext, get_logger
+from logger import LoggingContext, ManuelLogger, get_logger
 from utils import create_response, handle_options_request
 
 
@@ -440,8 +436,6 @@ def get_cost_analysis(event: Dict[str, Any], logger) -> Dict[str, Any]:
         days = int(query_params.get("days", "7"))
 
         with LoggingContext(logger, "CostAnalysis"):
-            cost_calculator = get_cost_calculator()
-
             # Get cost data from DynamoDB
             end_date = datetime.utcnow()
             start_date = end_date - timedelta(days=days)
@@ -562,7 +556,7 @@ def is_recent_activity(last_activity: str, days: int) -> bool:
     try:
         activity_date = datetime.fromisoformat(last_activity.replace("Z", "+00:00"))
         return (datetime.utcnow() - activity_date).days <= days
-    except:
+    except (ValueError, TypeError, AttributeError):
         return False
 
 
@@ -610,7 +604,8 @@ def get_cognito_user_info(user_id: str) -> Dict[str, Any]:
 def get_lambda_metrics(cloudwatch: Any) -> Dict[str, Any]:
     """Get Lambda function metrics"""
     try:
-        # This is a simplified version - in production you'd get more comprehensive metrics
+        # This is a simplified version - in production you'd get more
+        # comprehensive metrics
         return {
             "note": "Lambda metrics would be retrieved from CloudWatch",
             "avg_duration": "TBD",

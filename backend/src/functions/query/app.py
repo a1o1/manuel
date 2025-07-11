@@ -10,7 +10,6 @@ import time
 from typing import Any, Dict
 
 import boto3
-from botocore.exceptions import ClientError
 
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
@@ -27,7 +26,6 @@ from utils import (
     create_response,
     get_user_id_from_event,
     handle_options_request,
-    validate_json_body,
 )
 
 

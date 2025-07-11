@@ -11,7 +11,6 @@ import uuid
 from typing import Any, Dict
 
 import boto3
-from botocore.exceptions import ClientError
 
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
