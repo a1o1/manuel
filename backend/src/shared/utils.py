@@ -12,7 +12,9 @@ from botocore.exceptions import ClientError
 
 
 def get_cors_headers() -> Dict[str, str]:
-    """Return CORS headers for API responses"""
+    """Return basic CORS headers for API responses (legacy function)"""
+    # This is kept for backward compatibility
+    # New code should use security_headers module for comprehensive security
     return {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
@@ -23,7 +25,7 @@ def get_cors_headers() -> Dict[str, str]:
 def create_response(
     status_code: int, body: Dict[str, Any], headers: Optional[Dict[str, str]] = None
 ) -> Dict[str, Any]:
-    """Create a standardized API response"""
+    """Create a standardized API response with basic headers"""
     response_headers = get_cors_headers()
     if headers:
         response_headers.update(headers)
@@ -33,6 +35,44 @@ def create_response(
         "headers": response_headers,
         "body": json.dumps(body),
     }
+
+
+def create_secure_response(
+    status_code: int,
+    body: Dict[str, Any],
+    event: Optional[Dict[str, Any]] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> Dict[str, Any]:
+    """Create a standardized API response with comprehensive security headers"""
+    try:
+        # Import here to avoid circular dependencies
+        from security_headers import SecurityLevel, secure_lambda_response
+
+        # Create basic response
+        response_headers = {}
+        if headers:
+            response_headers.update(headers)
+
+        response = {
+            "statusCode": status_code,
+            "headers": response_headers,
+            "body": json.dumps(body),
+        }
+
+        # Add comprehensive security headers
+        if event:
+            security_level = SecurityLevel(os.environ.get("SECURITY_LEVEL", "strict"))
+            response = secure_lambda_response(response, event, security_level)
+        else:
+            # Fallback to basic CORS headers if no event provided
+            basic_headers = get_cors_headers()
+            response["headers"].update(basic_headers)
+
+        return response
+
+    except ImportError:
+        # Fallback to basic response if security_headers module not available
+        return create_response(status_code, body, headers)
 
 
 def get_user_id_from_event(event: Dict[str, Any]) -> Optional[str]:
@@ -188,6 +228,36 @@ def validate_json_body(
         return False, {"error": "Invalid JSON in request body"}
 
 
-def handle_options_request() -> Dict[str, Any]:
-    """Handle CORS preflight OPTIONS request"""
-    return create_response(200, {}, get_cors_headers())
+def handle_options_request(event: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Handle CORS preflight OPTIONS request with comprehensive security"""
+    try:
+        # Import here to avoid circular dependencies
+        from security_headers import create_security_headers_middleware
+
+        if event:
+            # Use comprehensive security headers middleware
+            middleware = create_security_headers_middleware()
+
+            # Extract request information
+            origin = event.get("headers", {}).get("Origin", "")
+            method = event.get("headers", {}).get(
+                "Access-Control-Request-Method", "GET"
+            )
+            headers_requested = (
+                event.get("headers", {})
+                .get("Access-Control-Request-Headers", "")
+                .split(",")
+                if event.get("headers", {}).get("Access-Control-Request-Headers")
+                else []
+            )
+
+            return middleware.create_cors_preflight_response(
+                origin, method, headers_requested
+            )
+        else:
+            # Fallback to basic CORS response
+            return create_response(200, {}, get_cors_headers())
+
+    except ImportError:
+        # Fallback to basic CORS response if security_headers module not available
+        return create_response(200, {}, get_cors_headers())

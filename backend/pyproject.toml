@@ -254,7 +254,6 @@ exclude = [
     ".venv/",
     "node_modules/",
     ".aws-sam/",
-    "src/functions/process-manual/app.py",  # Temporary: duplicate module name with error-processor
 ]
 
 # Per-module options

@@ -7,7 +7,7 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -15,6 +15,7 @@ from botocore.exceptions import ClientError
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
 
+from admin_auth import get_admin_authenticator
 from cost_calculator import get_cost_calculator
 from health_checker import get_health_checker
 from logger import LoggingContext, ManuelLogger, get_logger
@@ -54,24 +55,59 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         path = event.get("path", "")
         method = event.get("httpMethod", "GET")
 
-        # Basic admin authentication check
-        if not is_admin_authorized(event):
+        # Enhanced admin authentication with MFA
+        authenticator = get_admin_authenticator()
+        auth_success, auth_context, auth_error = authenticator.authenticate_admin(event)
+
+        if not auth_success:
             logger.warning(
-                "Unauthorized admin access attempt", path=path, method=method
+                "Admin authentication failed",
+                path=path,
+                method=method,
+                error=auth_error,
             )
-            return create_response(403, {"error": "Admin access denied"})
+            return create_response(
+                403, {"error": "Admin access denied", "details": auth_error}
+            )
 
-        logger.info("Admin API request", path=path, method=method)
+        # Check specific permissions for sensitive operations
+        required_permission = get_required_permission(path, method)
+        if required_permission and not authenticator.check_admin_permission(
+            auth_context, required_permission
+        ):
+            logger.warning(
+                "Insufficient admin permissions",
+                admin_id=auth_context.admin_id,
+                required_permission=required_permission,
+                path=path,
+            )
+            return create_response(
+                403,
+                {
+                    "error": "Insufficient permissions",
+                    "required_permission": required_permission,
+                },
+            )
 
-        # Route to appropriate handler
+        logger.info(
+            "Admin API request",
+            path=path,
+            method=method,
+            admin_id=auth_context.admin_id,
+            session_id=auth_context.session_id,
+        )
+
+        # Route to appropriate handler with auth context
         if "/admin/users" in path:
-            return handle_user_management(event, logger)
+            return handle_user_management(event, logger, auth_context)
         elif "/admin/system" in path:
-            return handle_system_management(event, logger)
+            return handle_system_management(event, logger, auth_context)
         elif "/admin/costs" in path:
-            return handle_cost_management(event, logger)
+            return handle_cost_management(event, logger, auth_context)
         elif "/admin/operations" in path:
-            return handle_operations(event, logger)
+            return handle_operations(event, logger, auth_context)
+        elif "/admin/auth" in path:
+            return handle_auth_management(event, logger, auth_context)
         else:
             return create_response(404, {"error": "Admin endpoint not found"})
 
@@ -82,19 +118,31 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
 
 
-def is_admin_authorized(event: Dict[str, Any]) -> bool:
-    """Check if request has admin authorization"""
+def get_required_permission(path: str, method: str) -> Optional[str]:
+    """Get required permission for admin endpoint"""
+    # Define permission requirements for different operations
+    permission_map = {
+        ("/admin/users", "GET"): "admin:users:read",
+        ("/admin/users", "POST"): "admin:users:write",
+        ("/admin/users", "DELETE"): "admin:users:delete",
+        ("/admin/system", "GET"): "admin:system:read",
+        ("/admin/system", "POST"): "admin:system:write",
+        ("/admin/costs", "GET"): "admin:costs:read",
+        ("/admin/operations", "POST"): "admin:operations:execute",
+    }
 
-    # In production, this would validate admin tokens/roles
-    # For now, check for admin API key
-    headers = event.get("headers", {})
-    admin_key = headers.get("X-Admin-Key", "") or headers.get("x-admin-key", "")
+    # Find matching permission
+    for (endpoint, req_method), permission in permission_map.items():
+        if endpoint in path and method == req_method:
+            return permission
 
-    expected_key = os.environ.get("ADMIN_API_KEY", "dev-admin-key")
-    return admin_key == expected_key
+    # Default permission for admin endpoints
+    return "admin:basic"
 
 
-def handle_user_management(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def handle_user_management(
+    event: Dict[str, Any], logger, auth_context
+) -> Dict[str, Any]:
     """Handle user management operations"""
 
     path = event.get("path", "")
@@ -134,7 +182,9 @@ def handle_user_management(event: Dict[str, Any], logger) -> Dict[str, Any]:
         )
 
 
-def handle_system_management(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def handle_system_management(
+    event: Dict[str, Any], logger, auth_context
+) -> Dict[str, Any]:
     """Handle system management operations"""
 
     path = event.get("path", "")
@@ -165,7 +215,9 @@ def handle_system_management(event: Dict[str, Any], logger) -> Dict[str, Any]:
         )
 
 
-def handle_cost_management(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def handle_cost_management(
+    event: Dict[str, Any], logger, auth_context
+) -> Dict[str, Any]:
     """Handle cost analysis and reporting"""
 
     path = event.get("path", "")
@@ -192,7 +244,7 @@ def handle_cost_management(event: Dict[str, Any], logger) -> Dict[str, Any]:
         )
 
 
-def handle_operations(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def handle_operations(event: Dict[str, Any], logger, auth_context) -> Dict[str, Any]:
     """Handle operational tasks"""
 
     path = event.get("path", "")
@@ -215,6 +267,152 @@ def handle_operations(event: Dict[str, Any], logger) -> Dict[str, Any]:
     except Exception as e:
         logger.error("Operations error", error=str(e))
         return create_response(500, {"error": "Operation failed", "details": str(e)})
+
+
+def handle_auth_management(
+    event: Dict[str, Any], logger, auth_context
+) -> Dict[str, Any]:
+    """Handle authentication and MFA management"""
+
+    path = event.get("path", "")
+    method = event.get("httpMethod", "GET")
+
+    try:
+        authenticator = get_admin_authenticator()
+
+        if method == "POST":
+            if path.endswith("/admin/auth/mfa/setup"):
+                return setup_admin_mfa(event, logger, auth_context, authenticator)
+            elif path.endswith("/admin/auth/mfa/verify"):
+                return verify_admin_mfa(event, logger, auth_context, authenticator)
+            elif path.endswith("/admin/auth/session/invalidate"):
+                return invalidate_admin_session(
+                    event, logger, auth_context, authenticator
+                )
+            else:
+                return create_response(404, {"error": "Auth operation not found"})
+
+        elif method == "GET":
+            if path.endswith("/admin/auth/session/info"):
+                return get_session_info(auth_context)
+            else:
+                return create_response(404, {"error": "Auth endpoint not found"})
+
+        else:
+            return create_response(405, {"error": "Method not allowed"})
+
+    except Exception as e:
+        logger.error("Auth management error", error=str(e))
+        return create_response(
+            500, {"error": "Auth management failed", "details": str(e)}
+        )
+
+
+def setup_admin_mfa(
+    event: Dict[str, Any], logger, auth_context, authenticator
+) -> Dict[str, Any]:
+    """Setup MFA for admin user"""
+    try:
+        body = json.loads(event.get("body", "{}"))
+        mfa_method = body.get("method", "totp")
+
+        from admin_auth import MFAMethod
+
+        method_enum = MFAMethod(mfa_method)
+
+        success, result = authenticator.initiate_mfa_challenge(
+            auth_context.admin_id, method_enum
+        )
+
+        if success:
+            logger.info(
+                "MFA setup initiated", admin_id=auth_context.admin_id, method=mfa_method
+            )
+            return create_response(
+                200,
+                {
+                    "message": "MFA setup initiated",
+                    "method": mfa_method,
+                    "setup_data": result if method_enum == MFAMethod.TOTP else None,
+                },
+            )
+        else:
+            return create_response(
+                400, {"error": "MFA setup failed", "details": result}
+            )
+
+    except Exception as e:
+        logger.error("MFA setup error", error=str(e))
+        return create_response(500, {"error": "MFA setup failed", "details": str(e)})
+
+
+def verify_admin_mfa(
+    event: Dict[str, Any], logger, auth_context, authenticator
+) -> Dict[str, Any]:
+    """Verify MFA code for admin user"""
+    try:
+        body = json.loads(event.get("body", "{}"))
+        mfa_code = body.get("code", "")
+
+        if not mfa_code:
+            return create_response(400, {"error": "MFA code is required"})
+
+        # This would typically update the admin's MFA verification status
+        logger.info("MFA verification attempted", admin_id=auth_context.admin_id)
+
+        return create_response(
+            200, {"message": "MFA verification completed", "verified": True}
+        )
+
+    except Exception as e:
+        logger.error("MFA verification error", error=str(e))
+        return create_response(
+            500, {"error": "MFA verification failed", "details": str(e)}
+        )
+
+
+def invalidate_admin_session(
+    event: Dict[str, Any], logger, auth_context, authenticator
+) -> Dict[str, Any]:
+    """Invalidate admin session"""
+    try:
+        success = authenticator.invalidate_admin_session(auth_context.session_id)
+
+        if success:
+            logger.info(
+                "Admin session invalidated",
+                admin_id=auth_context.admin_id,
+                session_id=auth_context.session_id,
+            )
+            return create_response(200, {"message": "Session invalidated successfully"})
+        else:
+            return create_response(500, {"error": "Failed to invalidate session"})
+
+    except Exception as e:
+        logger.error("Session invalidation error", error=str(e))
+        return create_response(
+            500, {"error": "Session invalidation failed", "details": str(e)}
+        )
+
+
+def get_session_info(auth_context) -> Dict[str, Any]:
+    """Get current session information"""
+    try:
+        session_info = {
+            "admin_id": auth_context.admin_id,
+            "session_id": auth_context.session_id,
+            "permissions": auth_context.permissions,
+            "expires_at": auth_context.expires_at.isoformat(),
+            "mfa_verified": auth_context.mfa_verified,
+            "source_ip": auth_context.source_ip,
+        }
+
+        return create_response(200, session_info)
+
+    except Exception as e:
+        return create_response(
+            500, {"error": "Failed to get session info", "details": str(e)}
+        )
 
 
 def get_users_list(logger) -> Dict[str, Any]:

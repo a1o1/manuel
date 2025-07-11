@@ -5,7 +5,7 @@ Handles user usage statistics and quota information
 
 import os
 import sys
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import boto3
 from botocore.exceptions import ClientError
@@ -13,7 +13,7 @@ from botocore.exceptions import ClientError
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
 
-from utils import (
+from utils import (  # noqa: E402
     UsageTracker,
     create_response,
     get_user_id_from_event,
@@ -50,8 +50,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def handle_get_usage(user_id: str) -> Dict[str, Any]:
-    """Get detailed usage statistics for user"""
-
+    """Get detailed usage statistics for user."""
     try:
         usage_tracker = UsageTracker()
 
@@ -80,8 +79,7 @@ def handle_get_usage(user_id: str) -> Dict[str, Any]:
 
 
 def handle_get_quota(user_id: str) -> Dict[str, Any]:
-    """Get quota limits and remaining usage"""
-
+    """Get quota limits and remaining usage."""
     try:
         usage_tracker = UsageTracker()
 
@@ -133,9 +131,8 @@ def handle_get_quota(user_id: str) -> Dict[str, Any]:
         return create_response(500, {"error": "Failed to get quota information"})
 
 
-def get_historical_usage(user_id: str, days: int = 7) -> list:
-    """Get historical usage for the last N days"""
-
+def get_historical_usage(user_id: str, days: int = 7) -> List[Dict[str, Any]]:
+    """Get historical usage for the last N days."""
     try:
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.Table(os.environ["USAGE_TABLE_NAME"])
@@ -160,8 +157,8 @@ def get_historical_usage(user_id: str, days: int = 7) -> list:
                     historical_data.append(
                         {
                             "date": query_date,
-                            "daily_count": item.get("daily_count", 0),
-                            "operations": item.get("operations", {}),
+                            "daily_count": int(item.get("daily_count", 0)),
+                            "operations": dict(item.get("operations", {})),
                         }
                     )
                 else:
@@ -183,8 +180,7 @@ def get_historical_usage(user_id: str, days: int = 7) -> list:
 
 
 def get_operation_breakdown(user_id: str) -> Dict[str, int]:
-    """Get breakdown of usage by operation type for current month"""
-
+    """Get breakdown of usage by operation type for current month."""
     try:
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.Table(os.environ["USAGE_TABLE_NAME"])
@@ -195,18 +191,19 @@ def get_operation_breakdown(user_id: str) -> Dict[str, int]:
         current_month = datetime.utcnow().strftime("%Y-%m")
 
         # Query all records for this user in current month
+        from boto3.dynamodb.conditions import Key
+
         response = table.query(
-            KeyConditionExpression="user_id = :user_id AND begins_with(#date, :month)",
-            ExpressionAttributeNames={"#date": "date"},
-            ExpressionAttributeValues={":user_id": user_id, ":month": current_month},
+            KeyConditionExpression=Key("user_id").eq(user_id)
+            & Key("date").begins_with(current_month)
         )
 
         # Aggregate operation counts
         operation_counts = {"transcribe": 0, "query": 0, "total": 0}
 
         for item in response.get("Items", []):
-            last_operation = item.get("last_operation")
-            daily_count = item.get("daily_count", 0)
+            last_operation = item.get("last_operation", "")
+            daily_count = int(item.get("daily_count", 0))
 
             if last_operation in operation_counts:
                 operation_counts[last_operation] += daily_count
@@ -221,8 +218,7 @@ def get_operation_breakdown(user_id: str) -> Dict[str, int]:
 
 
 def determine_quota_status(daily_percent: float, monthly_percent: float) -> str:
-    """Determine quota status based on usage percentages"""
-
+    """Determine quota status based on usage percentages."""
     max_percent = max(daily_percent, monthly_percent)
 
     if max_percent >= 100:
@@ -238,8 +234,7 @@ def determine_quota_status(daily_percent: float, monthly_percent: float) -> str:
 
 
 def reset_daily_quota(user_id: str) -> bool:
-    """Reset daily quota for user (admin function)"""
-
+    """Reset daily quota for user (admin function)."""
     try:
         dynamodb = boto3.resource("dynamodb")
         table = dynamodb.Table(os.environ["USAGE_TABLE_NAME"])
@@ -255,7 +250,7 @@ def reset_daily_quota(user_id: str) -> bool:
 
         if "Item" in response:
             item = response["Item"]
-            monthly_count = item.get("monthly_count", 0)
+            monthly_count = int(item.get("monthly_count", 0))
 
             # Update with reset daily count
             table.put_item(
@@ -279,9 +274,8 @@ def reset_daily_quota(user_id: str) -> bool:
 
 
 def get_quota_limits() -> Dict[str, int]:
-    """Get current quota limits from environment"""
-
+    """Get current quota limits from environment."""
     return {
-        "daily_limit": int(os.environ.get("DAILY_QUOTA", 50)),
-        "monthly_limit": int(os.environ.get("MONTHLY_QUOTA", 1000)),
+        "daily_limit": int(os.environ.get("DAILY_QUOTA", "50")),
+        "monthly_limit": int(os.environ.get("MONTHLY_QUOTA", "1000")),
     }

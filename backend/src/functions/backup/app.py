@@ -9,7 +9,7 @@ import os
 import sys
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import boto3
 from botocore.exceptions import ClientError
@@ -17,7 +17,7 @@ from botocore.exceptions import ClientError
 sys.path.append("/opt/python")
 sys.path.append("../../shared")
 
-from logger import LoggingContext, get_logger  # noqa: E402
+from logger import LoggingContext, ManuelLogger, get_logger  # noqa: E402
 from utils import create_response, handle_options_request  # noqa: E402
 
 
@@ -72,7 +72,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         )
 
 
-def handle_backup_status(logger) -> Dict[str, Any]:
+def handle_backup_status(logger: ManuelLogger) -> Dict[str, Any]:
     """Get backup status for all services."""
     try:
         with LoggingContext(logger, "BackupStatusCheck"):
@@ -92,7 +92,7 @@ def handle_backup_status(logger) -> Dict[str, Any]:
         )
 
 
-def handle_backup_verify(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def handle_backup_verify(event: Dict[str, Any], logger: ManuelLogger) -> Dict[str, Any]:
     """Verify backup integrity."""
     try:
         # Parse request body for verification options
@@ -123,7 +123,9 @@ def handle_backup_verify(event: Dict[str, Any], logger) -> Dict[str, Any]:
         )
 
 
-def handle_disaster_recovery(event: Dict[str, Any], logger) -> Dict[str, Any]:
+def handle_disaster_recovery(
+    event: Dict[str, Any], logger: ManuelLogger
+) -> Dict[str, Any]:
     """Initiate disaster recovery procedure."""
     try:
         # Parse request body for recovery options
@@ -154,7 +156,7 @@ def handle_disaster_recovery(event: Dict[str, Any], logger) -> Dict[str, Any]:
         )
 
 
-def handle_backup_metrics(logger) -> Dict[str, Any]:
+def handle_backup_metrics(logger: ManuelLogger) -> Dict[str, Any]:
     """Get backup metrics and statistics."""
     try:
         with LoggingContext(logger, "BackupMetrics"):
@@ -218,11 +220,12 @@ def check_dynamodb_backup_status() -> Dict[str, Any]:
         ]
 
         # Check recent backups
-        backups = dynamodb.list_backups(
+        backups_response = dynamodb.list_backups(
             TableName=table_name,
             TimeRangeUpperBound=datetime.utcnow(),
             TimeRangeLowerBound=datetime.utcnow() - timedelta(days=7),
         )
+        backups = backups_response
 
         return {
             "status": (
@@ -233,26 +236,26 @@ def check_dynamodb_backup_status() -> Dict[str, Any]:
             "point_in_time_recovery": {
                 "enabled": (pitr_status["PointInTimeRecoveryStatus"] == "ENABLED"),
                 "earliest_restorable_time": (
-                    pitr_status.get("EarliestRestorableDateTime", "").isoformat()
+                    pitr_status.get("EarliestRestorableDateTime").isoformat()
                     if pitr_status.get("EarliestRestorableDateTime")
                     else None
                 ),
                 "latest_restorable_time": (
-                    pitr_status.get("LatestRestorableDateTime", "").isoformat()
+                    pitr_status.get("LatestRestorableDateTime").isoformat()
                     if pitr_status.get("LatestRestorableDateTime")
                     else None
                 ),
             },
-            "recent_backups": len(backups["BackupSummaries"]),
+            "recent_backups": len(backups.get("BackupSummaries", [])),
             "last_backup_time": (
                 max(
                     [
                         backup["BackupCreationDateTime"]
-                        for backup in backups["BackupSummaries"]
+                        for backup in backups.get("BackupSummaries", [])
                     ],
-                    default=None,
+                    default=datetime.min,
                 ).isoformat()
-                if backups["BackupSummaries"]
+                if backups.get("BackupSummaries")
                 else None
             ),
         }
@@ -300,7 +303,12 @@ def check_s3_backup_status() -> Dict[str, Any]:
         # Check replication configuration
         try:
             replication = s3.get_bucket_replication(Bucket=primary_bucket)
-            rules = replication.get("ReplicationConfiguration", {}).get("Rules", [])
+            replication_config = replication.get("ReplicationConfiguration", {})
+            rules = (
+                replication_config.get("Rules", [])
+                if isinstance(replication_config, dict)
+                else []
+            )
             status_info["primary_bucket"]["replication"] = (
                 "enabled" if rules else "disabled"
             )
@@ -349,7 +357,9 @@ def check_opensearch_backup_status() -> Dict[str, Any]:
         return {"status": "error", "error": str(e)}
 
 
-def verify_backup_integrity(services: List[str], logger) -> Dict[str, Any]:
+def verify_backup_integrity(
+    services: List[str], logger: ManuelLogger
+) -> Dict[str, Any]:
     """Verify backup integrity for specified services."""
     results = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -382,7 +392,7 @@ def verify_backup_integrity(services: List[str], logger) -> Dict[str, Any]:
     return results
 
 
-def verify_dynamodb_backup(logger) -> Dict[str, Any]:
+def verify_dynamodb_backup(logger: ManuelLogger) -> Dict[str, Any]:
     """Verify DynamoDB backup integrity."""
     try:
         # This is a simplified verification
@@ -396,12 +406,12 @@ def verify_dynamodb_backup(logger) -> Dict[str, Any]:
 
         # Check if we can describe the table and backups
         table_desc = dynamodb.describe_table(TableName=table_name)
-        backups = dynamodb.list_backups(TableName=table_name)
+        backups_response = dynamodb.list_backups(TableName=table_name)
 
         return {
             "status": "passed",
-            "table_status": table_desc["Table"]["TableStatus"],
-            "backup_count": len(backups["BackupSummaries"]),
+            "table_status": table_desc.get("Table", {}).get("TableStatus", "UNKNOWN"),
+            "backup_count": len(backups_response.get("BackupSummaries", [])),
             "verification_time": datetime.utcnow().isoformat(),
         }
 
@@ -410,7 +420,7 @@ def verify_dynamodb_backup(logger) -> Dict[str, Any]:
         return {"status": "failed", "error": str(e)}
 
 
-def verify_s3_backup(logger) -> Dict[str, Any]:
+def verify_s3_backup(logger: ManuelLogger) -> Dict[str, Any]:
     """Verify S3 backup integrity."""
     try:
         s3 = boto3.client("s3")
@@ -423,14 +433,15 @@ def verify_s3_backup(logger) -> Dict[str, Any]:
             }
 
         # Sample a few objects and verify they exist
-        response = s3.list_objects_v2(Bucket=primary_bucket, MaxKeys=10)
-        objects = response.get("Contents", [])
+        list_response = s3.list_objects_v2(Bucket=primary_bucket, MaxKeys=10)
+        objects = list_response.get("Contents", [])
 
         verified_objects = 0
         for obj in objects[:5]:  # Verify first 5 objects
             try:
-                s3.head_object(Bucket=primary_bucket, Key=obj["Key"])
-                verified_objects += 1
+                if isinstance(obj, dict) and "Key" in obj:
+                    s3.head_object(Bucket=primary_bucket, Key=obj["Key"])
+                    verified_objects += 1
             except ClientError:
                 pass
 
@@ -449,7 +460,10 @@ def verify_s3_backup(logger) -> Dict[str, Any]:
 
 
 def initiate_disaster_recovery(
-    recovery_type: str, target_time: str, services: List[str], logger
+    recovery_type: str,
+    target_time: Optional[str],
+    services: List[str],
+    logger: ManuelLogger,
 ) -> Dict[str, Any]:
     """Initiate disaster recovery procedure."""
     results = {
@@ -483,7 +497,7 @@ def initiate_disaster_recovery(
 
 
 def initiate_dynamodb_recovery(
-    recovery_type: str, target_time: str, logger
+    recovery_type: str, target_time: Optional[str], logger: ManuelLogger
 ) -> Dict[str, Any]:
     """Initiate DynamoDB disaster recovery."""
     try:

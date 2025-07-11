@@ -465,10 +465,12 @@ class AdvancedErrorHandler:
         try:
             table = self.dynamodb.Table(self.error_table_name)
 
-            # Create error hash for deduplication
-            error_hash = hashlib.md5(
+            # Create error hash for deduplication (using SHA-256 for security)
+            error_hash = hashlib.sha256(
                 f"{type(exception).__name__}{str(exception)}{service}".encode()
-            ).hexdigest()
+            ).hexdigest()[
+                :16
+            ]  # Truncate to 16 chars for compatibility
 
             item = {
                 "error_id": f"{error_context.request_id}#{int(time.time())}",

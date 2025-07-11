@@ -16,6 +16,7 @@ sys.path.append("/opt/python")
 sys.path.append("../../shared")
 
 from cost_calculator import get_cost_calculator
+from file_security import FileUploadConfig, get_file_security_validator
 from health_checker import CircuitBreakerOpenError, get_health_checker
 from logger import LoggingContext, get_logger
 from utils import (
@@ -97,10 +98,54 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return response
 
         try:
+            # Enhanced file security validation
+            with LoggingContext(logger, "FileSecurityValidation"):
+                file_validator = get_file_security_validator(
+                    FileUploadConfig(
+                        max_file_size_mb=int(os.environ.get("MAX_AUDIO_SIZE_MB", "25")),
+                        scan_for_malware=True,
+                        validate_file_headers=True,
+                        quarantine_suspicious_files=True,
+                    )
+                )
+
+                validation_result = file_validator.validate_file_upload(
+                    file_data=body["audio_data"],
+                    content_type=body["content_type"],
+                    filename=body.get("filename", "audio_upload"),
+                    user_id=user_id,
+                )
+
+                if not validation_result.is_valid:
+                    logger.warning(
+                        "Audio file validation failed",
+                        user_id=user_id,
+                        threats=len(validation_result.threats_detected),
+                        error=validation_result.error_message,
+                    )
+                    response = create_response(
+                        400,
+                        {
+                            "error": "File validation failed",
+                            "details": validation_result.error_message,
+                            "threats_detected": [
+                                t.value for t in validation_result.threats_detected
+                            ],
+                        },
+                    )
+                    logger.log_request_end(400, (time.time() - start_time) * 1000)
+                    return response
+
+                logger.info(
+                    "Audio file validation successful",
+                    user_id=user_id,
+                    file_size=validation_result.size_bytes,
+                    file_type=validation_result.file_type.value,
+                    content_hash=validation_result.content_hash,
+                )
+
             # Estimate audio duration for cost calculation
-            audio_size_bytes = (
-                len(body["audio_data"]) * 3 // 4
-            )  # Base64 to bytes conversion
+            audio_size_bytes = validation_result.size_bytes
             estimated_duration = cost_calculator.estimate_audio_duration(
                 audio_size_bytes
             )
@@ -110,6 +155,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "Starting audio processing",
                 audio_size_bytes=audio_size_bytes,
                 estimated_duration_seconds=estimated_duration,
+                content_hash=validation_result.content_hash,
+                validated_mime_type=validation_result.mime_type,
             )
 
             # Upload audio to S3
@@ -366,12 +413,49 @@ def get_media_format(s3_key: str) -> str:
         return "mp4"  # default
 
 
-def get_transcript_from_uri(transcript_uri: str) -> str:
-    """Download and parse transcript from S3 URI"""
-    import urllib.request
+def _validate_transcript_uri(uri: str) -> bool:
+    """Validate transcript URI for security (SSRF protection)"""
+    from urllib.parse import urlparse
 
     try:
-        with urllib.request.urlopen(transcript_uri) as response:
+        parsed = urlparse(uri)
+
+        # Only allow HTTPS S3 URLs
+        if parsed.scheme != "https":
+            return False
+
+        # Only allow S3 domains
+        if not (parsed.netloc.endswith(".amazonaws.com") and "s3" in parsed.netloc):
+            return False
+
+        # Ensure path looks like a transcript file
+        if not parsed.path.endswith(".json"):
+            return False
+
+        return True
+    except Exception:
+        return False
+
+
+def get_transcript_from_uri(transcript_uri: str) -> str:
+    """Download and parse transcript from S3 URI with security validation"""
+    import urllib.request
+
+    # Validate URI for security (prevent SSRF attacks)
+    if not _validate_transcript_uri(transcript_uri):
+        raise ValueError("Invalid or unsafe transcript URI")
+
+    try:
+        # Create secure request with timeout
+        request = urllib.request.Request(transcript_uri)
+        request.add_header("User-Agent", "Manuel-Backend/1.0")
+
+        with urllib.request.urlopen(request, timeout=30) as response:
+            # Validate content type
+            content_type = response.getheader("Content-Type", "")
+            if "application/json" not in content_type:
+                raise ValueError("Invalid transcript content type")
+
             transcript_data = json.loads(response.read().decode())
 
         # Extract transcript text
@@ -387,8 +471,21 @@ def extract_duration_from_transcript(transcript_uri: str) -> float:
     """Extract duration from transcript JSON if available"""
     import urllib.request
 
+    # Validate URI for security (prevent SSRF attacks)
+    if not _validate_transcript_uri(transcript_uri):
+        raise ValueError("Invalid or unsafe transcript URI")
+
     try:
-        with urllib.request.urlopen(transcript_uri) as response:
+        # Create secure request with timeout
+        request = urllib.request.Request(transcript_uri)
+        request.add_header("User-Agent", "Manuel-Backend/1.0")
+
+        with urllib.request.urlopen(request, timeout=30) as response:
+            # Validate content type
+            content_type = response.getheader("Content-Type", "")
+            if "application/json" not in content_type:
+                raise ValueError("Invalid transcript content type")
+
             transcript_data = json.loads(response.read().decode())
 
         # Try to find duration in transcript metadata

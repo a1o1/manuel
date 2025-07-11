@@ -8,9 +8,9 @@ import gzip
 import hashlib
 import json
 import os
-import pickle
 import threading
 import time
+import warnings
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -146,9 +146,22 @@ class RedisCache:
             data = self.redis_client.get(redis_key)
 
             if data:
-                # Decompress and deserialize
+                # Decompress and deserialize using JSON (safer than pickle)
                 decompressed = gzip.decompress(data)
-                return pickle.loads(decompressed)
+                try:
+                    return json.loads(decompressed.decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                    # Handle legacy pickle data gracefully during transition
+                    warnings.warn(
+                        "Encountered legacy pickle data in cache. Consider cache invalidation.",
+                        UserWarning,
+                    )
+                    self.logger.warning(
+                        "Failed to deserialize cache data with JSON, data may be corrupted",
+                        key=key,
+                        error=str(e),
+                    )
+                    return None
 
             return None
 
@@ -161,9 +174,18 @@ class RedisCache:
         try:
             redis_key = self._make_key(key)
 
-            # Serialize and compress
-            serialized = pickle.dumps(value)
-            compressed = gzip.compress(serialized)
+            # Serialize and compress using JSON (safer than pickle)
+            try:
+                serialized = json.dumps(value, default=str).encode("utf-8")
+                compressed = gzip.compress(serialized)
+            except (TypeError, ValueError) as e:
+                self.logger.warning(
+                    "Failed to serialize cache value with JSON",
+                    key=key,
+                    error=str(e),
+                    value_type=type(value).__name__,
+                )
+                return False
 
             if ttl:
                 return self.redis_client.setex(redis_key, ttl, compressed)
@@ -508,7 +530,10 @@ class PerformanceOptimizer:
         """Create cache key from arguments"""
         key_parts = [prefix] + [str(arg) for arg in args]
         key_string = "|".join(key_parts)
-        return hashlib.md5(key_string.encode()).hexdigest()
+        # Use SHA-256 for non-security hashing to avoid MD5 vulnerabilities
+        return hashlib.sha256(key_string.encode()).hexdigest()[
+            :32
+        ]  # Truncate for cache key length
 
     def _calculate_audio_hash(self, audio_data: bytes) -> str:
         """Calculate hash for audio data"""

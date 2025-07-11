@@ -19,6 +19,11 @@ from advanced_error_handler import ErrorContext, get_error_handler  # noqa: E402
 from api_versioning import get_versioning_handler  # noqa: E402
 from cost_calculator import get_cost_calculator  # noqa: E402
 from health_checker import CircuitBreakerOpenError, get_health_checker  # noqa: E402
+from input_validation import (  # noqa: E402
+    CommonValidationRules,
+    DefaultSanitization,
+    get_input_validator,
+)
 from logger import LoggingContext, get_logger  # noqa: E402
 from performance_optimizer import get_performance_optimizer  # noqa: E402
 from security_middleware import get_security_middleware  # noqa: E402
@@ -118,31 +123,57 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info("Processing query request", user_id=user_id)
 
-        # Use normalized request body (handles version-specific
-        # transformations)
-        body = versioned_request.normalized_body
+        # Enhanced input validation and sanitization
+        with LoggingContext(logger, "InputValidation"):
+            validator = get_input_validator()
 
-        # Validate required fields
-        if not body.get("question"):
-            logger.warning("Missing question in request body")
-            return create_versioned_api_response(
-                {"error": "Question is required"},
-                versioned_request.version,
-                versioning_handler,
-                400,
+            # Define validation schema for query request
+            validation_schema = {"question": CommonValidationRules.AUDIO_QUERY}
+
+            # Use normalized request body (handles version-specific transformations)
+            body = versioned_request.normalized_body
+
+            # Validate all fields
+            validation_results = validator.validate_request_data(
+                body, validation_schema, DefaultSanitization.STRICT
             )
 
-        question = body["question"].strip()
-        if not question:
-            logger.warning("Empty question provided")
-            return create_versioned_api_response(
-                {"error": "Question cannot be empty"},
-                versioned_request.version,
-                versioning_handler,
-                400,
-            )
+            # Check for validation failures
+            failed_fields = [
+                field
+                for field, result in validation_results.items()
+                if not result.is_valid
+            ]
 
-        logger.info("Question received", question_length=len(question))
+            if failed_fields:
+                errors = {
+                    field: validation_results[field].error_message
+                    for field in failed_fields
+                }
+                logger.warning("Input validation failed", field_errors=errors)
+                return create_versioned_api_response(
+                    {"error": "Invalid input data", "field_errors": errors},
+                    versioned_request.version,
+                    versioning_handler,
+                    400,
+                )
+
+            # Extract sanitized question
+            question = validation_results["question"].sanitized_value
+
+            # Log any validation warnings
+            all_warnings = []
+            for field, result in validation_results.items():
+                all_warnings.extend(result.warnings)
+
+            if all_warnings:
+                logger.warning("Input validation warnings", warnings=all_warnings)
+
+            logger.info(
+                "Input validation successful",
+                question_length=len(question),
+                warnings_count=len(all_warnings),
+            )
 
         # Check usage quota
         with LoggingContext(logger, "QuotaCheck"):
