@@ -34,6 +34,41 @@ from utils import (  # noqa: E402
     handle_options_request,
 )
 
+# Global initialization for better cold start performance
+LOGGER = None
+COST_CALCULATOR = None
+HEALTH_CHECKER = None
+VERSIONING_HANDLER = None
+ERROR_HANDLER = None
+PERFORMANCE_OPTIMIZER = None
+SECURITY_MIDDLEWARE = None
+
+# Initialize global services
+def _initialize_global_services():
+    """Initialize global services for cold start optimization."""
+    global COST_CALCULATOR, HEALTH_CHECKER, VERSIONING_HANDLER, ERROR_HANDLER, PERFORMANCE_OPTIMIZER, SECURITY_MIDDLEWARE
+    
+    if COST_CALCULATOR is None:
+        COST_CALCULATOR = get_cost_calculator()
+    
+    if HEALTH_CHECKER is None:
+        HEALTH_CHECKER = get_health_checker()
+    
+    if VERSIONING_HANDLER is None:
+        VERSIONING_HANDLER = get_versioning_handler()
+    
+    if os.environ.get("ENABLE_ADVANCED_ERROR_HANDLING", "false").lower() == "true" and ERROR_HANDLER is None:
+        ERROR_HANDLER = get_error_handler("query", None)
+    
+    if os.environ.get("ENABLE_PERFORMANCE_OPTIMIZATION", "false").lower() == "true" and PERFORMANCE_OPTIMIZER is None:
+        PERFORMANCE_OPTIMIZER = get_performance_optimizer("query")
+    
+    if os.environ.get("ENABLE_ADVANCED_SECURITY", "false").lower() == "true" and SECURITY_MIDDLEWARE is None:
+        SECURITY_MIDDLEWARE = get_security_middleware("query")
+
+# Initialize global services at module load time
+_initialize_global_services()
+
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """Handle query requests using Bedrock RAG.
@@ -45,26 +80,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     start_time = time.time()
     logger = get_logger("manuel-query", context)
-    cost_calculator = get_cost_calculator()
-    health_checker = get_health_checker()
-    versioning_handler = get_versioning_handler()
-
-    # Initialize error handler
-    error_handler = None
-    if os.environ.get("ENABLE_ADVANCED_ERROR_HANDLING", "false").lower() == "true":
-        error_handler = get_error_handler("query", context)
-
-    # Initialize performance optimizer
-    performance_optimizer = None
-    if os.environ.get("ENABLE_PERFORMANCE_OPTIMIZATION", "false").lower() == "true":
-        performance_optimizer = get_performance_optimizer("query")
+    
+    # Use global services for better performance
+    global COST_CALCULATOR, HEALTH_CHECKER, VERSIONING_HANDLER, ERROR_HANDLER, PERFORMANCE_OPTIMIZER, SECURITY_MIDDLEWARE
+    cost_calculator = COST_CALCULATOR
+    health_checker = HEALTH_CHECKER
+    versioning_handler = VERSIONING_HANDLER
+    error_handler = ERROR_HANDLER
+    performance_optimizer = PERFORMANCE_OPTIMIZER
 
     # Security validation (if enabled)
-    if os.environ.get("ENABLE_ADVANCED_SECURITY", "false").lower() == "true":
-        security_middleware = get_security_middleware("query")
-        is_valid, error_response = security_middleware.validate_request(event, context)
+    if SECURITY_MIDDLEWARE:
+        is_valid, error_response = SECURITY_MIDDLEWARE.validate_request(event, context)
         if not is_valid:
-            return security_middleware.add_security_headers(error_response)
+            return SECURITY_MIDDLEWARE.add_security_headers(error_response)
 
     # Initialize cost tracking parameters
     cost_params = {

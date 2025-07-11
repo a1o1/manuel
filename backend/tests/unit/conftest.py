@@ -15,6 +15,21 @@ from moto import mock_aws
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 
 
+@pytest.fixture(autouse=True)
+def mock_boto3():
+    """Mock boto3.client and boto3.resource for all tests to prevent real AWS calls"""
+    with patch("boto3.client") as mock_client, patch("boto3.resource") as mock_resource:
+        # Return a mock client for any service
+        mock_service_client = Mock()
+        mock_client.return_value = mock_service_client
+        
+        # Return a mock resource for any service
+        mock_service_resource = Mock()
+        mock_resource.return_value = mock_service_resource
+        
+        yield {"client": mock_client, "resource": mock_resource}
+
+
 @pytest.fixture
 def mock_context():
     """Mock AWS Lambda context"""

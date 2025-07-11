@@ -146,31 +146,98 @@ def get_historical_usage(user_id: str, days: int = 7) -> List[Dict[str, Any]]:
         historical_data = []
 
         # Query each day
+        # Build batch request keys for better performance
+        batch_keys = []
+        date_list = []
+        
         for i in range(days):
             query_date = (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
+            date_list.append(query_date)
+            batch_keys.append({"user_id": user_id, "date": query_date})
 
-            try:
-                response = table.get_item(Key={"user_id": user_id, "date": query_date})
-
-                if "Item" in response:
-                    item = response["Item"]
-                    historical_data.append(
-                        {
-                            "date": query_date,
-                            "daily_count": int(item.get("daily_count", 0)),
-                            "operations": dict(item.get("operations", {})),
+        try:
+            # Use batch_get_item for better performance (up to 100 items)
+            if len(batch_keys) <= 100:
+                response = dynamodb.batch_get_item(
+                    RequestItems={
+                        table.name: {
+                            "Keys": batch_keys
                         }
-                    )
-                else:
+                    }
+                )
+                
+                # Create lookup dict for retrieved items
+                items_by_date = {}
+                for item in response.get("Responses", {}).get(table.name, []):
+                    items_by_date[item["date"]] = item
+                
+                # Build historical data with retrieved items
+                for query_date in date_list:
+                    if query_date in items_by_date:
+                        item = items_by_date[query_date]
+                        historical_data.append(
+                            {
+                                "date": query_date,
+                                "daily_count": int(item.get("daily_count", 0)),
+                                "operations": dict(item.get("operations", {})),
+                            }
+                        )
+                    else:
+                        historical_data.append(
+                            {"date": query_date, "daily_count": 0, "operations": {}}
+                        )
+            else:
+                # Fallback to individual queries for very large ranges
+                for i in range(days):
+                    query_date = (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
+                    
+                    try:
+                        response = table.get_item(Key={"user_id": user_id, "date": query_date})
+                        
+                        if "Item" in response:
+                            item = response["Item"]
+                            historical_data.append(
+                                {
+                                    "date": query_date,
+                                    "daily_count": int(item.get("daily_count", 0)),
+                                    "operations": dict(item.get("operations", {})),
+                                }
+                            )
+                        else:
+                            historical_data.append(
+                                {"date": query_date, "daily_count": 0, "operations": {}}
+                            )
+                    except ClientError as e:
+                        print(f"Error getting usage for {query_date}: {e}")
+                        historical_data.append(
+                            {"date": query_date, "daily_count": 0, "operations": {}}
+                        )
+
+        except ClientError as e:
+            print(f"Error in batch_get_item: {e}")
+            # Fallback to individual queries
+            for query_date in date_list:
+                try:
+                    response = table.get_item(Key={"user_id": user_id, "date": query_date})
+                    
+                    if "Item" in response:
+                        item = response["Item"]
+                        historical_data.append(
+                            {
+                                "date": query_date,
+                                "daily_count": int(item.get("daily_count", 0)),
+                                "operations": dict(item.get("operations", {})),
+                            }
+                        )
+                    else:
+                        historical_data.append(
+                            {"date": query_date, "daily_count": 0, "operations": {}}
+                        )
+                except ClientError as e:
+                    print(f"Error getting usage for {query_date}: {e}")
                     historical_data.append(
                         {"date": query_date, "daily_count": 0, "operations": {}}
                     )
-
-            except ClientError as e:
-                print(f"Error getting usage for {query_date}: {e}")
-                historical_data.append(
-                    {"date": query_date, "daily_count": 0, "operations": {}}
-                )
 
         return historical_data
 

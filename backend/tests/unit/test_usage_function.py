@@ -16,6 +16,9 @@ from botocore.exceptions import ClientError
 sys.path.insert(
     0, os.path.join(os.path.dirname(__file__), "..", "..", "src", "functions", "usage")
 )
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "src", "shared")
+)
 
 from app import (
     determine_quota_status,
@@ -106,7 +109,7 @@ class TestUsageLambdaHandler:
 class TestHandleGetUsage:
     """Test the handle_get_usage function"""
 
-    @patch("app.UsageTracker")
+    @patch("utils.UsageTracker")
     @patch("app.get_historical_usage")
     @patch("app.get_operation_breakdown")
     def test_handle_get_usage_success(
@@ -138,7 +141,7 @@ class TestHandleGetUsage:
         assert "historical" in response_body
         assert "breakdown" in response_body
 
-    @patch("app.UsageTracker")
+    @patch("utils.UsageTracker")
     def test_handle_get_usage_tracker_error(self, mock_usage_tracker, mock_env_vars):
         """Test usage retrieval with tracker error"""
         mock_tracker = Mock()
@@ -155,7 +158,7 @@ class TestHandleGetUsage:
 class TestHandleGetQuota:
     """Test the handle_get_quota function"""
 
-    @patch("app.UsageTracker")
+    @patch("utils.UsageTracker")
     def test_handle_get_quota_success(self, mock_usage_tracker, mock_env_vars):
         """Test successful quota retrieval"""
         mock_tracker = Mock()
@@ -183,7 +186,7 @@ class TestHandleGetQuota:
         assert daily_quota["remaining"] == 35
         assert daily_quota["percent_used"] == 30.0
 
-    @patch("app.UsageTracker")
+    @patch("utils.UsageTracker")
     def test_handle_get_quota_over_limit(self, mock_usage_tracker, mock_env_vars):
         """Test quota retrieval when over limit"""
         mock_tracker = Mock()
@@ -347,8 +350,8 @@ class TestResetDailyQuota:
     """Test the reset_daily_quota function"""
 
     @patch("boto3.resource")
-    @patch("app.get_current_date")
-    @patch("app.calculate_ttl")
+    @patch("utils.get_current_date")
+    @patch("utils.calculate_ttl")
     def test_reset_daily_quota_success(
         self, mock_calc_ttl, mock_get_date, mock_boto_resource, mock_env_vars
     ):
@@ -391,8 +394,8 @@ class TestResetDailyQuota:
         mock_table.get_item.return_value = {}  # No item
 
         with (
-            patch("app.get_current_date", return_value="2024-01-01"),
-            patch("app.calculate_ttl", return_value=1234567890),
+            patch("utils.get_current_date", return_value="2024-01-01"),
+            patch("utils.calculate_ttl", return_value=1234567890),
         ):
 
             result = reset_daily_quota("test-user")
@@ -443,7 +446,7 @@ class TestGetQuotaLimits:
 class TestUsageValidation:
     """Test usage data validation"""
 
-    @patch("app.UsageTracker")
+    @patch("utils.UsageTracker")
     def test_usage_data_types(self, mock_usage_tracker, mock_env_vars):
         """Test that usage data has correct types"""
         mock_tracker = Mock()
@@ -476,7 +479,7 @@ class TestUsageValidation:
 class TestPerformanceMetrics:
     """Test performance metrics for usage functions"""
 
-    @patch("app.UsageTracker")
+    @patch("utils.UsageTracker")
     @patch("time.time")
     def test_usage_retrieval_timing(self, mock_time, mock_usage_tracker, mock_env_vars):
         """Test that usage retrieval completes within reasonable time"""
