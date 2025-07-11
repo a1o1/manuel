@@ -1,0 +1,33 @@
+{
+  "Parameters": {
+    "Stage": "dev",
+    "DailyQuotaLimit": "30",
+    "MonthlyQuotaLimit": "500",
+    "EmbeddingModelId": "amazon.titan-embed-text-v2:0",
+    "TextModelId": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+    "UseInferenceProfile": "true",
+    "LambdaRuntime": "python3.11",
+    "LambdaMemorySize": "512",
+    "LambdaTimeout": "45",
+    "QueryTimeout": "120",
+    "KnowledgeBaseRetrievalResults": "8",
+    "CorsAllowedOrigins": "*",
+    "TokenValidityHours": "1",
+    "RefreshTokenValidityDays": "30",
+    "AudioFileRetentionDays": "1",
+    "UsageDataRetentionDays": "32",
+    "EnableS3Versioning": "true",
+    "EnableCrossRegionBackup": "false",
+    "BackupRegion": "eu-central-1",
+    "BackupRetentionDays": "14",
+    "EnablePointInTimeRecovery": "true",
+    "EnableXRayTracing": "true",
+    "LogRetentionDays": "30",
+    "AlertEmail": "",
+    "ErrorRateThreshold": "3",
+    "LatencyThreshold": "8000",
+    "QuotaUsageThreshold": "75",
+    "DailyCostThreshold": "25.0",
+    "RequestCostThreshold": "2.0"
+  }
+}

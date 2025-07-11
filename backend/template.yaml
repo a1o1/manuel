@@ -1,0 +1,2115 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Manuel - Voice Assistant for Product Manuals Backend
+  
+  Serverless application using AWS Bedrock for RAG-powered question answering
+  from product manuals via voice input.
+
+# Global configuration
+Globals:
+  Function:
+    Runtime: !Ref LambdaRuntime
+    Timeout: !Ref LambdaTimeout
+    MemorySize: !Ref LambdaMemorySize
+    Tracing: !If [EnableTracing, Active, PassThrough]
+    Environment:
+      Variables:
+        REGION: !Ref AWS::Region
+        USER_POOL_ID: !Ref CognitoUserPool
+        USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+        USAGE_TABLE_NAME: !Ref UsageTable
+        MANUALS_BUCKET: !Ref ManualsBucket
+        KNOWLEDGE_BASE_ID: !Ref BedrockKnowledgeBase
+        EMBEDDING_MODEL_ID: !Ref EmbeddingModelId
+        TEXT_MODEL_ID: !Ref TextModelId
+        USE_INFERENCE_PROFILE: !Ref UseInferenceProfile
+        KNOWLEDGE_BASE_RETRIEVAL_RESULTS: !Ref KnowledgeBaseRetrievalResults
+        USAGE_DATA_RETENTION_DAYS: !Ref UsageDataRetentionDays
+        # Security Configuration
+        ENABLE_ADVANCED_SECURITY: !Ref EnableAdvancedSecurity
+        MAX_REQUEST_SIZE_MB: !Ref MaxRequestSizeMB
+        MAX_AUDIO_DURATION_SECONDS: !Ref MaxAudioDurationSeconds
+        RATE_LIMIT_WINDOW_MINUTES: !Ref RateLimitWindowMinutes
+        RATE_LIMIT_REQUESTS: !Ref RateLimitRequests
+        IP_ALLOWLIST: !Ref IPAllowlist
+        HMAC_SIGNING_KEY: !Ref HMACSigningKey
+        RATE_LIMIT_TABLE_NAME: !If [EnableAdvancedSecurityMiddleware, !Ref RateLimitTable, ""]
+        # Error Handling Configuration
+        ENABLE_ADVANCED_ERROR_HANDLING: !Ref EnableAdvancedErrorHandling
+        DLQ_URL: !If [EnableErrorHandling, !Ref ErrorHandlingDeadLetterQueue, ""]
+        ERROR_TOPIC_ARN: !If [EnableErrorHandling, !Ref ErrorNotificationTopic, ""]
+        ERROR_TABLE_NAME: !If [EnableErrorHandling, !Ref ErrorTrackingTable, ""]
+        MAX_RETRY_ATTEMPTS: !Ref MaxRetryAttempts
+        BASE_RETRY_DELAY: !Ref BaseRetryDelay
+        MAX_RETRY_DELAY: !Ref MaxRetryDelay
+        # Performance Optimization Configuration
+        ENABLE_PERFORMANCE_OPTIMIZATION: !Ref EnablePerformanceOptimization
+        MAX_CONNECTIONS: !Ref MaxConnections
+        MAX_IDLE_CONNECTIONS: !Ref MaxIdleConnections
+        CONNECTION_TIMEOUT: !Ref ConnectionTimeout
+        READ_TIMEOUT: !Ref ReadTimeout
+        CACHE_MEMORY_SIZE: !Ref CacheMemorySize
+        REDIS_URL: !If [EnableRedisCaching, !Sub "redis://${RedisCache.RedisEndpoint.Address}:${RedisCache.RedisEndpoint.Port}", ""]
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: !Sub "'${CorsAllowedOrigins}'"
+    Auth:
+      DefaultAuthorizer: CognitoAuth
+      Authorizers:
+        CognitoAuth:
+          UserPoolArn: !GetAtt CognitoUserPool.Arn
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment stage
+  
+  DailyQuotaLimit:
+    Type: Number
+    Default: 50
+    Description: Maximum queries per user per day
+  
+  MonthlyQuotaLimit:
+    Type: Number
+    Default: 1000
+    Description: Maximum queries per user per month
+  
+  EmbeddingModelId:
+    Type: String
+    Default: amazon.titan-embed-text-v2:0
+    Description: Bedrock embedding model ID for Knowledge Base
+    AllowedValues:
+      - amazon.titan-embed-text-v2:0
+      - amazon.titan-embed-text-v1
+      - cohere.embed-english-v3
+      - cohere.embed-multilingual-v3
+  
+  TextModelId:
+    Type: String
+    Default: anthropic.claude-3-5-sonnet-20241022-v2:0
+    Description: Bedrock text generation model ID for RAG responses
+    AllowedValues:
+      - anthropic.claude-3-5-sonnet-20241022-v2:0
+      - anthropic.claude-3-sonnet-20240229-v1:0
+      - anthropic.claude-3-haiku-20240307-v1:0
+      - us.anthropic.claude-sonnet-4-20250514-v1:0
+      - us.anthropic.claude-opus-4-20250514-v1:0
+  
+  UseInferenceProfile:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Whether to use cross-region inference profiles for newer models
+  
+  # Runtime Configuration
+  LambdaRuntime:
+    Type: String
+    Default: python3.11
+    AllowedValues: [python3.9, python3.10, python3.11, python3.12]
+    Description: Python runtime version for Lambda functions
+  
+  LambdaMemorySize:
+    Type: Number
+    Default: 256
+    MinValue: 128
+    MaxValue: 10240
+    Description: Memory allocation for Lambda functions (MB)
+  
+  LambdaTimeout:
+    Type: Number
+    Default: 30
+    MinValue: 3
+    MaxValue: 900
+    Description: Default timeout for Lambda functions (seconds)
+  
+  QueryTimeout:
+    Type: Number
+    Default: 60
+    MinValue: 30
+    MaxValue: 900
+    Description: Timeout for query processing function (seconds)
+  
+  # Knowledge Base Configuration
+  KnowledgeBaseRetrievalResults:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 20
+    Description: Number of results to retrieve from Knowledge Base
+  
+  # Security Configuration
+  CorsAllowedOrigins:
+    Type: String
+    Default: "*"
+    Description: CORS allowed origins (use specific domains in production)
+  
+  TokenValidityHours:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 24
+    Description: Access token validity period (hours)
+  
+  RefreshTokenValidityDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: Refresh token validity period (days)
+  
+  # Advanced Security Configuration
+  EnableWAF:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable AWS WAF for API Gateway protection
+  
+  EnableAdvancedSecurity:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable advanced security middleware
+  
+  MaxRequestSizeMB:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 100
+    Description: Maximum request size in MB
+  
+  MaxAudioDurationSeconds:
+    Type: Number
+    Default: 300
+    MinValue: 30
+    MaxValue: 600
+    Description: Maximum audio duration in seconds
+  
+  RateLimitWindowMinutes:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 60
+    Description: Rate limit window in minutes
+  
+  RateLimitRequests:
+    Type: Number
+    Default: 100
+    MinValue: 10
+    MaxValue: 1000
+    Description: Maximum requests per rate limit window
+  
+  IPAllowlist:
+    Type: String
+    Default: ""
+    Description: Comma-separated list of allowed IP addresses/CIDR ranges (empty = no restrictions)
+  
+  HMACSigningKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: HMAC signing key for sensitive operations (leave empty to disable)
+  
+  # Error Handling Configuration
+  EnableAdvancedErrorHandling:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable advanced error handling with dead letter queues and retry strategies
+  
+  ErrorRetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 7
+    MaxValue: 365
+    Description: Error data retention period (days)
+  
+  MaxRetryAttempts:
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 10
+    Description: Maximum retry attempts for failed operations
+  
+  BaseRetryDelay:
+    Type: Number
+    Default: 1000
+    MinValue: 100
+    MaxValue: 10000
+    Description: Base retry delay in milliseconds
+  
+  MaxRetryDelay:
+    Type: Number
+    Default: 30000
+    MinValue: 1000
+    MaxValue: 300000
+    Description: Maximum retry delay in milliseconds
+  
+  # Performance Optimization Configuration
+  EnablePerformanceOptimization:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable performance optimization with connection pooling and caching
+  
+  EnableRedisCache:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable Redis cache for distributed caching
+  
+  RedisCacheNodeType:
+    Type: String
+    Default: "cache.t3.micro"
+    AllowedValues: ["cache.t3.micro", "cache.t3.small", "cache.t3.medium", "cache.r6g.large"]
+    Description: Redis cache node type
+  
+  MaxConnections:
+    Type: Number
+    Default: 50
+    MinValue: 10
+    MaxValue: 200
+    Description: Maximum connections per AWS service client
+  
+  MaxIdleConnections:
+    Type: Number
+    Default: 10
+    MinValue: 5
+    MaxValue: 50
+    Description: Maximum idle connections to maintain
+  
+  ConnectionTimeout:
+    Type: Number
+    Default: 10
+    MinValue: 1
+    MaxValue: 60
+    Description: Connection timeout in seconds
+  
+  ReadTimeout:
+    Type: Number
+    Default: 30
+    MinValue: 5
+    MaxValue: 300
+    Description: Read timeout in seconds
+  
+  CacheMemorySize:
+    Type: Number
+    Default: 1000
+    MinValue: 100
+    MaxValue: 10000
+    Description: In-memory cache size (number of entries)
+  
+  # Storage Configuration
+  AudioFileRetentionDays:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 7
+    Description: Audio file retention period (days)
+  
+  UsageDataRetentionDays:
+    Type: Number
+    Default: 32
+    MinValue: 7
+    MaxValue: 365
+    Description: Usage data retention period (days)
+  
+  EnableS3Versioning:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Enable S3 versioning for manual storage
+  
+  # Backup & Disaster Recovery Configuration
+  EnableCrossRegionBackup:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable cross-region backup and replication
+  
+  BackupRegion:
+    Type: String
+    Default: "eu-central-1"
+    Description: Secondary region for backup and disaster recovery
+  
+  BackupRetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 7
+    MaxValue: 365
+    Description: Retention period for automated backups (days)
+  
+  EnablePointInTimeRecovery:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Enable DynamoDB point-in-time recovery
+  
+  # Monitoring Configuration
+  EnableXRayTracing:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable AWS X-Ray tracing for Lambda functions
+  
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+    Description: CloudWatch logs retention period (days)
+  
+  # Alerting Configuration
+  AlertEmail:
+    Type: String
+    Default: ""
+    Description: Email address for alerts (leave empty to disable email alerts)
+  
+  # Performance Thresholds
+  ErrorRateThreshold:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 50
+    Description: Error rate threshold percentage for alarms
+  
+  LatencyThreshold:
+    Type: Number
+    Default: 5000
+    MinValue: 1000
+    MaxValue: 30000
+    Description: Latency threshold in milliseconds for alarms
+  
+  QuotaUsageThreshold:
+    Type: Number
+    Default: 80
+    MinValue: 50
+    MaxValue: 95
+    Description: Quota usage threshold percentage for warnings
+  
+  # Cost Management
+  DailyCostThreshold:
+    Type: Number
+    Default: 10.0
+    MinValue: 1.0
+    MaxValue: 100.0
+    Description: Daily cost threshold in USD for cost alerts
+  
+  RequestCostThreshold:
+    Type: Number
+    Default: 0.50
+    MinValue: 0.01
+    MaxValue: 5.0
+    Description: Individual request cost threshold in USD for expensive request alerts
+
+Conditions:
+  EnableTracing: !Equals [!Ref EnableXRayTracing, "true"]
+  EnableVersioning: !Equals [!Ref EnableS3Versioning, "true"]
+  EnableEmailAlerts: !Not [!Equals [!Ref AlertEmail, ""]]
+  EnableCrossRegionReplication: !Equals [!Ref EnableCrossRegionBackup, "true"]
+  EnableWAFProtection: !Equals [!Ref EnableWAF, "true"]
+  EnableAdvancedSecurityMiddleware: !Equals [!Ref EnableAdvancedSecurity, "true"]
+  EnableErrorHandling: !Equals [!Ref EnableAdvancedErrorHandling, "true"]
+  EnablePerformanceOptimizations: !Equals [!Ref EnablePerformanceOptimization, "true"]
+  EnableRedisCaching: !Equals [!Ref EnableRedisCache, "true"]
+
+Resources:
+  # Cognito User Pool for Authentication
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub manuel-user-pool-${Stage}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      UserPoolTags:
+        Project: Manuel
+        Environment: !Ref Stage
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ClientName: !Sub manuel-app-client-${Stage}
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      RefreshTokenValidity: !Ref RefreshTokenValidityDays
+      AccessTokenValidity: !Ref TokenValidityHours
+      IdTokenValidity: !Ref TokenValidityHours
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  # DynamoDB Table for User Usage Tracking
+  UsageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub manuel-usage-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !Ref EnablePointInTimeRecovery
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # S3 Bucket for Manual Storage
+  ManualsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub manuel-manuals-${Stage}-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: !If [EnableVersioning, Enabled, Suspended]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ProcessManualFunction.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: manuals/
+      ReplicationConfiguration:
+        !If
+        - EnableCrossRegionReplication
+        - Role: !GetAtt S3ReplicationRole.Arn
+          Rules:
+            - Id: BackupReplication
+              Status: Enabled
+              Priority: 1
+              DeleteMarkerReplication:
+                Status: Enabled
+              Filter:
+                Prefix: ""
+              Destination:
+                Bucket: !Sub "arn:aws:s3:::manuel-manuals-backup-${Stage}-${AWS::AccountId}"
+                StorageClass: STANDARD_IA
+                ReplicationTime:
+                  Status: Enabled
+                  Time:
+                    Minutes: 15
+                Metrics:
+                  Status: Enabled
+                  EventThreshold:
+                    Minutes: 15
+        - !Ref AWS::NoValue
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # S3 Bucket for Audio Files (temporary storage)
+  AudioBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub manuel-audio-${Stage}-${AWS::AccountId}
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteAudioFiles
+            Status: Enabled
+            ExpirationInDays: !Ref AudioFileRetentionDays
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Bedrock Knowledge Base
+  BedrockKnowledgeBase:
+    Type: AWS::Bedrock::KnowledgeBase
+    Properties:
+      Name: !Sub manuel-knowledge-base-${Stage}
+      Description: Knowledge base for Manuel product manuals
+      RoleArn: !GetAtt BedrockKnowledgeBaseRole.Arn
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub arn:aws:bedrock:${AWS::Region}::foundation-model/${EmbeddingModelId}
+      StorageConfiguration:
+        Type: OPENSEARCH_SERVERLESS
+        OpensearchServerlessConfiguration:
+          CollectionArn: !GetAtt OpenSearchCollection.Arn
+          VectorIndexName: manuel-index
+          FieldMapping:
+            VectorField: vector
+            TextField: text
+            MetadataField: metadata
+      Tags:
+        Project: Manuel
+        Environment: !Ref Stage
+
+  # OpenSearch Serverless Collection for Vector Storage
+  OpenSearchCollection:
+    Type: AWS::OpenSearchServerless::Collection
+    Properties:
+      Name: !Sub manuel-vectors-${Stage}
+      Type: VECTORSEARCH
+      Description: Vector storage for Manuel knowledge base
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Data Source for Knowledge Base
+  BedrockDataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      KnowledgeBaseId: !Ref BedrockKnowledgeBase
+      Name: !Sub manuel-manuals-source-${Stage}
+      Description: S3 data source for product manuals
+      DataSourceConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !GetAtt ManualsBucket.Arn
+          InclusionPrefixes:
+            - manuals/
+
+  # Lambda Functions
+  TranscribeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-transcribe-${Stage}
+      CodeUri: src/functions/transcribe/
+      Handler: app.lambda_handler
+      Description: Transcribe audio files to text
+      Environment:
+        Variables:
+          AUDIO_BUCKET: !Ref AudioBucket
+          DAILY_QUOTA: !Ref DailyQuotaLimit
+          MONTHLY_QUOTA: !Ref MonthlyQuotaLimit
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref AudioBucket
+        - S3WritePolicy:
+            BucketName: !Ref AudioBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - !If
+          - EnableAdvancedSecurityMiddleware
+          - DynamoDBCrudPolicy:
+              TableName: !Ref RateLimitTable
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - transcribe:StartTranscriptionJob
+                - transcribe:GetTranscriptionJob
+              Resource: "*"
+            - !If
+              - EnableAdvancedSecurityMiddleware
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:manuel-security-*"
+              - !Ref AWS::NoValue
+            - !If
+              - EnableErrorHandling
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sns:Publish
+                  - dynamodb:PutItem
+                Resource: 
+                  - !Ref ErrorHandlingDeadLetterQueue
+                  - !Ref ErrorNotificationTopic
+                  - !Ref ErrorTrackingTable
+              - !Ref AWS::NoValue
+      Events:
+        TranscribeApi:
+          Type: Api
+          Properties:
+            Path: /api/transcribe
+            Method: post
+
+  QueryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-query-${Stage}
+      CodeUri: src/functions/query/
+      Handler: app.lambda_handler
+      Description: Process queries using Bedrock RAG
+      Timeout: !Ref QueryTimeout
+      Environment:
+        Variables:
+          DAILY_QUOTA: !Ref DailyQuotaLimit
+          MONTHLY_QUOTA: !Ref MonthlyQuotaLimit
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - !If
+          - EnableAdvancedSecurityMiddleware
+          - DynamoDBCrudPolicy:
+              TableName: !Ref RateLimitTable
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:Retrieve
+              Resource: "*"
+            - !If
+              - EnableAdvancedSecurityMiddleware
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:manuel-security-*"
+              - !Ref AWS::NoValue
+      Events:
+        QueryApi:
+          Type: Api
+          Properties:
+            Path: /api/query
+            Method: post
+
+  ManualsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-manuals-${Stage}
+      CodeUri: src/functions/manuals/
+      Handler: app.lambda_handler
+      Description: Manage product manuals
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - S3WritePolicy:
+            BucketName: !Ref ManualsBucket
+        - !If
+          - EnableAdvancedSecurityMiddleware
+          - DynamoDBCrudPolicy:
+              TableName: !Ref RateLimitTable
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:ListDataSources
+                - bedrock:GetDataSource
+              Resource: "*"
+            - !If
+              - EnableAdvancedSecurityMiddleware
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:manuel-security-*"
+              - !Ref AWS::NoValue
+      Events:
+        ListManualsApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals
+            Method: get
+        UploadManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/upload
+            Method: post
+
+  ProcessManualFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-process-manual-${Stage}
+      CodeUri: src/functions/process-manual/
+      Handler: app.lambda_handler
+      Description: Process uploaded manuals and sync with Knowledge Base
+      Timeout: 300
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:StartIngestionJob
+                - bedrock:GetIngestionJob
+              Resource: "*"
+
+  UsageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-usage-${Stage}
+      CodeUri: src/functions/usage/
+      Handler: app.lambda_handler
+      Description: Get user usage statistics
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsageTable
+        - !If
+          - EnableAdvancedSecurityMiddleware
+          - DynamoDBCrudPolicy:
+              TableName: !Ref RateLimitTable
+          - !Ref AWS::NoValue
+        - !If
+          - EnableAdvancedSecurityMiddleware
+          - Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:manuel-security-*"
+          - !Ref AWS::NoValue
+      Events:
+        GetUsageApi:
+          Type: Api
+          Properties:
+            Path: /api/user/usage
+            Method: get
+        GetQuotaApi:
+          Type: Api
+          Properties:
+            Path: /api/user/quota
+            Method: get
+
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-health-${Stage}
+      CodeUri: src/functions/health/
+      Handler: app.lambda_handler
+      Description: System health checks and circuit breaker management
+      Timeout: 45
+      Environment:
+        Variables:
+          HEALTH_CHECK_TIMEOUT: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsageTable
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - S3ReadPolicy:
+            BucketName: !Ref AudioBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:Retrieve
+                - transcribe:ListTranscriptionJobs
+              Resource: "*"
+      Events:
+        BasicHealthApi:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+            Auth:
+              Authorizer: NONE
+        DeepHealthApi:
+          Type: Api
+          Properties:
+            Path: /health/deep
+            Method: get
+            Auth:
+              Authorizer: NONE
+        CircuitBreakerStatusApi:
+          Type: Api
+          Properties:
+            Path: /health/circuit-breakers
+            Method: get
+            Auth:
+              Authorizer: NONE
+        CircuitBreakerResetApi:
+          Type: Api
+          Properties:
+            Path: /health/circuit-breakers/{service}/reset
+            Method: post
+            Auth:
+              Authorizer: NONE
+
+  BackupFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-backup-${Stage}
+      CodeUri: src/functions/backup/
+      Handler: app.lambda_handler
+      Description: Backup monitoring and disaster recovery operations
+      Timeout: 300
+      Environment:
+        Variables:
+          BACKUP_RETENTION_DAYS: !Ref BackupRetentionDays
+          BACKUP_REGION: !Ref BackupRegion
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsageTable
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - S3ReadPolicy:
+            BucketName: !Ref AudioBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:DescribeContinuousBackups
+                - dynamodb:ListBackups
+                - dynamodb:DescribeBackup
+                - dynamodb:RestoreTableFromBackup
+                - dynamodb:RestoreTableToPointInTime
+                - dynamodb:DescribeTable
+              Resource: 
+                - !GetAtt UsageTable.Arn
+                - !Sub "${UsageTable.Arn}/backup/*"
+            - Effect: Allow
+              Action:
+                - s3:GetBucketVersioning
+                - s3:GetBucketReplication
+                - s3:ListBucket
+                - s3:HeadObject
+                - s3:HeadBucket
+              Resource:
+                - !GetAtt ManualsBucket.Arn
+                - !Sub "${ManualsBucket.Arn}/*"
+                - !If
+                  - EnableCrossRegionReplication
+                  - !Sub "arn:aws:s3:::manuel-manuals-backup-${Stage}-${AWS::AccountId}"
+                  - !Ref AWS::NoValue
+                - !If
+                  - EnableCrossRegionReplication
+                  - !Sub "arn:aws:s3:::manuel-manuals-backup-${Stage}-${AWS::AccountId}/*"
+                  - !Ref AWS::NoValue
+            - Effect: Allow
+              Action:
+                - aoss:ListCollections
+                - aoss:BatchGetCollection
+              Resource: "*"
+      Events:
+        BackupStatusApi:
+          Type: Api
+          Properties:
+            Path: /backup/status
+            Method: get
+        BackupVerifyApi:
+          Type: Api
+          Properties:
+            Path: /backup/verify
+            Method: post
+        BackupRestoreApi:
+          Type: Api
+          Properties:
+            Path: /backup/restore
+            Method: post
+        BackupMetricsApi:
+          Type: Api
+          Properties:
+            Path: /backup/metrics
+            Method: get
+
+  VersionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-version-${Stage}
+      CodeUri: src/functions/version/
+      Handler: app.lambda_handler
+      Description: API version information and compatibility
+      Timeout: 30
+      Policies:
+        - !If
+          - EnableAdvancedSecurityMiddleware
+          - DynamoDBCrudPolicy:
+              TableName: !Ref RateLimitTable
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: "*"
+            - !If
+              - EnableAdvancedSecurityMiddleware
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:manuel-security-*"
+              - !Ref AWS::NoValue
+      Events:
+        VersionInfoApi:
+          Type: Api
+          Properties:
+            Path: /version
+            Method: get
+            Auth:
+              Authorizer: NONE
+        VersionCompatibilityApi:
+          Type: Api
+          Properties:
+            Path: /version/compatibility
+            Method: get
+            Auth:
+              Authorizer: NONE
+        VersionChangelogApi:
+          Type: Api
+          Properties:
+            Path: /version/changelog
+            Method: get
+            Auth:
+              Authorizer: NONE
+
+  # IAM Roles
+  BedrockKnowledgeBaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub manuel-bedrock-kb-role-${Stage}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt ManualsBucket.Arn
+                  - !Sub "${ManualsBucket.Arn}/*"
+        - PolicyName: OpenSearchAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - aoss:APIAccessAll
+                Resource: !GetAtt OpenSearchCollection.Arn
+
+  # S3 Cross-Region Replication Role
+  S3ReplicationRole:
+    Type: AWS::IAM::Role
+    Condition: EnableCrossRegionReplication
+    Properties:
+      RoleName: !Sub manuel-s3-replication-role-${Stage}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3ReplicationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObjectVersionForReplication
+                  - s3:GetObjectVersionAcl
+                  - s3:GetObjectVersionTagging
+                Resource: !Sub "${ManualsBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt ManualsBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:ReplicateObject
+                  - s3:ReplicateDelete
+                  - s3:ReplicateTags
+                Resource: !Sub "arn:aws:s3:::manuel-manuals-backup-${Stage}-${AWS::AccountId}/*"
+
+  # S3 Backup Bucket (Cross-Region)
+  ManualsBackupBucket:
+    Type: AWS::S3::Bucket
+    Condition: EnableCrossRegionReplication
+    Properties:
+      BucketName: !Sub manuel-manuals-backup-${Stage}-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: BackupRetention
+            Status: Enabled
+            Transitions:
+              - TransitionInDays: 30
+                StorageClass: GLACIER
+              - TransitionInDays: 90
+                StorageClass: DEEP_ARCHIVE
+            ExpirationInDays: !Ref BackupRetentionDays
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: Backup
+
+  # Lambda Permissions
+  ProcessManualFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ProcessManualFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt ManualsBucket.Arn
+
+  # ============================================================================
+  # MONITORING AND ALERTING RESOURCES
+  # ============================================================================
+
+  # SNS Topic for Alerts
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub manuel-alerts-${Stage}
+      DisplayName: Manuel Application Alerts
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  AlertEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: EnableEmailAlerts
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  # WAF Resources for API Gateway Protection
+  WebACL:
+    Type: AWS::WAFv2::WebACL
+    Condition: EnableWAFProtection
+    Properties:
+      Name: !Sub manuel-waf-${Stage}
+      Description: WAF Web ACL for Manuel API Gateway
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      Rules:
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: CommonRuleSet
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: KnownBadInputsRuleSet
+        - Name: AWSManagedRulesSQLiRuleSet
+          Priority: 3
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: SQLiRuleSet
+        - Name: RateLimitRule
+          Priority: 4
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              Limit: !Ref RateLimitRequests
+              AggregateKeyType: IP
+              ScopeDownStatement:
+                NotStatement:
+                  Statement:
+                    IPSetReferenceStatement:
+                      Arn: !GetAtt IPAllowlistSet.Arn
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimitRule
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub Manuel-WAF-${Stage}
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+
+  # IP Allowlist for WAF (only created if IP allowlist is specified)
+  IPAllowlistSet:
+    Type: AWS::WAFv2::IPSet
+    Condition: EnableWAFProtection
+    Properties:
+      Name: !Sub manuel-ip-allowlist-${Stage}
+      Description: IP allowlist for Manuel API
+      Scope: REGIONAL
+      IPAddressVersion: IPV4
+      Addresses: !If
+        - EnableWAFProtection
+        - !Split [",", !Ref IPAllowlist]
+        - ["127.0.0.1/32"]  # Default single IP if no allowlist specified
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+
+  # Associate WAF with API Gateway
+  WebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    Condition: EnableWAFProtection
+    Properties:
+      ResourceArn: !Sub "arn:aws:apigateway:${AWS::Region}::/restapis/${ServerlessRestApi}/stages/Prod"
+      WebACLArn: !GetAtt WebACL.Arn
+
+  # Rate Limiting DynamoDB Table
+  RateLimitTable:
+    Type: AWS::DynamoDB::Table
+    Condition: EnableAdvancedSecurityMiddleware
+    Properties:
+      TableName: !Sub manuel-rate-limits-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: limit_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: limit_key
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: RateLimiting
+
+  # Error Handling Resources
+  ErrorHandlingDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Condition: EnableErrorHandling
+    Properties:
+      QueueName: !Sub manuel-error-dlq-${Stage}
+      MessageRetentionPeriod: !Ref ErrorRetentionDays
+      VisibilityTimeoutSeconds: 300
+      ReceiveMessageWaitTimeSeconds: 20
+      KmsMasterKeyId: alias/aws/sqs
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: ErrorHandling
+
+  ErrorNotificationTopic:
+    Type: AWS::SNS::Topic
+    Condition: EnableErrorHandling
+    Properties:
+      TopicName: !Sub manuel-error-notifications-${Stage}
+      DisplayName: Manuel Error Notifications
+      KmsMasterKeyId: alias/aws/sns
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: ErrorNotification
+
+  ErrorNotificationSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: EnableEmailAlerts
+    DependsOn: ErrorNotificationTopic
+    Properties:
+      TopicArn: !Ref ErrorNotificationTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+      FilterPolicy:
+        Severity: ["high", "critical"]
+
+  ErrorTrackingTable:
+    Type: AWS::DynamoDB::Table
+    Condition: EnableErrorHandling
+    Properties:
+      TableName: !Sub manuel-error-tracking-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: error_id
+          AttributeType: S
+        - AttributeName: error_hash
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: severity
+          AttributeType: S
+      KeySchema:
+        - AttributeName: error_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ErrorHashIndex
+          KeySchema:
+            - AttributeName: error_hash
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: SeverityIndex
+          KeySchema:
+            - AttributeName: severity
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: ErrorTracking
+
+  ErrorProcessingFunction:
+    Type: AWS::Serverless::Function
+    Condition: EnableErrorHandling
+    Properties:
+      FunctionName: !Sub manuel-error-processor-${Stage}
+      CodeUri: src/functions/error-processor/
+      Handler: app.lambda_handler
+      Description: Process errors from dead letter queue
+      Timeout: 60
+      ReservedConcurrencyLimit: 5
+      Environment:
+        Variables:
+          ERROR_TABLE_NAME: !Ref ErrorTrackingTable
+          ERROR_TOPIC_ARN: !Ref ErrorNotificationTopic
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ErrorHandlingDeadLetterQueue.QueueName
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ErrorTrackingTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt ErrorNotificationTopic.TopicName
+      Events:
+        ErrorQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ErrorHandlingDeadLetterQueue.Arn
+            BatchSize: 10
+            MaximumBatchingWindowInSeconds: 30
+
+  # Performance Optimization Resources
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Condition: EnableRedisCaching
+    Properties:
+      Description: Subnet group for Manuel Redis cache
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: Caching
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: EnableRedisCaching
+    Properties:
+      GroupDescription: Security group for Manuel Redis cache
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: Caching
+
+  RedisCache:
+    Type: AWS::ElastiCache::CacheCluster
+    Condition: EnableRedisCaching
+    Properties:
+      ClusterName: !Sub manuel-redis-${Stage}
+      Engine: redis
+      CacheNodeType: !Ref RedisCacheNodeType
+      NumCacheNodes: 1
+      Port: 6379
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      PreferredMaintenanceWindow: sun:03:00-sun:04:00
+      SnapshotRetentionLimit: 7
+      SnapshotWindow: 01:00-02:00
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: Caching
+
+  # VPC Resources for Redis (if needed)
+  VPC:
+    Type: AWS::EC2::VPC
+    Condition: EnableRedisCaching
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: Caching
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: Caching
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: Caching
+
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: EnableRedisCaching
+    Properties:
+      GroupDescription: Security group for Lambda functions accessing Redis
+      VpcId: !Ref VPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          DestinationSecurityGroupId: !Ref RedisSecurityGroup
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Stage
+          Value: !Ref Stage
+        - Key: Purpose
+          Value: Caching
+
+  # CloudWatch Log Groups with Retention
+  TranscribeLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-transcribe-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  QueryLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-query-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  ManualsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-manuals-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  ProcessManualLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-process-manual-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  UsageLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-usage-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  HealthLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-health-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # CloudWatch Alarms for API Gateway
+  ApiGateway4xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-api-4xx-errors-${Stage}
+      AlarmDescription: High rate of 4xx errors in API Gateway
+      MetricName: 4XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub manuel-${Stage}
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  ApiGateway5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-api-5xx-errors-${Stage}
+      AlarmDescription: High rate of 5xx errors in API Gateway
+      MetricName: 5XXError
+      Namespace: AWS/ApiGateway
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub manuel-${Stage}
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  ApiGatewayLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-api-latency-${Stage}
+      AlarmDescription: High latency in API Gateway
+      MetricName: Latency
+      Namespace: AWS/ApiGateway
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: !Ref LatencyThreshold
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub manuel-${Stage}
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Lambda Function Alarms
+  TranscribeFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-transcribe-errors-${Stage}
+      AlarmDescription: High error rate in transcribe function
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref TranscribeFunction
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  QueryFunctionErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-query-errors-${Stage}
+      AlarmDescription: High error rate in query function
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref QueryFunction
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  QueryFunctionDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-query-duration-${Stage}
+      AlarmDescription: High duration in query function
+      MetricName: Duration
+      Namespace: AWS/Lambda
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: !Ref QueryTimeout
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref QueryFunction
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # DynamoDB Alarms
+  DynamoDBThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-dynamodb-throttles-${Stage}
+      AlarmDescription: DynamoDB throttling detected
+      MetricName: ThrottledRequests
+      Namespace: AWS/DynamoDB
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: TableName
+          Value: !Ref UsageTable
+      AlarmActions:
+        - !Ref AlertTopic
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Cost Management Alarms
+  DailyCostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-daily-cost-high-${Stage}
+      AlarmDescription: Daily cost exceeds threshold
+      MetricName: DailyCostAccumulation
+      Namespace: Manuel/Costs
+      Statistic: Sum
+      Period: 86400  # 24 hours
+      EvaluationPeriods: 1
+      Threshold: !Ref DailyCostThreshold
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  ExpensiveRequestAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-expensive-request-${Stage}
+      AlarmDescription: Individual request cost exceeds threshold
+      MetricName: RequestCost
+      Namespace: Manuel/Costs
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref RequestCostThreshold
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  BedrockCostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub manuel-bedrock-cost-high-${Stage}
+      AlarmDescription: Bedrock costs are high (5-minute window)
+      MetricName: ServiceCost
+      Namespace: Manuel/Costs
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1.0  # $1 in 5 minutes
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: Service
+          Value: bedrock
+      AlarmActions:
+        - !Ref AlertTopic
+      TreatMissingData: notBreaching
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Comprehensive CloudWatch Dashboard
+  ManuelDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub Manuel-${Stage}
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "Count", "ApiName", "manuel-${Stage}", { "stat": "Sum" } ],
+                  [ ".", "4XXError", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "5XXError", ".", ".", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "API Gateway - Requests and Errors",
+                "period": 300,
+                "yAxis": {
+                  "left": {
+                    "min": 0
+                  }
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/ApiGateway", "Latency", "ApiName", "manuel-${Stage}", { "stat": "Average" } ],
+                  [ ".", "IntegrationLatency", ".", ".", { "stat": "Average" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "API Gateway - Latency",
+                "period": 300,
+                "yAxis": {
+                  "left": {
+                    "min": 0
+                  }
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 6,
+              "width": 8,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${TranscribeFunction}", { "stat": "Sum" } ],
+                  [ ".", "Errors", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "Duration", ".", ".", { "stat": "Average" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Transcribe Function Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 8,
+              "y": 6,
+              "width": 8,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${QueryFunction}", { "stat": "Sum" } ],
+                  [ ".", "Errors", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "Duration", ".", ".", { "stat": "Average" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Query Function Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 16,
+              "y": 6,
+              "width": 8,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", "FunctionName", "${ManualsFunction}", { "stat": "Sum" } ],
+                  [ ".", "Errors", ".", ".", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Manuals Function Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", "${UsageTable}", { "stat": "Sum" } ],
+                  [ ".", "ConsumedWriteCapacityUnits", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "ThrottledRequests", ".", ".", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "DynamoDB Usage Metrics",
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 12,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/S3", "BucketSizeBytes", "BucketName", "${ManualsBucket}", "StorageType", "StandardStorage", { "stat": "Average" } ],
+                  [ ".", "NumberOfObjects", ".", ".", ".", "AllStorageTypes", { "stat": "Average" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "S3 Storage Metrics",
+                "period": 86400
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 18,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "Manuel/Costs", "RequestCost", "Operation", "query", { "stat": "Sum" } ],
+                  [ "...", "transcribe", { "stat": "Sum" } ],
+                  [ "Manuel/Costs", "DailyCostAccumulation", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Cost Metrics - Request Costs (USD)",
+                "period": 300,
+                "yAxis": {
+                  "left": {
+                    "min": 0
+                  }
+                }
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 18,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "Manuel/Costs", "ServiceCost", "Service", "bedrock", "Operation", "query", { "stat": "Sum" } ],
+                  [ "...", "transcribe", "transcribe", { "stat": "Sum" } ],
+                  [ "...", "lambda", "query", { "stat": "Sum" } ],
+                  [ "...", "lambda", "transcribe", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": true,
+                "region": "${AWS::Region}",
+                "title": "Cost Breakdown by Service (USD)",
+                "period": 300,
+                "yAxis": {
+                  "left": {
+                    "min": 0
+                  }
+                }
+              }
+            },
+            {
+              "type": "log",
+              "x": 0,
+              "y": 24,
+              "width": 24,
+              "height": 6,
+              "properties": {
+                "query": "SOURCE '/aws/lambda/manuel-query-${Stage}'\n| fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 100",
+                "region": "${AWS::Region}",
+                "title": "Recent Errors - Query Function",
+                "view": "table"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 18,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Duration", "FunctionName", "manuel-backup-${Stage}", { "stat": "Average" } ],
+                  [ ".", "Errors", ".", ".", { "stat": "Sum" } ],
+                  [ ".", "Invocations", ".", ".", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Backup Function - Performance",
+                "period": 300,
+                "yAxis": {
+                  "left": {
+                    "min": 0
+                  }
+                }
+              }
+            },
+            {
+              "type": "log",
+              "x": 12,
+              "y": 18,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "query": "SOURCE '/aws/lambda/manuel-backup-${Stage}'\n| fields @timestamp, @message\n| filter @message like /backup_status/ or @message like /recovery/\n| sort @timestamp desc\n| limit 50",
+                "region": "${AWS::Region}",
+                "title": "Backup Operations Log",
+                "view": "table"
+              }
+            }
+          ]
+        }
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+  
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+  
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+  
+  ManualsBucketName:
+    Description: S3 bucket for storing manuals
+    Value: !Ref ManualsBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-ManualsBucket"
+  
+  AudioBucketName:
+    Description: S3 bucket for temporary audio storage
+    Value: !Ref AudioBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-AudioBucket"
+  
+  KnowledgeBaseId:
+    Description: Bedrock Knowledge Base ID
+    Value: !Ref BedrockKnowledgeBase
+    Export:
+      Name: !Sub "${AWS::StackName}-KnowledgeBaseId"
+  
+  UsageTableName:
+    Description: DynamoDB table for usage tracking
+    Value: !Ref UsageTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UsageTable"
+  
+  # Monitoring Outputs
+  DashboardURL:
+    Description: CloudWatch Dashboard URL
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards:name=Manuel-${Stage}"
+    Export:
+      Name: !Sub "${AWS::StackName}-DashboardURL"
+  
+  AlertTopicArn:
+    Description: SNS Topic ARN for alerts
+    Value: !Ref AlertTopic
+    Export:
+      Name: !Sub "${AWS::StackName}-AlertTopic"
+  
+  LogGroupNames:
+    Description: CloudWatch Log Groups for Lambda functions
+    Value: !Sub "/aws/lambda/manuel-*-${Stage}"
+    Export:
+      Name: !Sub "${AWS::StackName}-LogGroups"

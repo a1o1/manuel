@@ -1,0 +1,15 @@
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Performance optimization dependencies
+redis>=4.5.0
+hiredis>=2.0.0
+
+# Security dependencies
+cryptography>=41.0.0
+
+# Serialization
+pickle-mixin>=1.0.0
+
+# Logging
+structlog>=23.0.0

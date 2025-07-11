@@ -1,0 +1,72 @@
+{
+  "name": "manuel-backend",
+  "version": "1.0.0",
+  "description": "Enterprise-grade AWS serverless backend for Manuel voice assistant",
+  "main": "template.yaml",
+  "scripts": {
+    "build": "sam build",
+    "deploy": "sam deploy --parameter-overrides-file parameters.json",
+    "deploy:prod": "sam deploy --parameter-overrides-file parameters-production.json",
+    "deploy:claude4": "sam deploy --parameter-overrides-file parameters-claude4.json",
+    "test": "cd tests/integration && make test",
+    "test:smoke": "cd tests/integration && make test-smoke",
+    "test:security": "cd tests/integration && make test-security",
+    "test:performance": "cd tests/integration && make test-performance",
+    "test:e2e": "cd tests/integration && make test-e2e",
+    "test:chaos": "cd tests/integration && make test-chaos",
+    "lint": "cd tests/integration && make lint",
+    "format": "cd tests/integration && make format",
+    "validate": "sam validate",
+    "local": "sam local start-api --parameter-overrides-file parameters.json",
+    "logs": "sam logs --stack-name manuel-dev --tail",
+    "clean": "rm -rf .aws-sam",
+    "pre-commit": "pre-commit run --all-files",
+    "commit": "cz commit",
+    "bump": "cz bump",
+    "changelog": "cz changelog"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/manuel.git"
+  },
+  "keywords": [
+    "aws",
+    "serverless",
+    "voice-assistant",
+    "bedrock",
+    "rag",
+    "sam",
+    "lambda",
+    "api-gateway",
+    "dynamodb",
+    "s3",
+    "cognito",
+    "transcribe",
+    "enterprise",
+    "ai",
+    "ml",
+    "nlp"
+  ],
+  "author": "Manuel Team <admin@manuel.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/your-org/manuel/issues"
+  },
+  "homepage": "https://github.com/your-org/manuel#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.0.0",
+    "@commitlint/config-conventional": "^17.0.0",
+    "commitizen": "^4.3.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^13.0.0"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  }
+}

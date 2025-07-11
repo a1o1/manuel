@@ -1,0 +1,84 @@
+{
+  "commitizen": {
+    "name": "cz_conventional_commits",
+    "version": "1.0.0",
+    "version_files": [
+      "package.json",
+      "pyproject.toml"
+    ],
+    "style": [
+      [
+        "qmark",
+        "fg:#ff9d00 bold"
+      ],
+      [
+        "question",
+        "bold"
+      ],
+      [
+        "answer",
+        "fg:#ff9d00 bold"
+      ],
+      [
+        "pointer",
+        "fg:#ff9d00 bold"
+      ],
+      [
+        "highlighted",
+        "fg:#ff9d00 bold"
+      ],
+      [
+        "selected",
+        "fg:#cc5454"
+      ],
+      [
+        "separator",
+        "fg:#cc5454"
+      ],
+      [
+        "instruction",
+        ""
+      ],
+      [
+        "text",
+        ""
+      ],
+      [
+        "disabled",
+        "fg:#858585 italic"
+      ]
+    ],
+    "customize": {
+      "message_template": "{{change_type}}{{scope}}: {{message}}{{body}}{{footer}}",
+      "example": "feat(auth): implement JWT authentication\n\nAdd JWT token-based authentication with refresh tokens.\nIntegrate with AWS Cognito for user management.\n\nCloses #123",
+      "schema": "<type>(<scope>): <subject>\n<BLANK LINE>\n<body>\n<BLANK LINE>\n<footer>",
+      "schema_pattern": "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.+\\))?: .{1,50}",
+      "bump_pattern": "^(feat|fix|perf|refactor|BREAKING CHANGE)",
+      "bump_map": {
+        "BREAKING CHANGE": "MAJOR",
+        "feat": "MINOR",
+        "fix": "PATCH",
+        "perf": "PATCH",
+        "refactor": "PATCH"
+      },
+      "change_type_order": [
+        "BREAKING CHANGE",
+        "feat",
+        "fix",
+        "perf",
+        "refactor",
+        "build",
+        "ci",
+        "docs",
+        "style",
+        "test",
+        "chore",
+        "revert"
+      ]
+    },
+    "info": {
+      "title": "Manuel Backend - Conventional Commits",
+      "description": "Enterprise-grade AWS serverless backend for Manuel voice assistant"
+    }
+  }
+}

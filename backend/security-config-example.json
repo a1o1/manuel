@@ -1,0 +1,69 @@
+{
+  "Description": "Example security configuration for Manuel backend",
+  "Documentation": "Copy this file to security-config.json and customize for your deployment",
+  "SecuritySettings": {
+    "EnableWAF": {
+      "Development": "false",
+      "Production": "true",
+      "Description": "Enable AWS WAF for API Gateway protection"
+    },
+    "EnableAdvancedSecurity": {
+      "Development": "false", 
+      "Production": "true",
+      "Description": "Enable advanced security middleware with rate limiting and input validation"
+    },
+    "IPAllowlist": {
+      "Development": "",
+      "Production": "203.0.113.0/24,198.51.100.0/24",
+      "Description": "Comma-separated list of allowed IP addresses/CIDR ranges. Empty = no restrictions",
+      "Examples": [
+        "203.0.113.12",
+        "203.0.113.0/24",
+        "203.0.113.12,198.51.100.0/24"
+      ]
+    },
+    "HMACSigningKey": {
+      "Development": "",
+      "Production": "your-secret-hmac-key-here",
+      "Description": "HMAC signing key for sensitive operations. Generate with: openssl rand -base64 32",
+      "SecurityNote": "Never commit this key to version control. Use AWS Secrets Manager in production."
+    },
+    "RateLimiting": {
+      "Development": {
+        "WindowMinutes": 1,
+        "RequestsPerWindow": 100
+      },
+      "Production": {
+        "WindowMinutes": 1,
+        "RequestsPerWindow": 50
+      },
+      "Description": "Rate limiting configuration per IP address"
+    },
+    "RequestLimits": {
+      "Development": {
+        "MaxRequestSizeMB": 10,
+        "MaxAudioDurationSeconds": 300
+      },
+      "Production": {
+        "MaxRequestSizeMB": 5,
+        "MaxAudioDurationSeconds": 240
+      },
+      "Description": "Maximum request size and audio duration limits"
+    }
+  },
+  "DeploymentInstructions": {
+    "1": "Copy this file to security-config.json",
+    "2": "Update IP allowlist with your actual IP addresses/ranges",
+    "3": "Generate a secure HMAC key: openssl rand -base64 32",
+    "4": "Store the HMAC key in AWS Secrets Manager (recommended) or parameter file",
+    "5": "Update parameter files with your security settings",
+    "6": "Deploy with: sam deploy --parameter-overrides-file backend/parameters-production.json"
+  },
+  "SecurityBestPractices": {
+    "IPAllowlist": "Use specific IP ranges rather than allowing all traffic",
+    "HMACKey": "Use AWS Secrets Manager for production keys",
+    "RateLimiting": "Set conservative limits and monitor usage patterns",
+    "WAF": "Enable WAF in production for additional protection",
+    "Monitoring": "Set up CloudWatch alarms for security events"
+  }
+}
