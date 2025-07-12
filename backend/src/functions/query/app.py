@@ -43,28 +43,39 @@ ERROR_HANDLER = None
 PERFORMANCE_OPTIMIZER = None
 SECURITY_MIDDLEWARE = None
 
+
 # Initialize global services
 def _initialize_global_services():
     """Initialize global services for cold start optimization."""
     global COST_CALCULATOR, HEALTH_CHECKER, VERSIONING_HANDLER, ERROR_HANDLER, PERFORMANCE_OPTIMIZER, SECURITY_MIDDLEWARE
-    
+
     if COST_CALCULATOR is None:
         COST_CALCULATOR = get_cost_calculator()
-    
+
     if HEALTH_CHECKER is None:
         HEALTH_CHECKER = get_health_checker()
-    
+
     if VERSIONING_HANDLER is None:
         VERSIONING_HANDLER = get_versioning_handler()
-    
-    if os.environ.get("ENABLE_ADVANCED_ERROR_HANDLING", "false").lower() == "true" and ERROR_HANDLER is None:
+
+    if (
+        os.environ.get("ENABLE_ADVANCED_ERROR_HANDLING", "false").lower() == "true"
+        and ERROR_HANDLER is None
+    ):
         ERROR_HANDLER = get_error_handler("query", None)
-    
-    if os.environ.get("ENABLE_PERFORMANCE_OPTIMIZATION", "false").lower() == "true" and PERFORMANCE_OPTIMIZER is None:
+
+    if (
+        os.environ.get("ENABLE_PERFORMANCE_OPTIMIZATION", "false").lower() == "true"
+        and PERFORMANCE_OPTIMIZER is None
+    ):
         PERFORMANCE_OPTIMIZER = get_performance_optimizer("query")
-    
-    if os.environ.get("ENABLE_ADVANCED_SECURITY", "false").lower() == "true" and SECURITY_MIDDLEWARE is None:
+
+    if (
+        os.environ.get("ENABLE_ADVANCED_SECURITY", "false").lower() == "true"
+        and SECURITY_MIDDLEWARE is None
+    ):
         SECURITY_MIDDLEWARE = get_security_middleware("query")
+
 
 # Initialize global services at module load time
 _initialize_global_services()
@@ -80,7 +91,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     start_time = time.time()
     logger = get_logger("manuel-query", context)
-    
+
     # Use global services for better performance
     global COST_CALCULATOR, HEALTH_CHECKER, VERSIONING_HANDLER, ERROR_HANDLER, PERFORMANCE_OPTIMIZER, SECURITY_MIDDLEWARE
     cost_calculator = COST_CALCULATOR
@@ -382,15 +393,29 @@ def retrieve_relevant_context(
 
         # Use circuit breaker for Knowledge Base calls
         def kb_retrieve():
+            # Build retrieval configuration
+            retrieval_config = {
+                "vectorSearchConfiguration": {
+                    "numberOfResults": max_results,
+                    "overrideSearchType": "HYBRID",
+                }
+            }
+
+            # Add user-specific metadata filtering if user_id is provided
+            if user_id:
+                retrieval_config["vectorSearchConfiguration"]["filter"] = {
+                    "equals": {"key": "user_id", "value": user_id}
+                }
+                logger.info(
+                    "Applying user-specific metadata filter",
+                    user_id=user_id,
+                    filter_key="user_id",
+                )
+
             return bedrock_client.retrieve(
                 knowledgeBaseId=knowledge_base_id,
                 retrievalQuery={"text": question},
-                retrievalConfiguration={
-                    "vectorSearchConfiguration": {
-                        "numberOfResults": max_results,
-                        "overrideSearchType": "HYBRID",
-                    }
-                },
+                retrievalConfiguration=retrieval_config,
             )
 
         # Use error handler with retry logic if enabled

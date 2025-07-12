@@ -4,6 +4,7 @@ Handles manual listing and upload operations.
 """
 
 import base64
+import json
 import os
 import sys
 import uuid
@@ -262,6 +263,57 @@ def is_valid_manual_type(content_type: str, file_name: str) -> bool:
     return file_extension in valid_extensions
 
 
+def create_metadata_json(
+    user_id: str,
+    original_filename: str,
+    upload_timestamp: str,
+    upload_method: str,
+    content_type: str,
+    source_url: str = None,
+) -> str:
+    """Create metadata JSON content for Bedrock Knowledge Base.
+
+    This metadata enables user-specific filtering in Knowledge Base queries.
+    """
+    metadata_content = {
+        "metadataAttributes": {
+            "user_id": user_id,
+            "uploaded_by": user_id,
+            "original_filename": original_filename,
+            "upload_timestamp": upload_timestamp,
+            "upload_method": upload_method,
+            "file_type": content_type,
+        }
+    }
+
+    # Add source URL for downloaded files
+    if source_url:
+        metadata_content["metadataAttributes"]["source_url"] = source_url
+
+    return json.dumps(metadata_content, indent=2)
+
+
+def test_metadata_json_structure():
+    """Test function to verify metadata JSON structure matches Bedrock requirements."""
+    test_metadata = create_metadata_json(
+        user_id="test-user-123",
+        original_filename="test_manual.pdf",
+        upload_timestamp="2025-01-12T10:30:00.000Z",
+        upload_method="direct_upload",
+        content_type="application/pdf",
+        source_url="https://example.com/manual.pdf",
+    )
+
+    print("Generated metadata JSON structure:")
+    print(test_metadata)
+
+    # Verify JSON is valid
+    parsed = json.loads(test_metadata)
+    assert "metadataAttributes" in parsed
+    assert "user_id" in parsed["metadataAttributes"]
+    print("✓ Metadata JSON structure is valid for Bedrock Knowledge Base")
+
+
 def upload_downloaded_manual_to_s3(
     file_content: bytes,
     filename: str,
@@ -317,6 +369,50 @@ def upload_downloaded_manual_to_s3(
         etag=upload_result.etag,
     )
 
+    # Generate and upload metadata JSON file for Bedrock Knowledge Base filtering
+    try:
+        metadata_key = f"{s3_key}.metadata.json"
+        upload_timestamp = datetime.utcnow().isoformat()
+
+        metadata_json = create_metadata_json(
+            user_id=user_id,
+            original_filename=filename,
+            upload_timestamp=upload_timestamp,
+            upload_method="url_download",
+            content_type=content_type,
+            source_url=source_url,
+        )
+
+        # Upload metadata file using S3 optimizer
+        metadata_upload_result = s3_optimizer.upload_file_optimized(
+            file_data=metadata_json.encode("utf-8"),
+            bucket=bucket_name,
+            key=metadata_key,
+            content_type="application/json",
+            metadata={"document_metadata": "true"},
+        )
+
+        if not metadata_upload_result.success:
+            logger.warning(
+                "Metadata JSON upload failed",
+                metadata_key=metadata_key,
+                error=metadata_upload_result.error_message,
+            )
+        else:
+            logger.info(
+                "Metadata JSON uploaded successfully",
+                metadata_key=metadata_key,
+                size=metadata_upload_result.size_bytes,
+            )
+
+    except Exception as e:
+        # Don't fail the main upload if metadata generation fails
+        logger.warning(
+            "Failed to generate metadata JSON",
+            s3_key=s3_key,
+            error=str(e),
+        )
+
     return s3_key
 
 
@@ -345,6 +441,7 @@ def upload_manual_to_s3(
         file_bytes = base64.b64decode(file_data)
 
         # Upload to S3 with metadata
+        upload_timestamp = datetime.utcnow().isoformat()
         s3_client.put_object(
             Bucket=bucket_name,
             Key=s3_key,
@@ -353,10 +450,38 @@ def upload_manual_to_s3(
             Metadata={
                 "uploaded_by": user_id,
                 "original_filename": file_name,
-                "upload_timestamp": datetime.utcnow().isoformat(),
+                "upload_timestamp": upload_timestamp,
             },
             ServerSideEncryption="AES256",
         )
+
+        # Generate and upload metadata JSON file for Bedrock Knowledge Base filtering
+        try:
+            metadata_key = f"{s3_key}.metadata.json"
+
+            metadata_json = create_metadata_json(
+                user_id=user_id,
+                original_filename=file_name,
+                upload_timestamp=upload_timestamp,
+                upload_method="direct_upload",
+                content_type=content_type,
+            )
+
+            # Upload metadata file
+            s3_client.put_object(
+                Bucket=bucket_name,
+                Key=metadata_key,
+                Body=metadata_json.encode("utf-8"),
+                ContentType="application/json",
+                Metadata={"document_metadata": "true"},
+                ServerSideEncryption="AES256",
+            )
+
+            print(f"Metadata JSON uploaded successfully: {metadata_key}")
+
+        except Exception as e:
+            # Don't fail the main upload if metadata generation fails
+            print(f"Warning: Failed to generate metadata JSON for {s3_key}: {str(e)}")
 
         return s3_key
 
