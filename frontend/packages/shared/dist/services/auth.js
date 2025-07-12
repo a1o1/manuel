@@ -13,10 +13,19 @@ class AuthService {
     // Sign up new user
     async signUp(request) {
         return new Promise((resolve, reject) => {
+            const userName = request.name || request.email.split('@')[0];
             const attributeList = [
                 new amazon_cognito_identity_js_1.CognitoUserAttribute({
                     Name: 'email',
                     Value: request.email,
+                }),
+                new amazon_cognito_identity_js_1.CognitoUserAttribute({
+                    Name: 'name',
+                    Value: userName,
+                }),
+                new amazon_cognito_identity_js_1.CognitoUserAttribute({
+                    Name: 'name.formatted',
+                    Value: userName,
                 }),
             ];
             this.userPool.signUp(request.email, request.password, attributeList, [], (err, result) => {

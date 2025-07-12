@@ -23,10 +23,20 @@ class AuthService {
   // Sign up new user
   async signUp(request: SignupRequest): Promise<{ userSub: string; needsConfirmation: boolean }> {
     return new Promise((resolve, reject) => {
+      const userName = request.name || request.email.split('@')[0];
+      
       const attributeList: CognitoUserAttribute[] = [
         new CognitoUserAttribute({
           Name: 'email',
           Value: request.email,
+        }),
+        new CognitoUserAttribute({
+          Name: 'name',
+          Value: userName,
+        }),
+        new CognitoUserAttribute({
+          Name: 'name.formatted',
+          Value: userName,
         }),
       ];
 

@@ -142,6 +142,21 @@ class AuthCommand {
             ]);
             email = answers.email;
         }
+        // Get user's name
+        const { name } = await inquirer_1.default.prompt([
+            {
+                type: 'input',
+                name: 'name',
+                message: 'Full name:',
+                default: email.split('@')[0],
+                validate: (input) => {
+                    if (input.trim().length < 2) {
+                        return 'Name must be at least 2 characters';
+                    }
+                    return true;
+                },
+            },
+        ]);
         // Password prompts
         const { password, confirmPassword } = await inquirer_1.default.prompt([
             {
@@ -170,6 +185,7 @@ class AuthCommand {
                 email,
                 password,
                 confirmPassword,
+                name,
             });
             spinner.succeed(chalk_1.default.green('Account created successfully!'));
             if (result.needsConfirmation) {

@@ -160,6 +160,22 @@ export class AuthCommand {
       email = answers.email;
     }
 
+    // Get user's name
+    const { name } = await inquirer.prompt([
+      {
+        type: 'input',
+        name: 'name',
+        message: 'Full name:',
+        default: email.split('@')[0],
+        validate: (input: string) => {
+          if (input.trim().length < 2) {
+            return 'Name must be at least 2 characters';
+          }
+          return true;
+        },
+      },
+    ]);
+
     // Password prompts
     const { password, confirmPassword } = await inquirer.prompt([
       {
@@ -190,6 +206,7 @@ export class AuthCommand {
         email,
         password,
         confirmPassword,
+        name,
       });
 
       spinner.succeed(chalk.green('Account created successfully!'));
