@@ -8,5 +8,6 @@ export declare class AuthCommand {
     status(): Promise<void>;
     forgotPassword(options?: any): Promise<void>;
     confirm(options?: any): Promise<void>;
+    resendConfirmationCode(options?: any): Promise<void>;
 }
 //# sourceMappingURL=auth.d.ts.map

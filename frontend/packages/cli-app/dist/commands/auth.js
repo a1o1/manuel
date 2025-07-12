@@ -60,6 +60,13 @@ class AuthCommand {
             .action(async (options) => {
             await (0, error_1.handleError)(() => auth.confirm(options));
         });
+        program
+            .command('resend-code')
+            .description('Resend confirmation code')
+            .option('-e, --email <email>', 'Email address')
+            .action(async (options) => {
+            await (0, error_1.handleError)(() => auth.resendConfirmationCode(options));
+        });
     }
     async login(options = {}) {
         console.log(chalk_1.default.blue('🔐 Manuel Login\n'));
@@ -340,6 +347,32 @@ class AuthCommand {
         catch (error) {
             spinner.fail('Confirmation failed');
             throw new error_1.CLIError(`Confirmation failed: ${error}`);
+        }
+    }
+    async resendConfirmationCode(options = {}) {
+        console.log(chalk_1.default.blue('📧 Resend Confirmation Code\n'));
+        let email = options.email;
+        if (!email) {
+            const answers = await inquirer_1.default.prompt([
+                {
+                    type: 'input',
+                    name: 'email',
+                    message: 'Email:',
+                    validate: validation_1.validateEmail,
+                },
+            ]);
+            email = answers.email;
+        }
+        const spinner = (0, ora_1.default)('Resending confirmation code...').start();
+        try {
+            await shared_1.authService.resendConfirmationCode(email);
+            spinner.succeed(chalk_1.default.green('Confirmation code sent!'));
+            console.log(chalk_1.default.yellow('\n📧 Please check your email for a new confirmation code.'));
+            console.log(chalk_1.default.gray('Use "manuel auth confirm" to verify your account.'));
+        }
+        catch (error) {
+            spinner.fail('Failed to resend confirmation code');
+            throw new error_1.CLIError(`Resend failed: ${error}`);
         }
     }
 }
