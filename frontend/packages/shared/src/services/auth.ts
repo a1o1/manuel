@@ -34,10 +34,6 @@ class AuthService {
           Name: 'name',
           Value: userName,
         }),
-        new CognitoUserAttribute({
-          Name: 'name.formatted',
-          Value: userName,
-        }),
       ];
 
       this.userPool.signUp(

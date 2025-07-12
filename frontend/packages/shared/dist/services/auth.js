@@ -23,10 +23,6 @@ class AuthService {
                     Name: 'name',
                     Value: userName,
                 }),
-                new amazon_cognito_identity_js_1.CognitoUserAttribute({
-                    Name: 'name.formatted',
-                    Value: userName,
-                }),
             ];
             this.userPool.signUp(request.email, request.password, attributeList, [], (err, result) => {
                 if (err) {
