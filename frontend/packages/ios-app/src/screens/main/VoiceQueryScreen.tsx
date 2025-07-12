@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAudio, queryService } from '@manuel/shared';
+import { useNavigation } from '@react-navigation/native';
+import { useAudioRecording } from '../../hooks/useAudioRecording';
+import { queryService } from '../../services';
 
-interface QueryResult {
+interface VoiceQueryResult {
+  transcription: string;
   answer: string;
   sources?: Array<{
     manual_name: string;
@@ -18,202 +20,234 @@ interface QueryResult {
 
 export function VoiceQueryScreen() {
   const navigation = useNavigation();
-  const { startRecording, stopRecording, isRecording } = useAudio();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [result, setResult] = useState<QueryResult | null>(null);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [pulseAnim] = useState(new Animated.Value(1));
+  const [result, setResult] = useState<VoiceQueryResult | null>(null);
+
+  const {
+    state,
+    isRecording,
+    isPaused,
+    duration,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    cancelRecording,
+    hasPermission,
+    requestPermission,
+  } = useAudioRecording();
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    // Request permission when component mounts
+    requestPermission();
+  }, [requestPermission]);
 
-    if (isRecording) {
-      // Start pulse animation
-      const pulse = () => {
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          if (isRecording) pulse();
-        });
-      };
-      pulse();
-
-      // Start timer
-      interval = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      // Stop pulse animation
-      pulseAnim.setValue(1);
-      setRecordingTime(0);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRecording, pulseAnim]);
+  const formatDuration = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const handleStartRecording = async () => {
     try {
+      if (!hasPermission) {
+        const granted = await requestPermission();
+        if (!granted) {
+          Alert.alert(
+            'Microphone Permission Required',
+            'Please allow microphone access to record voice queries.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+
+      setResult(null);
       await startRecording();
     } catch (error) {
-      Alert.alert('Error', 'Failed to start recording. Please check microphone permissions.');
+      Alert.alert('Recording Error', 'Failed to start recording. Please try again.');
     }
   };
 
   const handleStopRecording = async () => {
     setIsProcessing(true);
-
     try {
-      const recording = await stopRecording();
-      const audioBase64 = await recording.convertToBase64();
+      const recordingResult = await stopRecording();
 
-      const response = await queryService.voiceQuery(audioBase64, { includeSources: true });
-      setResult(response);
+      if (recordingResult && recordingResult.audioBlob) {
+        // Process the audio with our query service
+        const queryResult = await queryService.voiceQuery(recordingResult.audioBlob, {
+          includeSources: true
+        });
+
+        setResult(queryResult);
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to process voice query. Please try again.');
+      Alert.alert('Processing Error', 'Failed to process your voice query. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const handleCancelRecording = () => {
+    cancelRecording();
+    setResult(null);
   };
 
-  const handleDone = () => {
-    navigation.goBack();
+  const getRecordingButtonColor = () => {
+    if (isRecording) return '#FF3B30';
+    if (isPaused) return '#FF9500';
+    return '#34C759';
   };
 
-  if (result) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleDone}>
-            <Text style={styles.doneButton}>Done</Text>
-          </TouchableOpacity>
-        </View>
+  const getRecordingButtonIcon = () => {
+    if (isProcessing) return 'hourglass-outline';
+    if (isRecording) return 'stop-outline';
+    if (isPaused) return 'play-outline';
+    return 'mic-outline';
+  };
 
-        <View style={styles.resultContainer}>
-          <View style={styles.resultHeader}>
-            <View style={styles.successIcon}>
-              <Ionicons name="checkmark" size={24} color="#34C759" />
-            </View>
-            <Text style={styles.resultTitle}>Answer</Text>
-          </View>
+  const getRecordingButtonText = () => {
+    if (isProcessing) return 'Processing...';
+    if (isRecording) return 'Tap to stop recording';
+    if (isPaused) return 'Tap to resume';
+    if (state === 'stopped') return 'Tap to record again';
+    return 'Tap to start recording';
+  };
 
-          <View style={styles.answerCard}>
-            <Text style={styles.answerText}>{result.answer}</Text>
-          </View>
+  const handleRecordingButtonPress = () => {
+    if (isProcessing) return;
 
-          <View style={styles.metaInfo}>
-            <Text style={styles.metaText}>
-              Response time: {result.responseTime}ms • Cost: ${result.cost.toFixed(4)}
-            </Text>
-          </View>
-
-          {result.sources && result.sources.length > 0 && (
-            <View style={styles.sourcesSection}>
-              <Text style={styles.sourcesTitle}>Sources</Text>
-              {result.sources.slice(0, 2).map((source, index) => (
-                <View key={index} style={styles.sourceCard}>
-                  <View style={styles.sourceHeader}>
-                    <Text style={styles.sourceName}>{source.manual_name}</Text>
-                    {source.page_number && (
-                      <Text style={styles.pageNumber}>Page {source.page_number}</Text>
-                    )}
-                  </View>
-                  <Text style={styles.sourceText} numberOfLines={2}>
-                    {source.chunk_text}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.newQueryButton}
-            onPress={() => setResult(null)}
-          >
-            <Text style={styles.newQueryButtonText}>Ask Another Question</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
+    if (state === 'idle' || state === 'stopped') {
+      handleStartRecording();
+    } else if (isRecording) {
+      handleStopRecording();
+    } else if (isPaused) {
+      resumeRecording();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.cancelButton}>Cancel</Text>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="close" size={24} color="#8E8E93" />
         </TouchableOpacity>
+        <Text style={styles.title}>Voice Query</Text>
+        <View style={styles.headerRight} />
       </View>
 
-      <View style={styles.content}>
-        <View style={styles.instructions}>
-          <Text style={styles.title}>Voice Query</Text>
-          <Text style={styles.subtitle}>
-            {isRecording
-              ? 'Listening... Speak your question now'
-              : isProcessing
-              ? 'Processing your question...'
-              : 'Tap the microphone to start asking your question'
-            }
-          </Text>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.instructionContainer}>
+          <Text style={styles.subtitle}>Ask Manuel anything about your manuals</Text>
+          {!hasPermission && (
+            <View style={styles.permissionWarning}>
+              <Ionicons name="warning-outline" size={20} color="#FF9500" />
+              <Text style={styles.permissionText}>Microphone permission required</Text>
+            </View>
+          )}
         </View>
 
-        <View style={styles.recordingArea}>
-          {isRecording && (
-            <Text style={styles.timer}>{formatTime(recordingTime)}</Text>
+        <View style={styles.recordingContainer}>
+          <TouchableOpacity
+            style={[styles.recordingButton, { backgroundColor: getRecordingButtonColor() }]}
+            onPress={handleRecordingButtonPress}
+            disabled={isProcessing}
+          >
+            <Ionicons name={getRecordingButtonIcon()} size={48} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <Text style={styles.recordingText}>{getRecordingButtonText()}</Text>
+
+          {(isRecording || isPaused) && (
+            <View style={styles.recordingControls}>
+              <Text style={styles.durationText}>{formatDuration(duration)}</Text>
+
+              <View style={styles.controlButtons}>
+                {isRecording && (
+                  <TouchableOpacity style={styles.controlButton} onPress={pauseRecording}>
+                    <Ionicons name="pause-outline" size={20} color="#007AFF" />
+                    <Text style={styles.controlButtonText}>Pause</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity style={styles.controlButton} onPress={handleCancelRecording}>
+                  <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                  <Text style={styles.controlButtonText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
 
-          <Animated.View style={[styles.micContainer, { transform: [{ scale: pulseAnim }] }]}>
+          {state === 'stopped' && !isProcessing && !result && (
+            <View style={styles.recordingComplete}>
+              <Ionicons name="checkmark-circle-outline" size={24} color="#34C759" />
+              <Text style={styles.recordingCompleteText}>Recording complete!</Text>
+            </View>
+          )}
+        </View>
+
+        {result && (
+          <View style={styles.resultContainer}>
+            <View style={styles.resultHeader}>
+              <Ionicons name="chatbubble-outline" size={20} color="#007AFF" />
+              <Text style={styles.resultTitle}>Query Result</Text>
+            </View>
+
+            {result.transcription && (
+              <View style={styles.transcriptionCard}>
+                <Text style={styles.transcriptionLabel}>You said:</Text>
+                <Text style={styles.transcriptionText}>"{result.transcription}"</Text>
+              </View>
+            )}
+
+            <View style={styles.answerCard}>
+              <Text style={styles.answerLabel}>Answer:</Text>
+              <Text style={styles.answerText}>{result.answer}</Text>
+            </View>
+
+            <View style={styles.metaInfo}>
+              <Text style={styles.metaText}>
+                Response time: {result.responseTime}ms • Cost: ${result.cost.toFixed(4)}
+              </Text>
+            </View>
+
+            {result.sources && result.sources.length > 0 && (
+              <View style={styles.sourcesSection}>
+                <Text style={styles.sourcesTitle}>Sources</Text>
+                {result.sources.map((source, index) => (
+                  <View key={index} style={styles.sourceCard}>
+                    <View style={styles.sourceHeader}>
+                      <Text style={styles.sourceName}>{source.manual_name}</Text>
+                      {source.page_number && (
+                        <Text style={styles.pageNumber}>Page {source.page_number}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.sourceText} numberOfLines={3}>
+                      {source.chunk_text}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             <TouchableOpacity
-              style={[
-                styles.micButton,
-                isRecording && styles.micButtonRecording,
-                isProcessing && styles.micButtonProcessing,
-              ]}
-              onPress={isRecording ? handleStopRecording : handleStartRecording}
-              disabled={isProcessing}
+              style={styles.newQueryButton}
+              onPress={() => {
+                setResult(null);
+                handleStartRecording();
+              }}
             >
-              <Ionicons
-                name={isRecording ? "stop" : isProcessing ? "time" : "mic"}
-                size={48}
-                color="#FFFFFF"
-              />
+              <Ionicons name="mic-outline" size={16} color="#007AFF" />
+              <Text style={styles.newQueryButtonText}>Ask Another Question</Text>
             </TouchableOpacity>
-          </Animated.View>
-
-          <Text style={styles.micLabel}>
-            {isRecording
-              ? 'Tap to stop'
-              : isProcessing
-              ? 'Processing...'
-              : 'Tap to start'
-            }
-          </Text>
-        </View>
-
-        <View style={styles.tips}>
-          <Text style={styles.tipsTitle}>Tips for better results:</Text>
-          <Text style={styles.tipText}>• Speak clearly and at a normal pace</Text>
-          <Text style={styles.tipText}>• Be specific with your question</Text>
-          <Text style={styles.tipText}>• Mention the product name if relevant</Text>
-        </View>
-      </View>
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -221,127 +255,166 @@ export function VoiceQueryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#F2F2F7',
   },
   header: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
   },
-  cancelButton: {
-    fontSize: 17,
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
-  doneButton: {
-    fontSize: 17,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-  },
-  instructions: {
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 40,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  headerRight: {
+    width: 32,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 20,
+  },
+  instructionContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
   subtitle: {
     fontSize: 16,
     color: '#8E8E93',
     textAlign: 'center',
-    lineHeight: 22,
+    marginBottom: 16,
   },
-  recordingArea: {
+  permissionWarning: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 40,
+    backgroundColor: '#FF950015',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
-  timer: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FF3B30',
-    marginBottom: 20,
+  permissionText: {
+    fontSize: 14,
+    color: '#FF9500',
+    marginLeft: 8,
+    fontWeight: '500',
   },
-  micContainer: {
-    marginBottom: 20,
+  recordingContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
-  micButton: {
+  recordingButton: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  micButtonRecording: {
-    backgroundColor: '#FF3B30',
-  },
-  micButtonProcessing: {
-    backgroundColor: '#8E8E93',
-  },
-  micLabel: {
+  recordingText: {
     fontSize: 16,
     color: '#8E8E93',
-    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 16,
   },
-  tips: {
-    paddingBottom: 40,
-  },
-  tipsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 12,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    marginBottom: 4,
-    lineHeight: 20,
-  },
-  resultContainer: {
-    flex: 1,
-    backgroundColor: '#F2F2F7',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-  },
-  resultHeader: {
+  recordingControls: {
     alignItems: 'center',
-    marginBottom: 24,
+    width: '100%',
   },
-  successIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#34C75915',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  resultTitle: {
+  durationText: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000000',
+    marginBottom: 16,
   },
-  answerCard: {
+  controlButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 24,
+  },
+  controlButton: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  controlButtonText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 4,
+  },
+  recordingComplete: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#34C75915',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  recordingCompleteText: {
+    fontSize: 14,
+    color: '#34C759',
+    fontWeight: '500',
+    marginLeft: 8,
+  },
+  resultContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 20,
+  },
+  resultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  resultTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+    marginLeft: 8,
+  },
+  transcriptionCard: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  transcriptionLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  transcriptionText: {
+    fontSize: 14,
+    color: '#000000',
+    fontStyle: 'italic',
+  },
+  answerCard: {
     marginBottom: 12,
+  },
+  answerLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    fontWeight: '500',
+    marginBottom: 8,
   },
   answerText: {
     fontSize: 16,
@@ -349,7 +422,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   metaInfo: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   metaText: {
     fontSize: 12,
@@ -357,51 +430,54 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   sourcesSection: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sourcesTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
     color: '#000000',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   sourceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 8,
   },
   sourceHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   sourceName: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#000000',
     flex: 1,
   },
   pageNumber: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#8E8E93',
     fontWeight: '500',
   },
   sourceText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#8E8E93',
-    lineHeight: 20,
+    lineHeight: 16,
   },
   newQueryButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 16,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF15',
+    paddingVertical: 12,
+    borderRadius: 8,
   },
   newQueryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+    marginLeft: 6,
   },
 });

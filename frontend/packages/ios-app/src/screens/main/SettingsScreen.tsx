@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '@manuel/shared';
+import { useAuth, useUsage } from '../../contexts/AppContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -27,6 +27,7 @@ interface SettingsItem {
 export function SettingsScreen() {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const { user, logout } = useAuth();
+  const { usage, isLoading } = useUsage();
 
   const handleLogout = () => {
     Alert.alert(
@@ -59,14 +60,6 @@ export function SettingsScreen() {
           icon: 'person-outline',
           iconColor: '#007AFF',
           onPress: () => Alert.alert('Coming Soon', 'Profile editing will be available soon'),
-          rightElement: 'arrow',
-        },
-        {
-          title: 'Usage Statistics',
-          subtitle: 'View your query usage and costs',
-          icon: 'analytics-outline',
-          iconColor: '#5856D6',
-          onPress: () => navigation.navigate('Usage'),
           rightElement: 'arrow',
         },
       ],
@@ -187,17 +180,56 @@ export function SettingsScreen() {
           <View style={styles.profileCard}>
             <View style={styles.profileAvatar}>
               <Text style={styles.profileInitial}>
-                {user.firstName?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || 'U'}
+                {user.name?.charAt(0)?.toUpperCase() || user.email?.charAt(0)?.toUpperCase() || 'U'}
               </Text>
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>
-                {user.firstName && user.lastName
-                  ? `${user.firstName} ${user.lastName}`
-                  : user.firstName || 'User'
-                }
+                {user.name || 'User'}
               </Text>
               <Text style={styles.profileEmail}>{user.email}</Text>
+            </View>
+          </View>
+        )}
+
+        {!isLoading && usage && (
+          <View style={styles.usageCard}>
+            <View style={styles.usageHeader}>
+              <View style={styles.usageIcon}>
+                <Ionicons name="analytics-outline" size={20} color="#5856D6" />
+              </View>
+              <Text style={styles.usageTitle}>Usage Statistics</Text>
+            </View>
+
+            <View style={styles.usageStats}>
+              <View style={styles.usageStat}>
+                <Text style={styles.usageNumber}>{usage.dailyQueries}</Text>
+                <Text style={styles.usageLabel}>Today</Text>
+              </View>
+              <View style={styles.usageDivider} />
+              <View style={styles.usageStat}>
+                <Text style={styles.usageNumber}>{usage.dailyRemaining}</Text>
+                <Text style={styles.usageLabel}>Remaining</Text>
+              </View>
+              <View style={styles.usageDivider} />
+              <View style={styles.usageStat}>
+                <Text style={styles.usageNumber}>${usage.dailyCost.toFixed(2)}</Text>
+                <Text style={styles.usageLabel}>Cost</Text>
+              </View>
+            </View>
+
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min((usage.dailyQueries / usage.dailyLimit) * 100, 100)}%` }
+                  ]}
+                />
+              </View>
+              <Text style={styles.progressText}>
+                {usage.dailyQueries} of {usage.dailyLimit} queries used today
+              </Text>
             </View>
           </View>
         )}
@@ -271,6 +303,76 @@ const styles = StyleSheet.create({
   profileEmail: {
     fontSize: 14,
     color: '#8E8E93',
+  },
+  usageCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 12,
+    padding: 20,
+  },
+  usageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  usageIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#5856D615',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  usageTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  usageStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
+  },
+  usageStat: {
+    alignItems: 'center',
+  },
+  usageNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 4,
+  },
+  usageLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    fontWeight: '500',
+  },
+  usageDivider: {
+    width: 1,
+    backgroundColor: '#D1D1D6',
+    marginHorizontal: 16,
+  },
+  progressContainer: {
+    marginTop: 8,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 2,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#5856D6',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
   },
   section: {
     marginTop: 32,

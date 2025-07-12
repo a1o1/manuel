@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { manualsService } from '@manuel/shared';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import { manualsService } from '../../services';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -12,18 +12,18 @@ type ManualDetailRouteProp = RouteProp<MainStackParamList, 'ManualDetail'>;
 interface ManualDetail {
   id: string;
   name: string;
-  uploadedAt: string;
-  fileSize: number;
-  status: 'processing' | 'ready' | 'error';
-  pageCount?: number;
-  description?: string;
-  lastQueried?: string;
-  queryCount?: number;
+  uploadDate: string;
+  pages: number;
+  size: string;
+  status: string;
+  chunks: number;
+  lastQueried: string;
+  queryCount: number;
 }
 
 export function ManualDetailScreen() {
-  const navigation = useNavigation();
   const route = useRoute<ManualDetailRouteProp>();
+  const navigation = useNavigation();
   const { manualId } = route.params;
 
   const [manual, setManual] = useState<ManualDetail | null>(null);
@@ -35,8 +35,8 @@ export function ManualDetailScreen() {
 
   const loadManualDetail = async () => {
     try {
-      const response = await manualsService.getManual(manualId);
-      setManual(response);
+      const manualData = await manualsService.getManualDetail(manualId);
+      setManual(manualData);
     } catch (error) {
       Alert.alert('Error', 'Failed to load manual details');
       navigation.goBack();
@@ -50,7 +50,7 @@ export function ManualDetailScreen() {
 
     Alert.alert(
       'Delete Manual',
-      `Are you sure you want to delete "${manual.name}"? This action cannot be undone.`,
+      `Are you sure you want to delete "${manual.name}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -59,66 +59,15 @@ export function ManualDetailScreen() {
           onPress: async () => {
             try {
               await manualsService.deleteManual(manual.id);
+              Alert.alert('Success', 'Manual deleted successfully');
               navigation.goBack();
             } catch (error) {
               Alert.alert('Error', 'Failed to delete manual');
             }
-          },
-        },
+          }
+        }
       ]
     );
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-  };
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getStatusIcon = (status: ManualDetail['status']) => {
-    switch (status) {
-      case 'processing':
-        return <Ionicons name="time-outline" size={20} color="#FF9500" />;
-      case 'ready':
-        return <Ionicons name="checkmark-circle-outline" size={20} color="#34C759" />;
-      case 'error':
-        return <Ionicons name="alert-circle-outline" size={20} color="#FF3B30" />;
-    }
-  };
-
-  const getStatusText = (status: ManualDetail['status']) => {
-    switch (status) {
-      case 'processing':
-        return 'Processing - Manual is being analyzed and indexed';
-      case 'ready':
-        return 'Ready - Manual is available for queries';
-      case 'error':
-        return 'Error - Manual processing failed';
-    }
-  };
-
-  const getStatusColor = (status: ManualDetail['status']) => {
-    switch (status) {
-      case 'processing':
-        return '#FF9500';
-      case 'ready':
-        return '#34C759';
-      case 'error':
-        return '#FF3B30';
-    }
   };
 
   if (isLoading) {
@@ -135,7 +84,14 @@ export function ManualDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Manual not found</Text>
+          <Ionicons name="alert-circle-outline" size={48} color="#FF3B30" />
+          <Text style={styles.errorTitle}>Manual Not Found</Text>
+          <Text style={styles.errorText}>
+            This manual could not be loaded. It may have been deleted.
+          </Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -145,124 +101,95 @@ export function ManualDetailScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
-          <View style={styles.iconContainer}>
+          <View style={styles.manualIcon}>
             <Ionicons name="document-text-outline" size={32} color="#007AFF" />
           </View>
-          <Text style={styles.title} numberOfLines={3}>
-            {manual.name}
-          </Text>
-        </View>
-
-        <View style={styles.statusCard}>
-          <View style={styles.statusHeader}>
-            {getStatusIcon(manual.status)}
-            <Text style={[styles.statusText, { color: getStatusColor(manual.status) }]}>
-              {manual.status.charAt(0).toUpperCase() + manual.status.slice(1)}
+          <View style={styles.headerInfo}>
+            <Text style={styles.title} numberOfLines={2}>
+              {manual.name}
+            </Text>
+            <Text style={styles.uploadDate}>
+              Uploaded on {manual.uploadDate}
             </Text>
           </View>
-          <Text style={styles.statusDescription}>
-            {getStatusText(manual.status)}
-          </Text>
         </View>
 
-        <View style={styles.detailsCard}>
-          <Text style={styles.cardTitle}>Details</Text>
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>File Size</Text>
-            <Text style={styles.detailValue}>{formatFileSize(manual.fileSize)}</Text>
+        <View style={styles.statsSection}>
+          <View style={styles.statCard}>
+            <Ionicons name="document-outline" size={20} color="#007AFF" />
+            <Text style={styles.statNumber}>{manual.pages}</Text>
+            <Text style={styles.statLabel}>Pages</Text>
           </View>
 
-          {manual.pageCount && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Pages</Text>
-              <Text style={styles.detailValue}>{manual.pageCount}</Text>
-            </View>
-          )}
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Uploaded</Text>
-            <Text style={styles.detailValue}>{formatDate(manual.uploadedAt)}</Text>
+          <View style={styles.statCard}>
+            <Ionicons name="cube-outline" size={20} color="#34C759" />
+            <Text style={styles.statNumber}>{manual.chunks}</Text>
+            <Text style={styles.statLabel}>Chunks</Text>
           </View>
 
-          {manual.queryCount !== undefined && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Times Queried</Text>
-              <Text style={styles.detailValue}>{manual.queryCount}</Text>
-            </View>
-          )}
+          <View style={styles.statCard}>
+            <Ionicons name="chatbubble-outline" size={20} color="#5856D6" />
+            <Text style={styles.statNumber}>{manual.queryCount}</Text>
+            <Text style={styles.statLabel}>Queries</Text>
+          </View>
 
-          {manual.lastQueried && (
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Last Queried</Text>
-              <Text style={styles.detailValue}>{formatDate(manual.lastQueried)}</Text>
-            </View>
-          )}
+          <View style={styles.statCard}>
+            <Ionicons name="archive-outline" size={20} color="#FF9500" />
+            <Text style={styles.statNumber}>{manual.size}</Text>
+            <Text style={styles.statLabel}>Size</Text>
+          </View>
         </View>
 
-        {manual.description && (
-          <View style={styles.descriptionCard}>
-            <Text style={styles.cardTitle}>Description</Text>
-            <Text style={styles.descriptionText}>{manual.description}</Text>
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Information</Text>
+
+          <View style={styles.infoCard}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Status</Text>
+              <View style={styles.statusBadge}>
+                <Ionicons name="checkmark-circle-outline" size={16} color="#34C759" />
+                <Text style={styles.statusText}>Processed</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Last Queried</Text>
+              <Text style={styles.infoValue}>{manual.lastQueried}</Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Processing</Text>
+              <Text style={styles.infoValue}>Complete</Text>
+            </View>
           </View>
-        )}
+        </View>
 
-        <View style={styles.actionsCard}>
-          <Text style={styles.cardTitle}>Actions</Text>
+        <View style={styles.actionsSection}>
+          <Text style={styles.sectionTitle}>Actions</Text>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              // Navigate to query screen with manual context
-              navigation.navigate('MainTabs', {
-                screen: 'Query',
-                params: { manualId: manual.id }
-              });
-            }}
-          >
-            <View style={styles.actionButtonContent}>
-              <View style={styles.actionIcon}>
-                <Ionicons name="chatbubble-outline" size={20} color="#007AFF" />
-              </View>
-              <View style={styles.actionText}>
-                <Text style={styles.actionTitle}>Ask Questions</Text>
-                <Text style={styles.actionSubtitle}>Query this specific manual</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </View>
+          <TouchableOpacity style={styles.actionButton}>
+            <Ionicons name="search-outline" size={20} color="#007AFF" />
+            <Text style={styles.actionButtonText}>Search in Manual</Text>
+            <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              Alert.alert('Coming Soon', 'Manual preview will be available soon');
-            }}
-          >
-            <View style={styles.actionButtonContent}>
-              <View style={styles.actionIcon}>
-                <Ionicons name="eye-outline" size={20} color="#34C759" />
-              </View>
-              <View style={styles.actionText}>
-                <Text style={styles.actionTitle}>Preview</Text>
-                <Text style={styles.actionSubtitle}>View manual content</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
-            </View>
+          <TouchableOpacity style={styles.actionButton}>
+            <Ionicons name="download-outline" size={20} color="#007AFF" />
+            <Text style={styles.actionButtonText}>Download Original</Text>
+            <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={handleDelete}
-          >
-            <View style={styles.actionButtonContent}>
-              <View style={[styles.actionIcon, { backgroundColor: '#FF3B3015' }]}>
-                <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-              </View>
-              <View style={styles.actionText}>
-                <Text style={[styles.actionTitle, { color: '#FF3B30' }]}>Delete Manual</Text>
-                <Text style={styles.actionSubtitle}>Permanently remove this manual</Text>
-              </View>
-            </View>
+          <TouchableOpacity style={styles.actionButton}>
+            <Ionicons name="share-outline" size={20} color="#007AFF" />
+            <Text style={styles.actionButtonText}>Share Manual</Text>
+            <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.dangerSection}>
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+            <Text style={styles.deleteButtonText}>Delete Manual</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -274,9 +201,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F2F2F7',
-  },
-  scrollView: {
-    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -291,138 +215,169 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
-  errorText: {
-    fontSize: 16,
-    color: '#FF3B30',
-  },
-  header: {
-    backgroundColor: '#FFFFFF',
-    padding: 24,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#007AFF15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
+  errorTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: '#000000',
-    textAlign: 'center',
-    lineHeight: 26,
-  },
-  statusCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
     marginTop: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 8,
   },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  statusDescription: {
+  errorText: {
     fontSize: 14,
     color: '#8E8E93',
+    textAlign: 'center',
     lineHeight: 20,
+    marginBottom: 24,
   },
-  detailsCard: {
+  backButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    marginBottom: 16,
   },
-  cardTitle: {
+  manualIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#007AFF15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 4,
+  },
+  uploadDate: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  statsSection: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginHorizontal: 4,
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+  },
+  infoSection: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#000000',
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  detailRow: {
+  infoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+  },
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
   },
-  detailLabel: {
+  infoLabel: {
     fontSize: 16,
     color: '#000000',
   },
-  detailValue: {
+  infoValue: {
     fontSize: 16,
     color: '#8E8E93',
-    textAlign: 'right',
-    flex: 1,
-    marginLeft: 16,
   },
-  descriptionCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  descriptionText: {
-    fontSize: 16,
-    color: '#000000',
-    lineHeight: 24,
-  },
-  actionsCard: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 24,
-    borderRadius: 12,
-    padding: 16,
-  },
-  actionButton: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-  },
-  deleteButton: {
-    borderBottomWidth: 0,
-  },
-  actionButtonContent: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#34C75915',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
-  actionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#007AFF15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  actionText: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#000000',
-    marginBottom: 2,
-  },
-  actionSubtitle: {
+  statusText: {
     fontSize: 12,
-    color: '#8E8E93',
+    color: '#34C759',
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  actionsSection: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  actionButton: {
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  actionButtonText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000000',
+    marginLeft: 12,
+  },
+  dangerSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+  },
+  deleteButton: {
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

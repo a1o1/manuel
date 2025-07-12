@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth, useUsage } from '@manuel/shared';
+import { useAuth, useUsage } from '../../contexts/AppContext';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -36,13 +36,6 @@ export function HomeScreen() {
       color: '#FF9500',
       onPress: () => navigation.navigate('MainTabs', { screen: 'Manuals' }),
     },
-    {
-      title: 'Usage Stats',
-      subtitle: 'View your usage',
-      icon: 'analytics-outline' as const,
-      color: '#5856D6',
-      onPress: () => navigation.navigate('Usage'),
-    },
   ];
 
   return (
@@ -51,7 +44,7 @@ export function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>
-              Hello{user?.firstName ? `, ${user.firstName}` : ''}!
+              Hello{user?.name ? `, ${user.name}` : ''}!
             </Text>
             <Text style={styles.subtitle}>How can Manuel help you today?</Text>
           </View>
@@ -61,7 +54,7 @@ export function HomeScreen() {
           <View style={styles.usageCard}>
             <View style={styles.usageHeader}>
               <Text style={styles.usageTitle}>Today's Usage</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Usage')}>
+              <TouchableOpacity onPress={() => navigation.navigate('MainTabs', { screen: 'Settings' })}>
                 <Text style={styles.viewMoreLink}>View Details</Text>
               </TouchableOpacity>
             </View>

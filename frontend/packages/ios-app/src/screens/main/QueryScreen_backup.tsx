@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Keyboa
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { queryService } from '../../services';
+import { queryService } from '@manuel/shared';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -100,26 +100,15 @@ export function QueryScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={[styles.submitButton, (!query.trim() || isLoading) && styles.submitButtonDisabled]}
-                onPress={handleSubmit}
-                disabled={!query.trim() || isLoading}
-              >
-                <Ionicons name="send-outline" size={16} color="#FFFFFF" />
-                <Text style={styles.submitButtonText}>
-                  {isLoading ? 'Getting Answer...' : 'Ask Manuel'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.voiceQueryButton}
-                onPress={() => navigation.navigate('VoiceQuery')}
-              >
-                <Ionicons name="mic-outline" size={16} color="#007AFF" />
-                <Text style={styles.voiceQueryButtonText}>Voice Query</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.submitButton, (!query.trim() || isLoading) && styles.submitButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={!query.trim() || isLoading}
+            >
+              <Text style={styles.submitButtonText}>
+                {isLoading ? 'Getting Answer...' : 'Ask Manuel'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {result && (
@@ -177,6 +166,9 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   inputSection: {
     backgroundColor: '#FFFFFF',
@@ -244,16 +236,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
   submitButton: {
-    flex: 1,
     backgroundColor: '#007AFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 16,
     borderRadius: 12,
   },
@@ -264,25 +248,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '600',
-    marginLeft: 6,
-  },
-  voiceQueryButton: {
-    backgroundColor: '#007AFF15',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  voiceQueryButtonText: {
-    color: '#007AFF',
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
-  scrollContent: {
-    flexGrow: 1,
+    textAlign: 'center',
   },
   resultSection: {
     padding: 20,
