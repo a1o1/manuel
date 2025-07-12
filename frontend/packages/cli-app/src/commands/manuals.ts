@@ -36,6 +36,7 @@ export class ManualsCommand {
 
     program
       .command('download <url>')
+      .alias('url')
       .description('Download a manual from URL')
       .option('-n, --name <name>', 'Custom filename')
       .action(async (url, options) => {

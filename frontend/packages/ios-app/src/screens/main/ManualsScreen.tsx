@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl, ActionSheetIOS, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { manualsService } from '@manuel/shared';
+import { UrlUploadModal } from '../../components/UrlUploadModal';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -23,6 +24,7 @@ export function ManualsScreen() {
   const [manuals, setManuals] = useState<Manual[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showUrlUploadModal, setShowUrlUploadModal] = useState(false);
 
   const loadManuals = async (showRefresh = false) => {
     if (showRefresh) setIsRefreshing(true);
@@ -47,6 +49,32 @@ export function ManualsScreen() {
     loadManuals(true);
   };
 
+  const handleAddManual = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: 'Add Manual',
+          options: ['Upload from Device', 'Upload from URL', 'Cancel'],
+          cancelButtonIndex: 2,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 0) {
+            // Upload from device - placeholder for future file picker
+            Alert.alert('Coming Soon', 'File upload from device will be available soon');
+          } else if (buttonIndex === 1) {
+            setShowUrlUploadModal(true);
+          }
+        }
+      );
+    } else {
+      // Android fallback - show URL upload directly for now
+      setShowUrlUploadModal(true);
+    }
+  };
+
+  const handleUrlUploadSuccess = () => {
+    loadManuals(true); // Refresh the list
+  };
   const handleDeleteManual = (manual: Manual) => {
     Alert.alert(
       'Delete Manual',
@@ -172,7 +200,7 @@ export function ManualsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Your Manuals</Text>
-        <TouchableOpacity style={styles.addButton}>
+        <TouchableOpacity style={styles.addButton} onPress={handleAddManual}>
           <Ionicons name="add" size={24} color="#007AFF" />
         </TouchableOpacity>
       </View>
@@ -186,7 +214,7 @@ export function ManualsScreen() {
           <Text style={styles.emptySubtitle}>
             Upload your first manual to start asking questions
           </Text>
-          <TouchableOpacity style={styles.uploadButton}>
+          <TouchableOpacity style={styles.uploadButton} onPress={handleAddManual}>
             <Text style={styles.uploadButtonText}>Upload Manual</Text>
           </TouchableOpacity>
         </View>
@@ -206,6 +234,12 @@ export function ManualsScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <UrlUploadModal
+        visible={showUrlUploadModal}
+        onClose={() => setShowUrlUploadModal(false)}
+        onSuccess={handleUrlUploadSuccess}
+      />
     </SafeAreaView>
   );
 }

@@ -235,8 +235,8 @@ export class InteractiveMode {
         message: 'Manual management:',
         choices: [
           { name: 'List all manuals', value: 'list' },
-          { name: 'Upload new manual', value: 'upload' },
-          { name: 'Download manual from URL', value: 'download' },
+          { name: 'Upload from device', value: 'upload' },
+          { name: '🌐 Upload from URL', value: 'download' },
           { name: 'Delete manual', value: 'delete' },
           { name: 'Interactive management', value: 'interactive' },
           { name: 'Back to main menu', value: 'back' },

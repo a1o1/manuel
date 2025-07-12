@@ -34,6 +34,10 @@ class ManualService {
     return response.data!;
   }
 
+  // Upload manual from URL (alias for downloadManual for clarity)
+  async uploadFromUrl(url: string, filename?: string): Promise<ManualUploadResponse> {
+    return this.downloadManual({ url, filename });
+  }
   // Delete manual
   async deleteManual(key: string): Promise<void> {
     await apiService.delete(`/api/manuals/${encodeURIComponent(key)}`);
