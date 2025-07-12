@@ -6,7 +6,8 @@ class ManualService {
     // Get all manuals
     async getManuals() {
         const response = await api_1.apiService.get('/api/manuals');
-        return response.data || { manuals: [], count: 0 };
+        // Backend returns data directly, not wrapped in ApiResponse
+        return response || { manuals: [], count: 0 };
     }
     // Upload manual file
     async uploadManual(request) {

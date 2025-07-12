@@ -61,8 +61,11 @@ npm install -g @manuel/cli
 # Sign in to your account
 manuel auth login
 
-# Ask a question
-manuel query "How do I reset my WiFi router?"
+# List your manuals
+manuel manuals list
+
+# Ask a question (with sources)
+manuel ask "How do I reset my WiFi router?" --sources
 
 # Start interactive mode
 manuel
@@ -70,6 +73,56 @@ manuel
 # Get help
 manuel --help
 ```
+
+## Recent Updates (December 2025)
+
+### ✅ All Major Issues Resolved
+
+The CLI has been fully debugged and is now working correctly:
+
+- **Authentication Fixed**: Now uses ID tokens instead of access tokens for API
+  Gateway compatibility
+- **Token Refresh**: Proper Cognito token refresh mechanism implemented
+- **API Response Parsing**: Fixed response format mismatches between frontend
+  and backend
+- **Sources Display**: Proper source references with confidence scores
+- **Field Mapping**: Resolved all field name mismatches (question/query,
+  answer/response, etc.)
+- **Infinite Loop Prevention**: Fixed retry loops in authentication interceptors
+
+### 🎯 Current Working Status
+
+All core functionality is operational:
+
+- ✅ User authentication and signup with email confirmation
+- ✅ Manual listing with proper formatting
+- ✅ Text queries with accurate AI responses
+- ✅ Source citations with confidence scores
+- ✅ Proper error handling and timeouts
+
+### 🔧 Technical Fixes Implemented
+
+**Authentication & Tokens**:
+
+- Changed from access tokens to ID tokens for API Gateway Cognito authorizer
+  compatibility
+- Fixed token refresh mechanism to use Cognito's refresh token flow instead of
+  non-existent endpoint
+- Added proper error handling for authentication failures and token expiry
+
+**API Communication**:
+
+- Fixed parameter mapping: frontend 'query' → backend 'question'
+- Fixed response mapping: backend 'answer' → frontend 'response'
+- Updated Manual interface: 'key' → 'id', 'last_modified' → 'upload_date'
+- Fixed sources structure to include proper metadata with confidence scores
+
+**Error Handling**:
+
+- Added `_retry` flag to prevent infinite authentication loops
+- Improved timeout handling with user-friendly messages
+- Enhanced error messages for common issues (authentication, network,
+  validation)
 
 ## Command Reference
 

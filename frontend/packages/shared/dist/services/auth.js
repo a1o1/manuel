@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.authService = void 0;
 const amazon_cognito_identity_js_1 = require("amazon-cognito-identity-js");
 const constants_1 = require("../constants");
+const storage_1 = require("../utils/storage");
 class AuthService {
     constructor() {
         this.userPool = new amazon_cognito_identity_js_1.CognitoUserPool({
@@ -153,10 +154,28 @@ class AuthService {
             });
         });
     }
-    // Get current session
+    // Get current session (with token restoration for CLI)
     async getCurrentSession() {
-        return new Promise((resolve) => {
-            const cognitoUser = this.userPool.getCurrentUser();
+        return new Promise(async (resolve) => {
+            let cognitoUser = this.userPool.getCurrentUser();
+            // If no current user, try to restore from stored tokens
+            if (!cognitoUser) {
+                const tokens = await storage_1.AuthStorage.getTokens();
+                const user = await storage_1.UserStorage.getUser();
+                if (tokens && user) {
+                    cognitoUser = new amazon_cognito_identity_js_1.CognitoUser({
+                        Username: user.email,
+                        Pool: this.userPool,
+                    });
+                    // Set the session from stored tokens
+                    const session = new amazon_cognito_identity_js_1.CognitoUserSession({
+                        IdToken: new amazon_cognito_identity_js_1.CognitoIdToken({ IdToken: tokens.idToken }),
+                        AccessToken: new amazon_cognito_identity_js_1.CognitoAccessToken({ AccessToken: tokens.accessToken }),
+                        RefreshToken: new amazon_cognito_identity_js_1.CognitoRefreshToken({ RefreshToken: tokens.refreshToken }),
+                    });
+                    cognitoUser.setSignInUserSession(session);
+                }
+            }
             if (!cognitoUser) {
                 resolve(null);
                 return;
@@ -170,10 +189,28 @@ class AuthService {
             });
         });
     }
-    // Refresh tokens
+    // Refresh tokens (with user restoration for CLI)
     async refreshTokens() {
-        return new Promise((resolve, reject) => {
-            const cognitoUser = this.userPool.getCurrentUser();
+        return new Promise(async (resolve, reject) => {
+            let cognitoUser = this.userPool.getCurrentUser();
+            // If no current user, try to restore from stored tokens
+            if (!cognitoUser) {
+                const tokens = await storage_1.AuthStorage.getTokens();
+                const user = await storage_1.UserStorage.getUser();
+                if (tokens && user) {
+                    cognitoUser = new amazon_cognito_identity_js_1.CognitoUser({
+                        Username: user.email,
+                        Pool: this.userPool,
+                    });
+                    // Set the session from stored tokens
+                    const session = new amazon_cognito_identity_js_1.CognitoUserSession({
+                        IdToken: new amazon_cognito_identity_js_1.CognitoIdToken({ IdToken: tokens.idToken }),
+                        AccessToken: new amazon_cognito_identity_js_1.CognitoAccessToken({ AccessToken: tokens.accessToken }),
+                        RefreshToken: new amazon_cognito_identity_js_1.CognitoRefreshToken({ RefreshToken: tokens.refreshToken }),
+                    });
+                    cognitoUser.setSignInUserSession(session);
+                }
+            }
             if (!cognitoUser) {
                 reject(new Error('No current user'));
                 return;

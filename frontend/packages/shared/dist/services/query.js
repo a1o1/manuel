@@ -6,22 +6,38 @@ class QueryService {
     // Send text query
     async textQuery(query, includeSources = true) {
         const request = {
-            query,
+            question: query, // Backend expects 'question', not 'query'
             include_sources: includeSources,
         };
         const response = await api_1.apiService.post('/api/query', request);
-        return response.data;
+        // Backend returns 'answer' but frontend expects 'response'
+        // Map the backend response to frontend format
+        return {
+            response: response.answer || response.response || '',
+            sources: response.sources || [],
+            usage: response.usage,
+            costs: response.costs,
+            processing_time_ms: response.processing_time_ms,
+        };
     }
     // Send voice query
     async voiceQuery(audioData, contentType, includeSources = true) {
         const request = {
-            query: '', // Will be filled by transcription
+            question: '', // Will be filled by transcription
             file_data: audioData,
             content_type: contentType,
             include_sources: includeSources,
         };
         const response = await api_1.apiService.post('/api/query', request);
-        return response.data;
+        // Backend returns 'answer' but frontend expects 'response'
+        // Map the backend response to frontend format
+        return {
+            response: response.answer || response.response || '',
+            sources: response.sources || [],
+            usage: response.usage,
+            costs: response.costs,
+            processing_time_ms: response.processing_time_ms,
+        };
     }
     // Get query suggestions (placeholder for future implementation)
     async getQuerySuggestions(partial) {

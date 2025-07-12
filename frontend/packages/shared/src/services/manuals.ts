@@ -10,10 +10,11 @@ import {
 class ManualService {
   // Get all manuals
   async getManuals(): Promise<{ manuals: Manual[]; count: number }> {
-    const response = await apiService.get<ApiResponse<{ manuals: Manual[]; count: number }>>(
+    const response = await apiService.get<{ manuals: Manual[]; count: number }>(
       '/api/manuals'
     );
-    return response.data || { manuals: [], count: 0 };
+    // Backend returns data directly, not wrapped in ApiResponse
+    return response || { manuals: [], count: 0 };
   }
 
   // Upload manual file

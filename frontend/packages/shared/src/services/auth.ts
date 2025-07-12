@@ -5,9 +5,11 @@ import {
   CognitoUserSession,
   CognitoUserAttribute,
   CognitoRefreshToken,
+  CognitoIdToken,
+  CognitoAccessToken,
 } from 'amazon-cognito-identity-js';
 import { COGNITO_CONFIG } from '../constants';
-import { AuthStorage } from '../utils/storage';
+import { AuthStorage, UserStorage } from '../utils/storage';
 import { LoginRequest, SignupRequest, AuthTokens, User } from '../types';
 
 class AuthService {
@@ -24,7 +26,7 @@ class AuthService {
   async signUp(request: SignupRequest): Promise<{ userSub: string; needsConfirmation: boolean }> {
     return new Promise((resolve, reject) => {
       const userName = request.name || request.email.split('@')[0];
-      
+
       const attributeList: CognitoUserAttribute[] = [
         new CognitoUserAttribute({
           Name: 'email',
@@ -188,10 +190,32 @@ class AuthService {
     });
   }
 
-  // Get current session
+  // Get current session (with token restoration for CLI)
   async getCurrentSession(): Promise<CognitoUserSession | null> {
-    return new Promise((resolve) => {
-      const cognitoUser = this.userPool.getCurrentUser();
+    return new Promise(async (resolve) => {
+      let cognitoUser = this.userPool.getCurrentUser();
+
+      // If no current user, try to restore from stored tokens
+      if (!cognitoUser) {
+        const tokens = await AuthStorage.getTokens();
+        const user = await UserStorage.getUser();
+
+        if (tokens && user) {
+          cognitoUser = new CognitoUser({
+            Username: user.email,
+            Pool: this.userPool,
+          });
+
+          // Set the session from stored tokens
+          const session = new CognitoUserSession({
+            IdToken: new CognitoIdToken({ IdToken: tokens.idToken }),
+            AccessToken: new CognitoAccessToken({ AccessToken: tokens.accessToken }),
+            RefreshToken: new CognitoRefreshToken({ RefreshToken: tokens.refreshToken }),
+          });
+
+          cognitoUser.setSignInUserSession(session);
+        }
+      }
 
       if (!cognitoUser) {
         resolve(null);
@@ -208,10 +232,32 @@ class AuthService {
     });
   }
 
-  // Refresh tokens
+  // Refresh tokens (with user restoration for CLI)
   async refreshTokens(): Promise<AuthTokens> {
-    return new Promise((resolve, reject) => {
-      const cognitoUser = this.userPool.getCurrentUser();
+    return new Promise(async (resolve, reject) => {
+      let cognitoUser = this.userPool.getCurrentUser();
+
+      // If no current user, try to restore from stored tokens
+      if (!cognitoUser) {
+        const tokens = await AuthStorage.getTokens();
+        const user = await UserStorage.getUser();
+
+        if (tokens && user) {
+          cognitoUser = new CognitoUser({
+            Username: user.email,
+            Pool: this.userPool,
+          });
+
+          // Set the session from stored tokens
+          const session = new CognitoUserSession({
+            IdToken: new CognitoIdToken({ IdToken: tokens.idToken }),
+            AccessToken: new CognitoAccessToken({ AccessToken: tokens.accessToken }),
+            RefreshToken: new CognitoRefreshToken({ RefreshToken: tokens.refreshToken }),
+          });
+
+          cognitoUser.setSignInUserSession(session);
+        }
+      }
 
       if (!cognitoUser) {
         reject(new Error('No current user'));

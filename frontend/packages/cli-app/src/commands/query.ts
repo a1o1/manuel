@@ -64,7 +64,14 @@ export class QueryCommand {
     const spinner = ora('Processing your question...').start();
 
     try {
+      // Add progress indication for long-running requests
+      const timeout = setTimeout(() => {
+        spinner.text = 'Still processing... (this may take up to 30 seconds)';
+      }, 5000);
+
       const response = await queryService.textQuery(question, options.sources !== false);
+
+      clearTimeout(timeout);
 
       spinner.succeed(chalk.green('Got an answer!'));
 
@@ -99,6 +106,12 @@ export class QueryCommand {
 
     } catch (error) {
       spinner.fail('Query failed');
+
+      // Check if it's a timeout error
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ECONNABORTED') {
+        throw new CLIError('Request timed out. The API may be experiencing delays. Please try again.');
+      }
+
       throw new CLIError(`Failed to process question: ${error}`);
     }
   }

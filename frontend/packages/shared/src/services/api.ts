@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { API_CONFIG } from '../constants';
 import { AuthStorage } from '../utils/storage';
 import { handleApiError } from '../utils';
+import { authService } from './auth';
 
 class ApiService {
   private client: AxiosInstance;
@@ -23,8 +24,8 @@ class ApiService {
     this.client.interceptors.request.use(
       async (config) => {
         const tokens = await AuthStorage.getTokens();
-        if (tokens?.accessToken) {
-          config.headers.Authorization = `Bearer ${tokens.accessToken}`;
+        if (tokens?.idToken) {
+          config.headers.Authorization = `Bearer ${tokens.idToken}`;
         }
         return config;
       },
@@ -37,17 +38,22 @@ class ApiService {
     this.client.interceptors.response.use(
       (response) => response,
       async (error) => {
-        if (error.response?.status === 401) {
-          // Token expired, try to refresh
+        if (error.response?.status === 401 && !error.config._retry) {
+          // Token expired, try to refresh (but only once)
+          error.config._retry = true;
+
           try {
             await this.refreshTokens();
-            // Retry the original request
+            // Retry the original request with fresh token
+            const tokens = await AuthStorage.getTokens();
+            if (tokens?.idToken) {
+              error.config.headers.Authorization = `Bearer ${tokens.idToken}`;
+            }
             return this.client.request(error.config);
           } catch (refreshError) {
-            // Refresh failed, redirect to login
+            // Refresh failed, clear tokens and throw error
             await AuthStorage.removeTokens();
-            // You can emit an event here to redirect to login
-            throw refreshError;
+            throw new Error('Authentication failed. Please log in again.');
           }
         }
         return Promise.reject(error);
@@ -56,23 +62,18 @@ class ApiService {
   }
 
   private async refreshTokens(): Promise<void> {
-    const tokens = await AuthStorage.getTokens();
-    if (!tokens?.refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
     try {
-      const response = await this.client.post('/auth/refresh', {
-        refresh_token: tokens.refreshToken,
-      });
+      // Use Cognito auth service to refresh tokens
+      const newTokens = await authService.refreshTokens();
 
-      const newTokens = response.data;
+      // Store the refreshed tokens
       await AuthStorage.storeTokens({
         accessToken: newTokens.AccessToken,
         refreshToken: newTokens.RefreshToken,
         idToken: newTokens.IdToken,
       });
     } catch (error) {
+      // If refresh fails, the user needs to log in again
       throw new Error('Failed to refresh tokens');
     }
   }

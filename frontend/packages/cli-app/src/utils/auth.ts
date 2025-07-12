@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { getStorageService } from '@manuel/shared';
+import { getStorageService, authService } from '@manuel/shared';
 import { CLIError } from './error';
 
 const storageService = getStorageService();
@@ -13,6 +13,31 @@ export async function requireAuth(): Promise<void> {
     );
   }
 
-  // TODO: Check if tokens are still valid
-  // For now, we'll rely on the API to return 401 if tokens are expired
+  // Check if we have a valid session with Cognito
+  try {
+    const isAuthenticated = await authService.isAuthenticated();
+    if (!isAuthenticated) {
+      // Try to refresh tokens
+      try {
+        const newTokens = await authService.refreshTokens();
+        await storageService.storeAuthTokens({
+          accessToken: newTokens.AccessToken,
+          refreshToken: newTokens.RefreshToken,
+          idToken: newTokens.IdToken,
+        });
+      } catch (refreshError) {
+        // Refresh failed, user needs to log in again
+        await storageService.removeAuthTokens();
+        await storageService.removeUser();
+        throw new CLIError(
+          `Your session has expired. Please run "${chalk.cyan('manuel auth login')}" to sign in again.`
+        );
+      }
+    }
+  } catch (error) {
+    // If we can't check authentication status, the user should log in again
+    throw new CLIError(
+      `Authentication verification failed. Please run "${chalk.cyan('manuel auth login')}" to sign in again.`
+    );
+  }
 }

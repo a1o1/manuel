@@ -21,11 +21,10 @@ export interface AuthTokens {
     ExpiresIn: number;
 }
 export interface Manual {
-    key: string;
+    id: string;
     name: string;
     size: number;
-    last_modified: string;
-    etag: string;
+    upload_date: string;
 }
 export interface ManualUploadRequest {
     file_name: string;

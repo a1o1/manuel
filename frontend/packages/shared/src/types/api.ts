@@ -28,11 +28,10 @@ export interface AuthTokens {
 
 // Manual Types
 export interface Manual {
-  key: string;
+  id: string;  // Changed from key to match backend response
   name: string;
   size: number;
-  last_modified: string;
-  etag: string;
+  upload_date: string;  // Changed from last_modified to match backend response
 }
 
 export interface ManualUploadRequest {

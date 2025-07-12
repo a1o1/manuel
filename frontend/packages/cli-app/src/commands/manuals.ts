@@ -80,7 +80,14 @@ export class ManualsCommand {
     const spinner = ora('Loading manuals...').start();
 
     try {
+      // Add progress indication for long-running requests
+      const timeout = setTimeout(() => {
+        spinner.text = 'Still loading... (this may take up to 30 seconds)';
+      }, 5000);
+
       const { manuals, count } = await manualService.getManuals();
+
+      clearTimeout(timeout);
 
       spinner.succeed(`Found ${count} manual${count !== 1 ? 's' : ''}`);
 
@@ -104,8 +111,8 @@ export class ManualsCommand {
         tableData.push([
           chalk.white(manual.name),
           chalk.gray(formatFileSize(manual.size)),
-          chalk.gray(formatRelativeTime(manual.last_modified)),
-          options.verbose ? chalk.gray(manual.key) : chalk.gray(manual.key.substring(0, 20) + '...')
+          chalk.gray(formatRelativeTime(manual.upload_date)),
+          options.verbose ? chalk.gray(manual.id) : chalk.gray(manual.id.substring(0, 20) + '...')
         ]);
       });
 
@@ -131,6 +138,12 @@ export class ManualsCommand {
 
     } catch (error) {
       spinner.fail('Failed to load manuals');
+
+      // Check if it's a timeout error
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ECONNABORTED') {
+        throw new CLIError('Request timed out. The API may be experiencing delays. Please try again.');
+      }
+
       throw new CLIError(`Failed to load manuals: ${error}`);
     }
   }
@@ -287,10 +300,9 @@ export class ManualsCommand {
 
       console.log(chalk.bold('\n📄 Manual Information:'));
       console.log(chalk.white(`Name: ${manual.name}`));
-      console.log(chalk.gray(`Key: ${manual.key}`));
+      console.log(chalk.gray(`ID: ${manual.id}`));
       console.log(chalk.gray(`Size: ${formatFileSize(manual.size)}`));
-      console.log(chalk.gray(`Modified: ${formatRelativeTime(manual.last_modified)}`));
-      console.log(chalk.gray(`ETag: ${manual.etag}`));
+      console.log(chalk.gray(`Uploaded: ${formatRelativeTime(manual.upload_date)}`));
 
       console.log(chalk.bold('\n🔄 Processing Status:'));
       console.log(chalk.gray(`Status: ${status.status}`));
@@ -333,8 +345,8 @@ export class ManualsCommand {
       filtered.forEach(manual => {
         console.log(chalk.white(`\n📄 ${manual.name}`));
         console.log(chalk.gray(`   Size: ${formatFileSize(manual.size)}`));
-        console.log(chalk.gray(`   Modified: ${formatRelativeTime(manual.last_modified)}`));
-        console.log(chalk.gray(`   Key: ${manual.key}`));
+        console.log(chalk.gray(`   Uploaded: ${formatRelativeTime(manual.upload_date)}`));
+        console.log(chalk.gray(`   ID: ${manual.id}`));
       });
 
     } catch (error) {

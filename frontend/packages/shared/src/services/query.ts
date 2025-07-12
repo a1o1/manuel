@@ -8,16 +8,25 @@ import {
 class QueryService {
   // Send text query
   async textQuery(query: string, includeSources = true): Promise<QueryResponse> {
-    const request: QueryRequest = {
-      query,
+    const request = {
+      question: query,  // Backend expects 'question', not 'query'
       include_sources: includeSources,
     };
 
-    const response = await apiService.post<ApiResponse<QueryResponse>>(
+    const response = await apiService.post<any>(
       '/api/query',
       request
     );
-    return response.data!;
+
+    // Backend returns 'answer' but frontend expects 'response'
+    // Map the backend response to frontend format
+    return {
+      response: response.answer || response.response || '',
+      sources: response.sources || [],
+      usage: response.usage,
+      costs: response.costs,
+      processing_time_ms: response.processing_time_ms,
+    };
   }
 
   // Send voice query
@@ -26,18 +35,27 @@ class QueryService {
     contentType: string,
     includeSources = true
   ): Promise<QueryResponse> {
-    const request: QueryRequest = {
-      query: '', // Will be filled by transcription
+    const request = {
+      question: '', // Will be filled by transcription
       file_data: audioData,
       content_type: contentType,
       include_sources: includeSources,
     };
 
-    const response = await apiService.post<ApiResponse<QueryResponse>>(
+    const response = await apiService.post<any>(
       '/api/query',
       request
     );
-    return response.data!;
+
+    // Backend returns 'answer' but frontend expects 'response'
+    // Map the backend response to frontend format
+    return {
+      response: response.answer || response.response || '',
+      sources: response.sources || [],
+      usage: response.usage,
+      costs: response.costs,
+      processing_time_ms: response.processing_time_ms,
+    };
   }
 
   // Get query suggestions (placeholder for future implementation)
