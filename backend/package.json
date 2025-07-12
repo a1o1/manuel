@@ -68,5 +68,8 @@
     "commitizen": {
       "path": "cz-conventional-changelog"
     }
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1692.0"
   }
 }

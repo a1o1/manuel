@@ -149,13 +149,13 @@ export class QueryCommand {
       setTimeout(stopRecording, maxDuration * 1000);
 
       // Wait for recording to finish
-      let recording;
       while (!recordingStopped) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
+      const recording = await stopRecording();
       if (!recording) {
-        recording = await stopRecording();
+        throw new CLIError('Failed to record audio');
       }
 
       // Convert to base64 and send query

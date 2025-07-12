@@ -91,4 +91,16 @@ export class FileService {
       errors,
     };
   }
+
+  async fileExists(uri: string): Promise<boolean> {
+    return await this.adapter.fileExists(uri);
+  }
+
+  async getFileInfo(uri: string): Promise<{
+    size: number;
+    lastModified: number;
+    type: string;
+  } | null> {
+    return await this.adapter.getFileInfo(uri);
+  }
 }

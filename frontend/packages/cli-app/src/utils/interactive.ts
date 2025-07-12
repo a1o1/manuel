@@ -104,7 +104,7 @@ export class InteractiveMode {
           await this.authCommand.signup();
           break;
         case 'reset':
-          await this.authCommand.resetPassword();
+          await this.authCommand.forgotPassword();
           break;
       }
 
@@ -208,7 +208,7 @@ export class InteractiveMode {
     ]);
 
     await handleError(() =>
-      this.queryCommand.text(question, { sources: includeSources })
+      this.queryCommand.ask(question, { sources: includeSources })
     );
   }
 
@@ -571,7 +571,7 @@ export class InteractiveMode {
         await handleError(() => this.authCommand.logout());
         break;
       case 'reset':
-        await handleError(() => this.authCommand.resetPassword());
+        await handleError(() => this.authCommand.forgotPassword());
         break;
     }
   }

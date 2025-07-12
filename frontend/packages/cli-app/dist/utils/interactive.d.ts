@@ -1,0 +1,30 @@
+export declare class InteractiveMode {
+    private storageService;
+    private authCommand;
+    private queryCommand;
+    private manualsCommand;
+    private usageCommand;
+    private configCommand;
+    start(): Promise<void>;
+    private showWelcome;
+    private checkAuth;
+    private promptLogin;
+    private handleLogin;
+    private mainLoop;
+    private handleTextQuery;
+    private handleVoiceQuery;
+    private handleManuals;
+    private handleManualUpload;
+    private handleManualDownload;
+    private handleManualDelete;
+    private handleUsage;
+    private handleCosts;
+    private handleHistory;
+    private handleExport;
+    private handleConfig;
+    private handleConfigSet;
+    private handleConfigGet;
+    private handleConfigReset;
+    private handleAuth;
+}
+//# sourceMappingURL=interactive.d.ts.map

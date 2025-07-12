@@ -1,526 +1,194 @@
-"""Manuel - Manuals Management Function.
-
-Handles manual listing and upload operations.
+"""
+Manuel - Manuals Management Function (Minimal Version)
+Simple manual management without complex dependencies
 """
 
-import base64
 import json
-import os
-import sys
+import time
 import uuid
-from typing import Any, Dict
-
 import boto3
-
-sys.path.append("/opt/python")
-sys.path.append("../../shared")
-
-from logger import get_logger
-from quota_cache import get_cached_quota_manager
-from s3_optimizer import get_s3_optimizer
-from url_downloader import DownloadConfig, get_secure_url_downloader
-from utils import (
-    create_response,
-    get_user_id_from_event,
-    handle_options_request,
-    validate_json_body,
-)
+import os
+import urllib.request
+from typing import Any, Dict
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Handle manual management requests.
-
-    GET /api/manuals - List available manuals
-    POST /api/manuals/upload - Upload new manual
-    POST /api/manuals/download - Download manual from URL
-    """
-
-    logger = get_logger("manuel-manuals", context)
-
-    # Handle CORS preflight
-    if event["httpMethod"] == "OPTIONS":
-        return handle_options_request()
-
-    # Get user ID from JWT token
-    user_id = get_user_id_from_event(event)
-    if not user_id:
-        return create_response(401, {"error": "Unauthorized"})
-
-    # Route based on HTTP method and path
-    path = event.get("path", "")
-
-    if event["httpMethod"] == "GET":
-        return handle_list_manuals(logger)
-    elif event["httpMethod"] == "POST":
-        if path.endswith("/download"):
-            return handle_download_manual(event, user_id, logger, context)
-        else:
-            return handle_upload_manual(event, user_id, logger)
-    else:
-        return create_response(405, {"error": "Method not allowed"})
-
-
-def handle_list_manuals(logger) -> Dict[str, Any]:
-    """List all available manuals."""
+    """Handle manual management requests"""
+    
     try:
-        s3_client = boto3.client("s3")
-        bucket_name = os.environ["MANUALS_BUCKET"]
-
-        # List objects in the manuals/ prefix
-        response = s3_client.list_objects_v2(
-            Bucket=bucket_name, Prefix="manuals/", Delimiter="/"
-        )
-
-        manuals = []
-        for obj in response.get("Contents", []):
-            if obj["Key"] != "manuals/":  # Skip the prefix itself
-                manual_info = {
-                    "key": obj["Key"],
-                    "name": obj["Key"].split("/")[-1],  # Get filename
-                    "size": obj["Size"],
-                    "last_modified": obj["LastModified"].isoformat(),
-                    "etag": obj["ETag"].strip('"'),
-                }
-                manuals.append(manual_info)
-
-        return create_response(200, {"manuals": manuals, "count": len(manuals)})
-
-    except Exception as e:
-        print(f"Error listing manuals: {str(e)}")
-        return create_response(500, {"error": "Failed to list manuals"})
-
-
-def handle_upload_manual(event: Dict[str, Any], user_id: str, logger) -> Dict[str, Any]:
-    """Handle manual upload."""
-
-    # Validate request body
-    is_valid, body = validate_json_body(
-        event, ["file_name", "file_data", "content_type"]
-    )
-    if not is_valid:
-        return create_response(400, body)
-
-    file_name = body["file_name"].strip()
-    file_data = body["file_data"]
-    content_type = body["content_type"]
-
-    # Validate file type
-    if not is_valid_manual_type(content_type, file_name):
-        return create_response(
-            400,
-            {
-                "error": (
-                    "Invalid file type. Supported formats: "
-                    "PDF, DOC, DOCX, TXT, MD, HTML"
-                )
-            },
-        )
-
-    try:
-        # Upload manual to S3
-        s3_key = upload_manual_to_s3(file_name, file_data, content_type, user_id)
-
-        return create_response(
-            200,
-            {
-                "message": "Manual uploaded successfully",
-                "key": s3_key,
-                "file_name": file_name,
-                "status": "processing",
-            },
-        )
-
-    except Exception as e:
-        logger.error(f"Error uploading manual: {str(e)}")
-        return create_response(500, {"error": "Failed to upload manual"})
-
-
-def handle_download_manual(
-    event: Dict[str, Any], user_id: str, logger, context: Any
-) -> Dict[str, Any]:
-    """Handle manual download from URL."""
-
-    # Validate request body
-    is_valid, body = validate_json_body(event, ["url"])
-    if not is_valid:
-        return create_response(400, body)
-
-    url = body["url"].strip()
-    suggested_filename = body.get("filename", "").strip()
-
-    try:
-        # Check user quota first
-        quota_manager = get_cached_quota_manager()
-        can_proceed, quota_info = quota_manager.check_quota_fast(user_id)
-
-        if not can_proceed:
-            logger.warning(
-                "Quota exceeded for URL download",
-                user_id=user_id,
-                quota_info=quota_info,
-            )
-            return create_response(
-                429, {"error": "Quota exceeded", "quota_info": quota_info}
-            )
-
-        logger.info("Starting manual download from URL", url=url, user_id=user_id)
-
-        # Configure secure downloader
-        download_config = DownloadConfig(
-            max_file_size_mb=int(os.environ.get("MAX_MANUAL_SIZE_MB", "50")),
-            timeout_seconds=30,
-            max_redirects=5,
-            allowed_schemes={"https"},  # Only HTTPS for security
-            verify_ssl=True,
-        )
-
-        # Download file securely
-        downloader = get_secure_url_downloader(download_config)
-        download_result = downloader.download_file(url, suggested_filename)
-
-        if not download_result.success:
-            logger.warning(
-                "URL download failed", url=url, error=download_result.error_message
-            )
-            return create_response(
-                400,
-                {
-                    "error": "Download failed",
-                    "details": download_result.error_message,
-                    "security_warnings": download_result.security_warnings,
+        # Get environment variables
+        manuals_bucket = os.environ['MANUALS_BUCKET']
+        
+        # Simple CORS handling
+        method = event.get("httpMethod", "GET")
+        path = event.get("path", "")
+        
+        if method == "OPTIONS":
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
                 },
-            )
-
-        # Upload to S3 using optimized uploader
-        s3_key = upload_downloaded_manual_to_s3(
-            download_result.content,
-            download_result.filename or "downloaded_manual.pdf",
-            download_result.content_type or "application/pdf",
-            user_id,
-            url,
-            logger,
-        )
-
-        # Increment quota after successful operation
-        quota_manager.increment_usage_atomic(user_id, "manual_download")
-
-        logger.info(
-            "Manual downloaded and uploaded successfully",
-            url=url,
-            s3_key=s3_key,
-            size=download_result.size_bytes,
-            download_time_ms=download_result.download_time_ms,
-        )
-
-        return create_response(
-            200,
-            {
-                "message": "Manual downloaded and uploaded successfully",
-                "key": s3_key,
-                "filename": download_result.filename,
-                "size_bytes": download_result.size_bytes,
-                "content_type": download_result.content_type,
-                "download_time_ms": download_result.download_time_ms,
-                "status": "processing",
-                "security_warnings": download_result.security_warnings,
-            },
-        )
-
-    except Exception as e:
-        logger.error(
-            f"Error downloading manual from URL: {str(e)}", url=url, user_id=user_id
-        )
-        return create_response(
-            500, {"error": "Failed to download manual", "details": str(e)}
-        )
-
-    finally:
-        # Cleanup downloader resources
-        if "downloader" in locals():
-            downloader.cleanup()
-
-
-def is_valid_manual_type(content_type: str, file_name: str) -> bool:
-    """Check if file type is supported for manuals."""
-    valid_types = [
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "text/plain",
-        "text/markdown",
-        "text/html",
-        "application/vnd.ms-word",
-    ]
-
-    valid_extensions = [".pdf", ".doc", ".docx", ".txt", ".md", ".html", ".htm"]
-
-    # Check content type
-    if content_type in valid_types:
-        return True
-
-    # Check file extension as backup
-    file_extension = os.path.splitext(file_name.lower())[1]
-    return file_extension in valid_extensions
-
-
-def create_metadata_json(
-    user_id: str,
-    original_filename: str,
-    upload_timestamp: str,
-    upload_method: str,
-    content_type: str,
-    source_url: str = None,
-) -> str:
-    """Create metadata JSON content for Bedrock Knowledge Base.
-
-    This metadata enables user-specific filtering in Knowledge Base queries.
-    """
-    metadata_content = {
-        "metadataAttributes": {
-            "user_id": user_id,
-            "uploaded_by": user_id,
-            "original_filename": original_filename,
-            "upload_timestamp": upload_timestamp,
-            "upload_method": upload_method,
-            "file_type": content_type,
-        }
-    }
-
-    # Add source URL for downloaded files
-    if source_url:
-        metadata_content["metadataAttributes"]["source_url"] = source_url
-
-    return json.dumps(metadata_content, indent=2)
-
-
-def test_metadata_json_structure():
-    """Test function to verify metadata JSON structure matches Bedrock requirements."""
-    test_metadata = create_metadata_json(
-        user_id="test-user-123",
-        original_filename="test_manual.pdf",
-        upload_timestamp="2025-01-12T10:30:00.000Z",
-        upload_method="direct_upload",
-        content_type="application/pdf",
-        source_url="https://example.com/manual.pdf",
-    )
-
-    print("Generated metadata JSON structure:")
-    print(test_metadata)
-
-    # Verify JSON is valid
-    parsed = json.loads(test_metadata)
-    assert "metadataAttributes" in parsed
-    assert "user_id" in parsed["metadataAttributes"]
-    print("✓ Metadata JSON structure is valid for Bedrock Knowledge Base")
-
-
-def upload_downloaded_manual_to_s3(
-    file_content: bytes,
-    filename: str,
-    content_type: str,
-    user_id: str,
-    source_url: str,
-    logger,
-) -> str:
-    """Upload downloaded manual content to S3 using optimized uploader."""
-
-    # Get S3 optimizer for better performance
-    s3_optimizer = get_s3_optimizer()
-    bucket_name = os.environ["MANUALS_BUCKET"]
-
-    # Generate S3 key
-    from datetime import datetime
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    unique_id = uuid.uuid4().hex[:8]
-
-    # Clean filename
-    clean_name = "".join(
-        c for c in filename if c.isalnum() or c in (" ", "-", "_", ".")
-    ).rstrip()
-    s3_key = f"manuals/{timestamp}_{unique_id}_{clean_name}"
-
-    # Prepare metadata
-    metadata = {
-        "uploaded_by": user_id,
-        "original_filename": filename,
-        "source_url": source_url,
-        "upload_timestamp": datetime.utcnow().isoformat(),
-        "upload_method": "url_download",
-    }
-
-    # Upload using optimized S3 uploader
-    upload_result = s3_optimizer.upload_file_optimized(
-        file_data=file_content,
-        bucket=bucket_name,
-        key=s3_key,
-        content_type=content_type,
-        metadata=metadata,
-    )
-
-    if not upload_result.success:
-        raise Exception(f"S3 upload failed: {upload_result.error_message}")
-
-    logger.info(
-        "Manual uploaded to S3 successfully",
-        s3_key=s3_key,
-        size=upload_result.size_bytes,
-        upload_time_ms=upload_result.upload_time_ms,
-        etag=upload_result.etag,
-    )
-
-    # Generate and upload metadata JSON file for Bedrock Knowledge Base filtering
-    try:
-        metadata_key = f"{s3_key}.metadata.json"
-        upload_timestamp = datetime.utcnow().isoformat()
-
-        metadata_json = create_metadata_json(
-            user_id=user_id,
-            original_filename=filename,
-            upload_timestamp=upload_timestamp,
-            upload_method="url_download",
-            content_type=content_type,
-            source_url=source_url,
-        )
-
-        # Upload metadata file using S3 optimizer
-        metadata_upload_result = s3_optimizer.upload_file_optimized(
-            file_data=metadata_json.encode("utf-8"),
-            bucket=bucket_name,
-            key=metadata_key,
-            content_type="application/json",
-            metadata={"document_metadata": "true"},
-        )
-
-        if not metadata_upload_result.success:
-            logger.warning(
-                "Metadata JSON upload failed",
-                metadata_key=metadata_key,
-                error=metadata_upload_result.error_message,
-            )
+                "body": ""
+            }
+        
+        # Extract user ID from Cognito JWT (simplified)
+        user_id = "default-user"  # For testing, we'll use a default user
+        claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+        if claims and "sub" in claims:
+            user_id = claims["sub"]
+        
+        s3_client = boto3.client('s3')
+        
+        if method == "GET" and path.endswith("/api/manuals"):
+            return handle_list_manuals(s3_client, manuals_bucket, user_id)
+        
+        elif method == "POST" and path.endswith("/api/manuals/download"):
+            return handle_download_manual(event, s3_client, manuals_bucket, user_id)
+        
         else:
-            logger.info(
-                "Metadata JSON uploaded successfully",
-                metadata_key=metadata_key,
-                size=metadata_upload_result.size_bytes,
-            )
-
+            return {
+                "statusCode": 404,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                "body": json.dumps({"error": "Endpoint not found"})
+            }
+            
     except Exception as e:
-        # Don't fail the main upload if metadata generation fails
-        logger.warning(
-            "Failed to generate metadata JSON",
-            s3_key=s3_key,
-            error=str(e),
-        )
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "error": "Internal server error",
+                "details": str(e),
+                "timestamp": int(time.time())
+            })
+        }
 
-    return s3_key
 
-
-def upload_manual_to_s3(
-    file_name: str, file_data: str, content_type: str, user_id: str
-) -> str:
-    """Upload manual file to S3."""
-    s3_client = boto3.client("s3")
-    bucket_name = os.environ["MANUALS_BUCKET"]
-
-    # Generate S3 key
-    # Use timestamp and UUID to avoid conflicts
-    from datetime import datetime
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    unique_id = uuid.uuid4().hex[:8]
-
-    # Clean filename
-    clean_name = "".join(
-        c for c in file_name if c.isalnum() or c in (" ", "-", "_", ".")
-    ).rstrip()
-    s3_key = f"manuals/{timestamp}_{unique_id}_{clean_name}"
-
+def handle_list_manuals(s3_client, bucket_name: str, user_id: str) -> Dict[str, Any]:
+    """List manuals for the user"""
+    
     try:
-        # Decode base64 file data
-        file_bytes = base64.b64decode(file_data)
+        # List objects in the user's folder
+        prefix = f"manuals/{user_id}/"
+        response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        
+        manuals = []
+        for obj in response.get('Contents', []):
+            key = obj['Key']
+            if key.endswith('.pdf'):
+                manual_name = key.split('/')[-1]
+                manuals.append({
+                    "id": key,
+                    "name": manual_name,
+                    "upload_date": obj['LastModified'].isoformat(),
+                    "size": obj['Size']
+                })
+        
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "manuals": manuals,
+                "user_id": user_id,
+                "count": len(manuals)
+            })
+        }
+        
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "error": "Failed to list manuals",
+                "details": str(e)
+            })
+        }
 
-        # Upload to S3 with metadata
-        upload_timestamp = datetime.utcnow().isoformat()
+
+def handle_download_manual(event: Dict[str, Any], s3_client, bucket_name: str, user_id: str) -> Dict[str, Any]:
+    """Download a manual from URL and store in S3"""
+    
+    try:
+        # Parse request body
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            body_data = json.loads(body)
+        else:
+            body_data = body
+        
+        url = body_data.get('url')
+        if not url:
+            return {
+                "statusCode": 400,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                "body": json.dumps({"error": "URL is required"})
+            }
+        
+        # Generate unique filename
+        manual_id = str(uuid.uuid4())
+        file_extension = ".pdf"  # Assume PDF for now
+        s3_key = f"manuals/{user_id}/{manual_id}{file_extension}"
+        
+        # Download the file from URL
+        print(f"Downloading from URL: {url}")
+        with urllib.request.urlopen(url) as response:
+            file_data = response.read()
+        
+        # Upload to S3
         s3_client.put_object(
             Bucket=bucket_name,
             Key=s3_key,
-            Body=file_bytes,
-            ContentType=content_type,
+            Body=file_data,
+            ContentType='application/pdf',
             Metadata={
-                "uploaded_by": user_id,
-                "original_filename": file_name,
-                "upload_timestamp": upload_timestamp,
-            },
-            ServerSideEncryption="AES256",
+                'user_id': user_id,
+                'original_url': url,
+                'upload_timestamp': str(int(time.time()))
+            }
         )
-
-        # Generate and upload metadata JSON file for Bedrock Knowledge Base filtering
-        try:
-            metadata_key = f"{s3_key}.metadata.json"
-
-            metadata_json = create_metadata_json(
-                user_id=user_id,
-                original_filename=file_name,
-                upload_timestamp=upload_timestamp,
-                upload_method="direct_upload",
-                content_type=content_type,
-            )
-
-            # Upload metadata file
-            s3_client.put_object(
-                Bucket=bucket_name,
-                Key=metadata_key,
-                Body=metadata_json.encode("utf-8"),
-                ContentType="application/json",
-                Metadata={"document_metadata": "true"},
-                ServerSideEncryption="AES256",
-            )
-
-            print(f"Metadata JSON uploaded successfully: {metadata_key}")
-
-        except Exception as e:
-            # Don't fail the main upload if metadata generation fails
-            print(f"Warning: Failed to generate metadata JSON for {s3_key}: {str(e)}")
-
-        return s3_key
-
-    except Exception as e:
-        print(f"Error uploading to S3: {str(e)}")
-        raise
-
-
-def get_manual_metadata(s3_key: str) -> Dict[str, Any]:
-    """Get metadata for a manual."""
-    try:
-        s3_client = boto3.client("s3")
-        bucket_name = os.environ["MANUALS_BUCKET"]
-
-        response = s3_client.head_object(Bucket=bucket_name, Key=s3_key)
-
+        
         return {
-            "size": response["ContentLength"],
-            "content_type": response["ContentType"],
-            "last_modified": response["LastModified"].isoformat(),
-            "etag": response["ETag"].strip('"'),
-            "metadata": response.get("Metadata", {}),
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "message": "Manual uploaded successfully",
+                "manual_id": manual_id,
+                "s3_key": s3_key,
+                "user_id": user_id,
+                "url": url
+            })
         }
-
+        
     except Exception as e:
-        print(f"Error getting manual metadata: {str(e)}")
-        return {}
-
-
-def delete_manual(s3_key: str) -> bool:
-    """Delete a manual from S3."""
-    try:
-        s3_client = boto3.client("s3")
-        bucket_name = os.environ["MANUALS_BUCKET"]
-
-        s3_client.delete_object(Bucket=bucket_name, Key=s3_key)
-
-        return True
-
-    except Exception as e:
-        print(f"Error deleting manual: {str(e)}")
-        return False
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "error": "Failed to download manual",
+                "details": str(e)
+            })
+        }

@@ -1,10 +1,6 @@
 export * from './base';
-export * from './react-native';
-export * from './node';
 
 import { FileService, FileAdapter } from './base';
-import { ReactNativeFileAdapter } from './react-native';
-import { NodeFileAdapter } from './node';
 
 // Platform detection
 const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
@@ -13,8 +9,10 @@ const isNode = typeof process !== 'undefined' && process.versions && process.ver
 // Factory function to create appropriate file adapter
 export function createFileAdapter(): FileAdapter {
   if (isReactNative) {
+    const { ReactNativeFileAdapter } = require('./react-native');
     return new ReactNativeFileAdapter();
   } else if (isNode) {
+    const { NodeFileAdapter } = require('./node');
     return new NodeFileAdapter();
   } else {
     throw new Error('Unsupported platform for file adapter');

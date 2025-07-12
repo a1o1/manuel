@@ -42,7 +42,7 @@ export class ReactNativeStorageAdapter implements StorageAdapter {
 
   async clear(): Promise<void> {
     try {
-      const { STORAGE_KEYS } = await import('./base');
+      const { STORAGE_KEYS } = await import('../../constants/config');
       const keys = Object.values(STORAGE_KEYS);
       await Promise.all(keys.map(key => this.SecureStore.deleteItemAsync(key)));
     } catch (error) {

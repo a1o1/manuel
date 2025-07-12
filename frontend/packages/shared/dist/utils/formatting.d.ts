@@ -1,0 +1,12 @@
+export declare const formatDate: (date: string | Date) => string;
+export declare const formatDateTime: (date: string | Date) => string;
+export declare const formatRelativeTime: (date: string | Date) => string;
+export declare const formatFileSize: (bytes: number) => string;
+export declare const formatCurrency: (amount: number, currency?: string) => string;
+export declare const formatDuration: (seconds: number) => string;
+export declare const formatNumber: (num: number) => string;
+export declare const formatPercentage: (value: number, total: number) => string;
+export declare const truncateText: (text: string, maxLength: number) => string;
+export declare const capitalize: (text: string) => string;
+export declare const camelToTitle: (text: string) => string;
+//# sourceMappingURL=formatting.d.ts.map

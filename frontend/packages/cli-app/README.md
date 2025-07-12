@@ -19,18 +19,33 @@ Command-line interface for querying product manuals using voice and text.
 ### From Source (Development)
 
 ```bash
+# Navigate to the CLI directory
+cd frontend/packages/cli-app
+
 # Install dependencies
-cd packages/cli-app
 npm install
 
 # Build the application
 npm run build
+
+# Make the binary executable
+chmod +x dist/bin/manuel.js
 
 # Link globally for development
 npm link
 
 # Now you can use 'manuel' command anywhere
 manuel --help
+```
+
+**Note**: If you encounter module resolution errors, ensure the shared package
+is built:
+
+```bash
+cd ../shared
+npm run build
+cd ../cli-app
+npm run build
 ```
 
 ### Global Installation (Future)
@@ -406,11 +421,24 @@ npm test -- --coverage
 **Command not found: manuel**
 
 ```bash
+# Make sure the binary is executable
+chmod +x dist/bin/manuel.js
+
 # Ensure globally linked
 npm link
 
-# Or add to PATH
-export PATH="$PATH:$(npm bin -g)"
+# Verify it's working
+manuel --help
+```
+
+**Module resolution errors (ERR_MODULE_NOT_FOUND)**
+
+```bash
+# Rebuild both packages in order
+cd ../shared && npm run build
+cd ../cli-app && npm run build
+chmod +x dist/bin/manuel.js
+npm link
 ```
 
 **Audio recording fails**
@@ -431,8 +459,35 @@ manuel auth logout
 manuel auth login
 
 # Check API connectivity
-curl https://api.manuel.ai/health
+curl https://83bcch9z1c.execute-api.eu-west-1.amazonaws.com/Prod/health
 ```
+
+**Interactive login display issues**
+
+The login prompts may show terminal control characters in some environments.
+This is a display issue only - the authentication still works. Try entering your
+credentials normally despite the display artifacts.
+
+**Alternative: Simple Test CLI**
+
+If you encounter issues with the full CLI, there's a simplified test CLI
+available:
+
+```bash
+# Navigate to backend directory
+cd ../../backend
+
+# Install AWS SDK if not present
+npm install aws-sdk
+
+# Use the test CLI
+node test_cli.js --help
+node test_cli.js query "Your question here"
+node test_cli.js manuals
+node test_cli.js  # Interactive mode
+```
+
+This test CLI provides the same core functionality with a simpler interface.
 
 **Permission errors**
 

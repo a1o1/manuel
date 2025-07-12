@@ -141,7 +141,7 @@ export class ManualsCommand {
     console.log(chalk.blue('📄 Upload Manual\n'));
 
     // Validate file exists
-    const fileExists = await this.fileService.adapter.fileExists(filePath);
+    const fileExists = await this.fileService.fileExists(filePath);
     if (!fileExists) {
       throw new CLIError(`File not found: ${filePath}`);
     }
@@ -150,7 +150,7 @@ export class ManualsCommand {
 
     try {
       // Get file info
-      const fileInfo = await this.fileService.adapter.getFileInfo(filePath);
+      const fileInfo = await this.fileService.getFileInfo(filePath);
       if (!fileInfo) {
         throw new CLIError('Unable to read file information');
       }
@@ -223,7 +223,7 @@ export class ManualsCommand {
 
       spinner.succeed(chalk.green('Manual downloaded and uploaded successfully!'));
 
-      console.log(chalk.gray(`Name: ${result.filename}`));
+      console.log(chalk.gray(`Name: ${result.file_name}`));
       console.log(chalk.gray(`Key: ${result.key}`));
       console.log(chalk.gray(`Size: ${formatFileSize(result.size_bytes || 0)}`));
       console.log(chalk.gray(`Download time: ${result.download_time_ms}ms`));

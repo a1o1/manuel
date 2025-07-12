@@ -1,0 +1,628 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Manuel - Simplified Core Infrastructure for Testing
+  
+  Core resources for user isolation testing: Cognito, Lambda, API Gateway, 
+  DynamoDB, S3, and Bedrock Knowledge Base.
+
+# Global configuration
+Globals:
+  Function:
+    Runtime: !Ref LambdaRuntime
+    Timeout: !Ref LambdaTimeout
+    MemorySize: !Ref LambdaMemorySize
+    Environment:
+      Variables:
+        REGION: !Ref AWS::Region
+        USER_POOL_ID: !Ref CognitoUserPool
+        USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+        USAGE_TABLE_NAME: !Ref UsageTable
+        MANUALS_BUCKET: !Ref ManualsBucket
+        KNOWLEDGE_BASE_ID: !Ref BedrockKnowledgeBase
+        EMBEDDING_MODEL_ID: !Ref EmbeddingModelId
+        TEXT_MODEL_ID: !Ref TextModelId
+        USE_INFERENCE_PROFILE: !Ref UseInferenceProfile
+        KNOWLEDGE_BASE_RETRIEVAL_RESULTS: !Ref KnowledgeBaseRetrievalResults
+        USAGE_DATA_RETENTION_DAYS: !Ref UsageDataRetentionDays
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: !Sub "'${CorsAllowedOrigins}'"
+    Auth:
+      DefaultAuthorizer: CognitoAuth
+      Authorizers:
+        CognitoAuth:
+          UserPoolArn: !GetAtt CognitoUserPool.Arn
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment stage
+
+  DailyQuotaLimit:
+    Type: Number
+    Default: 50
+    Description: Maximum queries per user per day
+
+  MonthlyQuotaLimit:
+    Type: Number
+    Default: 1000
+    Description: Maximum queries per user per month
+
+  EmbeddingModelId:
+    Type: String
+    Default: amazon.titan-embed-text-v2:0
+    Description: Bedrock embedding model ID for Knowledge Base
+    AllowedValues:
+      - amazon.titan-embed-text-v2:0
+      - amazon.titan-embed-text-v1
+      - cohere.embed-english-v3
+      - cohere.embed-multilingual-v3
+
+  TextModelId:
+    Type: String
+    Default: eu.anthropic.claude-sonnet-4-20250514-v1:0
+    Description: Bedrock text generation model ID for RAG responses
+    AllowedValues:
+      - anthropic.claude-3-5-sonnet-20240620-v1:0
+      - anthropic.claude-3-5-sonnet-20241022-v2:0
+      - anthropic.claude-3-sonnet-20240229-v1:0
+      - anthropic.claude-3-haiku-20240307-v1:0
+      - anthropic.claude-sonnet-4-20250514-v1:0
+      - eu.anthropic.claude-sonnet-4-20250514-v1:0
+
+  UseInferenceProfile:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Whether to use cross-region inference profiles for newer models
+
+  # Runtime Configuration
+  LambdaRuntime:
+    Type: String
+    Default: python3.11
+    AllowedValues: [python3.9, python3.10, python3.11, python3.12]
+    Description: Python runtime version for Lambda functions
+
+  LambdaMemorySize:
+    Type: Number
+    Default: 512
+    MinValue: 128
+    MaxValue: 10240
+    Description: Memory allocation for Lambda functions (MB)
+
+  LambdaTimeout:
+    Type: Number
+    Default: 45
+    MinValue: 3
+    MaxValue: 900
+    Description: Default timeout for Lambda functions (seconds)
+
+  QueryTimeout:
+    Type: Number
+    Default: 120
+    MinValue: 30
+    MaxValue: 900
+    Description: Timeout for query processing function (seconds)
+
+  # Knowledge Base Configuration
+  KnowledgeBaseRetrievalResults:
+    Type: Number
+    Default: 3
+    MinValue: 1
+    MaxValue: 20
+    Description: Number of results to retrieve from Knowledge Base
+
+  # Security Configuration
+  CorsAllowedOrigins:
+    Type: String
+    Default: "*"
+    Description: CORS allowed origins (use specific domains in production)
+
+  TokenValidityHours:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 24
+    Description: Access token validity period (hours)
+
+  RefreshTokenValidityDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: Refresh token validity period (days)
+
+  # Storage Configuration
+  UsageDataRetentionDays:
+    Type: Number
+    Default: 32
+    MinValue: 7
+    MaxValue: 365
+    Description: Usage data retention period (days)
+
+  EnableS3Versioning:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Enable S3 versioning for manual storage
+
+  EnablePointInTimeRecovery:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Enable DynamoDB point-in-time recovery
+
+  # Monitoring Configuration
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365]
+    Description: CloudWatch logs retention period (days)
+
+Conditions:
+  EnableVersioning: !Equals [!Ref EnableS3Versioning, "true"]
+
+Resources:
+  # Cognito User Pool for Authentication
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub manuel-user-pool-${Stage}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      UserPoolTags:
+        Project: Manuel
+        Environment: !Ref Stage
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ClientName: !Sub manuel-app-client-${Stage}
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      RefreshTokenValidity: !Ref RefreshTokenValidityDays
+      AccessTokenValidity: !Ref TokenValidityHours
+      IdTokenValidity: !Ref TokenValidityHours
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  # DynamoDB Table for User Usage Tracking
+  UsageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub manuel-usage-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !Ref EnablePointInTimeRecovery
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # S3 Bucket for Manual Storage
+  ManualsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub manuel-manuals-${Stage}-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: !If [EnableVersioning, Enabled, Suspended]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+# Note: S3 notification will be added after initial deployment
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # OpenSearch Serverless Collection for Vector Storage
+  OpenSearchCollection:
+    Type: AWS::OpenSearchServerless::Collection
+    DependsOn:
+      - OpenSearchSecurityPolicy
+      - OpenSearchNetworkPolicy
+    Properties:
+      Name: !Sub manuel-vectors-${Stage}
+      Type: VECTORSEARCH
+      Description: Vector storage for Manuel knowledge base
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # OpenSearch Serverless Access Policy
+  OpenSearchAccessPolicy:
+    Type: AWS::OpenSearchServerless::AccessPolicy
+    Properties:
+      Name: !Sub manuel-access-policy-${Stage}
+      Type: data
+      Description: Access policy for Manuel OpenSearch collection
+      Policy: !Sub |
+        [
+          {
+            "Rules": [
+              {
+                "ResourceType": "index",
+                "Resource": ["index/${OpenSearchCollection}/*"],
+                "Permission": ["aoss:*"]
+              },
+              {
+                "ResourceType": "collection",
+                "Resource": ["collection/${OpenSearchCollection}"],
+                "Permission": ["aoss:*"]
+              }
+            ],
+            "Principal": ["${BedrockKnowledgeBaseRole.Arn}"]
+          }
+        ]
+
+  # OpenSearch Serverless Security Policy
+  OpenSearchSecurityPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: !Sub manuel-security-policy-${Stage}
+      Type: encryption
+      Description: Security policy for Manuel OpenSearch collection
+      Policy: !Sub |
+        {
+          "Rules": [
+            {
+              "ResourceType": "collection",
+              "Resource": ["collection/${OpenSearchCollection}"]
+            }
+          ],
+          "AWSOwnedKey": true
+        }
+
+  # OpenSearch Network Policy
+  OpenSearchNetworkPolicy:
+    Type: AWS::OpenSearchServerless::SecurityPolicy
+    Properties:
+      Name: !Sub manuel-network-policy-${Stage}
+      Type: network
+      Description: Network policy for Manuel OpenSearch collection
+      Policy: !Sub |
+        [
+          {
+            "Rules": [
+              {
+                "ResourceType": "collection",
+                "Resource": ["collection/${OpenSearchCollection}"]
+              },
+              {
+                "ResourceType": "dashboard",
+                "Resource": ["collection/${OpenSearchCollection}"]
+              }
+            ],
+            "AllowFromPublic": true
+          }
+        ]
+
+  # Bedrock Knowledge Base
+  BedrockKnowledgeBase:
+    Type: AWS::Bedrock::KnowledgeBase
+    DependsOn: 
+      - OpenSearchAccessPolicy
+      - OpenSearchSecurityPolicy
+      - OpenSearchNetworkPolicy
+    Properties:
+      Name: !Sub manuel-knowledge-base-${Stage}
+      Description: Knowledge base for Manuel product manuals with user isolation
+      RoleArn: !GetAtt BedrockKnowledgeBaseRole.Arn
+      KnowledgeBaseConfiguration:
+        Type: VECTOR
+        VectorKnowledgeBaseConfiguration:
+          EmbeddingModelArn: !Sub arn:aws:bedrock:${AWS::Region}::foundation-model/${EmbeddingModelId}
+      StorageConfiguration:
+        Type: OPENSEARCH_SERVERLESS
+        OpensearchServerlessConfiguration:
+          CollectionArn: !GetAtt OpenSearchCollection.Arn
+          VectorIndexName: manuel-index
+          FieldMapping:
+            VectorField: vector
+            TextField: text
+            MetadataField: metadata
+      Tags:
+        Project: Manuel
+        Environment: !Ref Stage
+
+  # Data Source for Knowledge Base
+  BedrockDataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      KnowledgeBaseId: !Ref BedrockKnowledgeBase
+      Name: !Sub manuel-manuals-source-${Stage}
+      Description: S3 data source for product manuals with user metadata
+      DataSourceConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !GetAtt ManualsBucket.Arn
+          InclusionPrefixes:
+            - manuals/
+
+  # Lambda Functions
+  QueryFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-query-${Stage}
+      CodeUri: src/functions/query/
+      Handler: app.lambda_handler
+      Description: Process queries using Bedrock RAG with user isolation
+      Timeout: !Ref QueryTimeout
+      Environment:
+        Variables:
+          DAILY_QUOTA: !Ref DailyQuotaLimit
+          MONTHLY_QUOTA: !Ref MonthlyQuotaLimit
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:Retrieve
+              Resource: "*"
+      Events:
+        QueryApi:
+          Type: Api
+          Properties:
+            Path: /api/query
+            Method: post
+
+  ManualsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-manuals-${Stage}
+      CodeUri: src/functions/manuals/
+      Handler: app.lambda_handler
+      Description: Manage product manuals with user isolation
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - S3WritePolicy:
+            BucketName: !Ref ManualsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:ListDataSources
+                - bedrock:GetDataSource
+                - bedrock:StartIngestionJob
+              Resource: "*"
+      Events:
+        ListManualsApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals
+            Method: get
+        UploadManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/upload
+            Method: post
+        DownloadManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/download
+            Method: post
+
+  ProcessManualFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-process-manual-${Stage}
+      CodeUri: src/functions/process-manual/
+      Handler: app.lambda_handler
+      Description: Process uploaded manuals and sync with Knowledge Base
+      Timeout: 300
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:StartIngestionJob
+                - bedrock:GetIngestionJob
+              Resource: "*"
+
+  UsageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-usage-${Stage}
+      CodeUri: src/functions/usage/
+      Handler: app.lambda_handler
+      Description: Get user usage statistics
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsageTable
+      Events:
+        GetUsageApi:
+          Type: Api
+          Properties:
+            Path: /api/user/usage
+            Method: get
+
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-health-${Stage}
+      CodeUri: src/functions/health/
+      Handler: app.lambda_handler
+      Description: System health checks
+      Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref UsageTable
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:Retrieve
+              Resource: "*"
+      Events:
+        HealthApi:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+            Auth:
+              Authorizer: NONE
+
+  # IAM Role for Bedrock Knowledge Base
+  BedrockKnowledgeBaseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub manuel-bedrock-kb-role-${Stage}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt ManualsBucket.Arn
+                  - !Sub "${ManualsBucket.Arn}/*"
+        - PolicyName: OpenSearchAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - aoss:APIAccessAll
+                Resource: !GetAtt OpenSearchCollection.Arn
+
+  # Lambda Permissions
+  # Note: ProcessManualFunctionPermission will be added after initial deployment
+
+  # CloudWatch Log Groups
+  QueryLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-query-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+
+  ManualsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-manuals-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+
+  ProcessManualLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-process-manual-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+
+  UsageLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-usage-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+
+  HealthLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/manuel-health-${Stage}
+      RetentionInDays: !Ref LogRetentionDays
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    Export:
+      Name: !Sub "${AWS::StackName}-ApiUrl"
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+
+  ManualsBucketName:
+    Description: S3 bucket for storing manuals
+    Value: !Ref ManualsBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-ManualsBucket"
+
+  KnowledgeBaseId:
+    Description: Bedrock Knowledge Base ID
+    Value: !Ref BedrockKnowledgeBase
+    Export:
+      Name: !Sub "${AWS::StackName}-KnowledgeBaseId"
+
+  UsageTableName:
+    Description: DynamoDB table for usage tracking
+    Value: !Ref UsageTable
+    Export:
+      Name: !Sub "${AWS::StackName}-UsageTable"

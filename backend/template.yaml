@@ -126,9 +126,12 @@ Parameters:
     Default: anthropic.claude-3-5-sonnet-20241022-v2:0
     Description: Bedrock text generation model ID for RAG responses
     AllowedValues:
+      - anthropic.claude-3-5-sonnet-20240620-v1:0
       - anthropic.claude-3-5-sonnet-20241022-v2:0
       - anthropic.claude-3-sonnet-20240229-v1:0
       - anthropic.claude-3-haiku-20240307-v1:0
+      - anthropic.claude-sonnet-4-20250514-v1:0
+      - eu.anthropic.claude-sonnet-4-20250514-v1:0
       - us.anthropic.claude-sonnet-4-20250514-v1:0
       - us.anthropic.claude-opus-4-20250514-v1:0
 
@@ -1439,7 +1442,6 @@ Resources:
       Handler: app.lambda_handler
       Description: Process errors from dead letter queue
       Timeout: 60
-      ReservedConcurrencyLimit: 5
       Environment:
         Variables:
           ERROR_TABLE_NAME: !Ref ErrorTrackingTable

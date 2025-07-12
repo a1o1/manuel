@@ -6,10 +6,22 @@ export * from './file';
 export const Platform = {
   isReactNative: typeof navigator !== 'undefined' && navigator.product === 'ReactNative',
   isNode: typeof process !== 'undefined' && process.versions && process.versions.node,
-  isIOS: typeof navigator !== 'undefined' && navigator.product === 'ReactNative' &&
-         typeof require !== 'undefined' && require('react-native').Platform.OS === 'ios',
-  isAndroid: typeof navigator !== 'undefined' && navigator.product === 'ReactNative' &&
-             typeof require !== 'undefined' && require('react-native').Platform.OS === 'android',
+  isIOS: (() => {
+    try {
+      return typeof navigator !== 'undefined' && navigator.product === 'ReactNative' &&
+             typeof require !== 'undefined' && require('react-native').Platform.OS === 'ios';
+    } catch {
+      return false;
+    }
+  })(),
+  isAndroid: (() => {
+    try {
+      return typeof navigator !== 'undefined' && navigator.product === 'ReactNative' &&
+             typeof require !== 'undefined' && require('react-native').Platform.OS === 'android';
+    } catch {
+      return false;
+    }
+  })(),
   isMacOS: typeof process !== 'undefined' && process.platform === 'darwin',
   isWindows: typeof process !== 'undefined' && process.platform === 'win32',
   isLinux: typeof process !== 'undefined' && process.platform === 'linux',

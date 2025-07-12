@@ -6,15 +6,8 @@ export interface StorageAdapter {
   clear(): Promise<void>;
 }
 
-// Storage keys used across platforms
-export const STORAGE_KEYS = {
-  AUTH_TOKENS: '@manuel:auth_tokens',
-  USER_DATA: '@manuel:user_data',
-  SETTINGS: '@manuel:settings',
-  QUERY_HISTORY: '@manuel:query_history',
-  LAST_SESSION: '@manuel:last_session',
-  CLI_CONFIG: '@manuel:cli_config',
-} as const;
+// Import storage keys from constants
+import { STORAGE_KEYS } from '../../constants/config';
 
 // Platform-agnostic storage service
 export class StorageService {
@@ -74,5 +67,18 @@ export class StorageService {
 
   async clearAll(): Promise<void> {
     await this.adapter.clear();
+  }
+
+  // Direct adapter access for legacy compatibility
+  async setItem(key: string, value: string): Promise<void> {
+    await this.adapter.setItem(key, value);
+  }
+
+  async getItem(key: string): Promise<string | null> {
+    return await this.adapter.getItem(key);
+  }
+
+  async removeItem(key: string): Promise<void> {
+    await this.adapter.removeItem(key);
   }
 }

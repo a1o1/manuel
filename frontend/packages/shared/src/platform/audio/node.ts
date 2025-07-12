@@ -37,7 +37,7 @@ export class NodeAudioAdapter extends AudioAdapter {
       const { spawn } = require('child_process');
       return new Promise((resolve) => {
         const process = spawn('which', ['sox'], { stdio: 'ignore' });
-        process.on('close', (code) => {
+        process.on('close', (code: number | null) => {
           resolve(code === 0);
         });
         process.on('error', () => {

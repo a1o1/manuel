@@ -10,6 +10,8 @@
 
 ## Development Commands
 
+### Backend
+
 - Build backend: `sam build`
 - Deploy backend:
   `sam deploy --parameter-overrides-file backend/parameters.json`
@@ -18,8 +20,18 @@
 - Deploy with Claude 4:
   `sam deploy --parameter-overrides-file backend/parameters-claude4.json`
 - Test backend: `npm test` (in backend directory)
-- Run frontend: `expo start` (in frontend directory)
+
+### Frontend
+
+- Run iOS app: `expo start` (in frontend directory)
+- Build CLI: `cd frontend/packages/cli-app && npm run build`
+- Install CLI globally: `cd frontend/packages/cli-app && npm link`
+- Test CLI: `manuel --help`
 - Lint frontend: `npm run lint`
+
+### Alternative Test CLI
+
+- Simple CLI: `node backend/test_cli.js` (simpler interface, same functionality)
 
 ## Code Style & Conventions
 
@@ -44,11 +56,11 @@
 
 ## Model Configuration
 
-- Current Text Model: Claude 3.5 Sonnet
-  (`anthropic.claude-3-5-sonnet-20241022-v2:0`)
+- Current Text Model: Claude Sonnet 4
+  (`eu.anthropic.claude-sonnet-4-20250514-v1:0`)
 - Current Embedding Model: Amazon Titan Text Embeddings V2
   (`amazon.titan-embed-text-v2:0`)
-- Claude 4 Support: Ready for upgrade when available in eu-west-1
+- Inference Profile: Enabled for cross-region availability
 - Model switching: Use parameter files for easy upgrades
 
 ## Key File Locations

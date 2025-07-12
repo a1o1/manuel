@@ -21,7 +21,7 @@ export class SecureStorage {
   static async setItem(key: string, value: string): Promise<void> {
     try {
       const storageService = this.getStorageService();
-      await storageService.adapter.setItem(key, value);
+      await storageService.setItem(key, value);
     } catch (error) {
       console.error('Error storing secure item:', error);
       throw error;
@@ -31,7 +31,7 @@ export class SecureStorage {
   static async getItem(key: string): Promise<string | null> {
     try {
       const storageService = this.getStorageService();
-      return await storageService.adapter.getItem(key);
+      return await storageService.getItem(key);
     } catch (error) {
       console.error('Error retrieving secure item:', error);
       return null;
@@ -41,7 +41,7 @@ export class SecureStorage {
   static async removeItem(key: string): Promise<void> {
     try {
       const storageService = this.getStorageService();
-      await storageService.adapter.removeItem(key);
+      await storageService.removeItem(key);
     } catch (error) {
       console.error('Error removing secure item:', error);
       throw error;

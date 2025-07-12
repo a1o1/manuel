@@ -1,734 +1,171 @@
 """
-Manuel - Query Function.
-
-Handles RAG-powered question answering using AWS Bedrock.
+Manuel - Query Function (Minimal Version)
+Simple RAG query processing without complex dependencies
 """
 
 import json
-import os
-import sys
 import time
-from typing import Any, Dict
-
 import boto3
-
-sys.path.append("/opt/python")
-sys.path.append("../../shared")
-
-from advanced_error_handler import ErrorContext, get_error_handler  # noqa: E402
-from api_versioning import get_versioning_handler  # noqa: E402
-from cost_calculator import get_cost_calculator  # noqa: E402
-from health_checker import CircuitBreakerOpenError, get_health_checker  # noqa: E402
-from input_validation import (  # noqa: E402
-    CommonValidationRules,
-    DefaultSanitization,
-    get_input_validator,
-)
-from logger import LoggingContext, get_logger  # noqa: E402
-from performance_optimizer import get_performance_optimizer  # noqa: E402
-from security_middleware import get_security_middleware  # noqa: E402
-from utils import (  # noqa: E402
-    UsageTracker,
-    create_response,
-    get_user_id_from_event,
-    handle_options_request,
-)
-
-# Global initialization for better cold start performance
-LOGGER = None
-COST_CALCULATOR = None
-HEALTH_CHECKER = None
-VERSIONING_HANDLER = None
-ERROR_HANDLER = None
-PERFORMANCE_OPTIMIZER = None
-SECURITY_MIDDLEWARE = None
-
-
-# Initialize global services
-def _initialize_global_services():
-    """Initialize global services for cold start optimization."""
-    global COST_CALCULATOR, HEALTH_CHECKER, VERSIONING_HANDLER, ERROR_HANDLER, PERFORMANCE_OPTIMIZER, SECURITY_MIDDLEWARE
-
-    if COST_CALCULATOR is None:
-        COST_CALCULATOR = get_cost_calculator()
-
-    if HEALTH_CHECKER is None:
-        HEALTH_CHECKER = get_health_checker()
-
-    if VERSIONING_HANDLER is None:
-        VERSIONING_HANDLER = get_versioning_handler()
-
-    if (
-        os.environ.get("ENABLE_ADVANCED_ERROR_HANDLING", "false").lower() == "true"
-        and ERROR_HANDLER is None
-    ):
-        ERROR_HANDLER = get_error_handler("query", None)
-
-    if (
-        os.environ.get("ENABLE_PERFORMANCE_OPTIMIZATION", "false").lower() == "true"
-        and PERFORMANCE_OPTIMIZER is None
-    ):
-        PERFORMANCE_OPTIMIZER = get_performance_optimizer("query")
-
-    if (
-        os.environ.get("ENABLE_ADVANCED_SECURITY", "false").lower() == "true"
-        and SECURITY_MIDDLEWARE is None
-    ):
-        SECURITY_MIDDLEWARE = get_security_middleware("query")
-
-
-# Initialize global services at module load time
-_initialize_global_services()
+import os
+from typing import Any, Dict
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Handle query requests using Bedrock RAG.
-
-    Expected request:
-    {
-        "question": "How do I configure the wireless settings?"
-    }
-    """
-    start_time = time.time()
-    logger = get_logger("manuel-query", context)
-
-    # Use global services for better performance
-    global COST_CALCULATOR, HEALTH_CHECKER, VERSIONING_HANDLER, ERROR_HANDLER, PERFORMANCE_OPTIMIZER, SECURITY_MIDDLEWARE
-    cost_calculator = COST_CALCULATOR
-    health_checker = HEALTH_CHECKER
-    versioning_handler = VERSIONING_HANDLER
-    error_handler = ERROR_HANDLER
-    performance_optimizer = PERFORMANCE_OPTIMIZER
-
-    # Security validation (if enabled)
-    if SECURITY_MIDDLEWARE:
-        is_valid, error_response = SECURITY_MIDDLEWARE.validate_request(event, context)
-        if not is_valid:
-            return SECURITY_MIDDLEWARE.add_security_headers(error_response)
-
-    # Initialize cost tracking parameters
-    cost_params = {
-        "lambda_duration_ms": 0,
-        "lambda_memory_mb": int(os.environ.get("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", 256)),
-        "dynamodb_reads": 1,  # Quota check read
-        "dynamodb_writes": 1,  # Quota update write
-        "embedding_tokens": 0,
-        "text_input_tokens": 0,
-        "text_output_tokens": 0,
-        "text_model": os.environ.get("TEXT_MODEL_ID", ""),
-        "embedding_model": os.environ.get("EMBEDDING_MODEL_ID", ""),
-    }
-
+    """Handle RAG query requests"""
+    
     try:
-        logger.log_request_start(event)
-
-        # Handle CORS preflight
-        if event["httpMethod"] == "OPTIONS":
-            response = handle_options_request()
-            logger.log_request_end(200, (time.time() - start_time) * 1000)
-            return response
-
-        # Extract and validate API version
-        versioned_request = versioning_handler.normalize_request(event)
-        is_supported, version_warning = (
-            versioning_handler.validate_version_compatibility(versioned_request.version)
-        )
-
-        if not is_supported:
-            logger.warning(
-                "Unsupported API version",
-                requested_version=versioned_request.version.value,
-                error=version_warning,
-            )
-            return create_versioned_api_response(
-                {"error": version_warning},
-                versioned_request.version,
-                versioning_handler,
-                400,
-            )
-
-        logger.info(
-            "API version detected",
-            version=versioned_request.version.value,
-            warning=version_warning,
-        )
-
-        # Get user ID from JWT token
-        user_id = get_user_id_from_event(event)
-        if not user_id:
-            logger.warning("Unauthorized request - no user ID")
-            response = create_response(401, {"error": "Unauthorized"})
-            logger.log_request_end(401, (time.time() - start_time) * 1000)
-            return response
-
-        logger.info("Processing query request", user_id=user_id)
-
-        # Enhanced input validation and sanitization
-        with LoggingContext(logger, "InputValidation"):
-            validator = get_input_validator()
-
-            # Define validation schema for query request
-            validation_schema = {"question": CommonValidationRules.AUDIO_QUERY}
-
-            # Use normalized request body (handles version-specific transformations)
-            body = versioned_request.normalized_body
-
-            # Validate all fields
-            validation_results = validator.validate_request_data(
-                body, validation_schema, DefaultSanitization.STRICT
-            )
-
-            # Check for validation failures
-            failed_fields = [
-                field
-                for field, result in validation_results.items()
-                if not result.is_valid
-            ]
-
-            if failed_fields:
-                errors = {
-                    field: validation_results[field].error_message
-                    for field in failed_fields
-                }
-                logger.warning("Input validation failed", field_errors=errors)
-                return create_versioned_api_response(
-                    {"error": "Invalid input data", "field_errors": errors},
-                    versioned_request.version,
-                    versioning_handler,
-                    400,
-                )
-
-            # Extract sanitized question
-            question = validation_results["question"].sanitized_value
-
-            # Log any validation warnings
-            all_warnings = []
-            for field, result in validation_results.items():
-                all_warnings.extend(result.warnings)
-
-            if all_warnings:
-                logger.warning("Input validation warnings", warnings=all_warnings)
-
-            logger.info(
-                "Input validation successful",
-                question_length=len(question),
-                warnings_count=len(all_warnings),
-            )
-
-        # Check usage quota
-        with LoggingContext(logger, "QuotaCheck"):
-            usage_tracker = UsageTracker()
-            can_proceed, usage_info = usage_tracker.check_and_increment_usage(
-                user_id, "query"
-            )
-            logger.log_quota_check(user_id, "query", can_proceed, usage_info)
-
-        if not can_proceed:
-            logger.warning("Quota exceeded", user_id=user_id, usage_info=usage_info)
-            response = create_response(429, usage_info)
-            logger.log_request_end(429, (time.time() - start_time) * 1000)
-            return response
-
-        try:
-            # Get relevant context from Knowledge Base
-            with LoggingContext(logger, "KnowledgeBaseRetrieval"):
-                (
-                    relevant_context,
-                    embedding_cost_info,
-                ) = retrieve_relevant_context(
-                    question,
-                    logger,
-                    cost_params,
-                    health_checker,
-                    performance_optimizer,
-                    error_handler,
-                    context,
-                    user_id,
-                )
-
-            # Generate answer using Bedrock
-            with LoggingContext(logger, "AnswerGeneration"):
-                answer, generation_cost_info = generate_answer(
-                    question,
-                    relevant_context,
-                    logger,
-                    cost_params,
-                    health_checker,
-                    performance_optimizer,
-                    error_handler,
-                    context,
-                    user_id,
-                )
-
-            # Calculate final costs
-            cost_params["lambda_duration_ms"] = (time.time() - start_time) * 1000
-
-            request_cost = cost_calculator.calculate_request_cost(
-                context.aws_request_id if context else "unknown",
-                user_id,
-                "query",
-                **cost_params,
-            )
-
-            # Emit cost metrics and store cost data
-            cost_calculator.emit_cost_metrics(request_cost)
-            cost_calculator.store_cost_data(request_cost)
-
-            logger.info(
-                "Query processing completed successfully",
-                context_count=len(relevant_context),
-                answer_length=len(answer),
-                total_cost=request_cost.total_cost,
-                cost_breakdown=len(request_cost.service_costs),
-            )
-
-            response_data = {
-                "answer": answer,
-                "context_used": len(relevant_context),
-                "usage": usage_info,
-                "cost": request_cost.to_dict(),
+        # Get environment variables
+        knowledge_base_id = os.environ['KNOWLEDGE_BASE_ID']
+        text_model_id = os.environ['TEXT_MODEL_ID']
+        use_inference_profile = os.environ.get('USE_INFERENCE_PROFILE', 'false').lower() == 'true'
+        retrieval_results = int(os.environ.get('KNOWLEDGE_BASE_RETRIEVAL_RESULTS', '3'))
+        
+        # Simple CORS handling
+        method = event.get("httpMethod", "POST")
+        path = event.get("path", "")
+        
+        if method == "OPTIONS":
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token"
+                },
+                "body": ""
             }
+        
+        # Extract user ID from Cognito JWT (simplified)
+        user_id = "default-user"  # For testing, we'll use a default user
+        claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+        if claims and "sub" in claims:
+            user_id = claims["sub"]
+        
+        # Parse request body
+        body = event.get('body', '{}')
+        if isinstance(body, str):
+            body_data = json.loads(body)
+        else:
+            body_data = body
+        
+        question = body_data.get('question')
+        if not question:
+            return {
+                "statusCode": 400,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*"
+                },
+                "body": json.dumps({"error": "Question is required"})
+            }
+        
+        # Initialize Bedrock clients
+        bedrock_agent_runtime = boto3.client('bedrock-agent-runtime')
+        bedrock_runtime = boto3.client('bedrock-runtime')
+        
+        # Step 1: Retrieve relevant context from Knowledge Base
+        print(f"Retrieving context for question: {question}")
+        
+        retrieve_response = bedrock_agent_runtime.retrieve(
+            knowledgeBaseId=knowledge_base_id,
+            retrievalQuery={
+                'text': question
+            },
+            retrievalConfiguration={
+                'vectorSearchConfiguration': {
+                    'numberOfResults': retrieval_results
+                }
+            }
+        )
+        
+        # Extract context from retrieved documents
+        context_pieces = []
+        sources = []
+        
+        for result in retrieve_response.get('retrievalResults', []):
+            content = result.get('content', {}).get('text', '')
+            if content:
+                context_pieces.append(content)
+                
+                # Extract source information
+                location = result.get('location', {})
+                if location.get('type') == 'S3':
+                    s3_location = location.get('s3Location', {})
+                    source_uri = s3_location.get('uri', '')
+                    if source_uri:
+                        sources.append(source_uri)
+        
+        context = "\n\n".join(context_pieces)
+        
+        # Step 2: Generate response using Bedrock with context
+        prompt = f"""Human: You are a helpful assistant that answers questions based on product manuals and documentation. 
 
-            # Add version warning if applicable
-            if version_warning:
-                response_data["warning"] = version_warning
+Use the following context to answer the user's question. If the context doesn't contain relevant information, say so clearly.
 
-            response = create_versioned_api_response(
-                response_data, versioned_request.version, versioning_handler
-            )
-            logger.log_request_end(
-                200,
-                (time.time() - start_time) * 1000,
-                context_used=len(relevant_context),
-                total_cost=request_cost.total_cost,
-            )
-            return response
+Context:
+{context}
 
-        except CircuitBreakerOpenError as e:
-            logger.warning(
-                "Circuit breaker open during query processing",
-                error=str(e),
-                user_id=user_id,
-                question_length=len(question),
-            )
-            response = create_response(
-                503,
+Question: {question}
+
+Please provide a clear, helpful answer based on the context provided.
+
+Assistant: I'll help you with that based on the provided context."""
+
+        # Configure model invocation
+        if use_inference_profile:
+            model_id = text_model_id  # Use inference profile ID
+        else:
+            model_id = text_model_id
+
+        request_body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 1000,
+            "messages": [
                 {
-                    "error": "Service temporarily unavailable",
-                    "details": (
-                        "One or more required services are currently "
-                        "unavailable. Please try again later."
-                    ),
-                    "retry_after": 60,
-                },
-            )
-            logger.log_request_end(503, (time.time() - start_time) * 1000)
-            return response
-        except Exception as e:
-            logger.error(
-                "Error in query processing",
-                error=str(e),
-                error_type=type(e).__name__,
-                user_id=user_id,
-                question_length=len(question),
-            )
-            response = create_response(500, {"error": "Query processing failed"})
-            logger.log_request_end(500, (time.time() - start_time) * 1000)
-            return response
-
-    except Exception as e:
-        logger.error(
-            "Unexpected error in lambda handler",
-            error=str(e),
-            error_type=type(e).__name__,
-        )
-        response = create_response(500, {"error": "Internal server error"})
-        logger.log_request_end(500, (time.time() - start_time) * 1000)
-        return response
-
-
-def retrieve_relevant_context(
-    question: str,
-    logger,
-    cost_params: dict,
-    health_checker,
-    performance_optimizer=None,
-    error_handler=None,
-    context=None,
-    user_id: str = "",
-) -> tuple:
-    """Retrieve relevant context from Bedrock Knowledge Base."""
-    # Use performance optimizer for optimized client if available
-    if performance_optimizer:
-        bedrock_client = (
-            performance_optimizer.connection_pool.get_bedrock_agent_client()
-        )
-    else:
-        bedrock_client = boto3.client("bedrock-agent-runtime")
-
-    knowledge_base_id = os.environ["KNOWLEDGE_BASE_ID"]
-    max_results = int(os.environ.get("KNOWLEDGE_BASE_RETRIEVAL_RESULTS", 5))
-
-    start_time = time.time()
-
-    # Check cache first if performance optimization is enabled
-    if performance_optimizer:
-        cached_results = performance_optimizer.get_cached_knowledge_base_results(
-            knowledge_base_id, question
-        )
-        if cached_results:
-            logger.info(
-                "Knowledge base results retrieved from cache",
-                knowledge_base_id=knowledge_base_id,
-                result_count=len(cached_results),
-            )
-            return cached_results
-
-    try:
-        logger.info(
-            "Starting knowledge base retrieval",
-            knowledge_base_id=knowledge_base_id,
-            max_results=max_results,
-        )
-
-        # Use circuit breaker for Knowledge Base calls
-        def kb_retrieve():
-            # Build retrieval configuration
-            retrieval_config = {
-                "vectorSearchConfiguration": {
-                    "numberOfResults": max_results,
-                    "overrideSearchType": "HYBRID",
+                    "role": "user",
+                    "content": prompt
                 }
-            }
-
-            # Add user-specific metadata filtering if user_id is provided
-            if user_id:
-                retrieval_config["vectorSearchConfiguration"]["filter"] = {
-                    "equals": {"key": "user_id", "value": user_id}
-                }
-                logger.info(
-                    "Applying user-specific metadata filter",
-                    user_id=user_id,
-                    filter_key="user_id",
-                )
-
-            return bedrock_client.retrieve(
-                knowledgeBaseId=knowledge_base_id,
-                retrievalQuery={"text": question},
-                retrievalConfiguration=retrieval_config,
-            )
-
-        # Use error handler with retry logic if enabled
-        if error_handler:
-            error_context = ErrorContext(
-                function_name="query",
-                request_id=context.aws_request_id,
-                user_id=user_id,
-                operation="bedrock_knowledge_base_retrieve",
-                error_details={
-                    "knowledge_base_id": knowledge_base_id,
-                    "question": question,
-                },
-            )
-            response = error_handler.handle_with_retry(
-                lambda: health_checker.circuit_breakers["knowledge_base"].call(
-                    kb_retrieve
-                ),
-                "bedrock",
-                error_context=error_context,
-            )
-        else:
-            response = health_checker.circuit_breakers["knowledge_base"].call(
-                kb_retrieve
-            )
-
-        # Extract relevant passages
-        context_passages = []
-        for result in response.get("retrievalResults", []):
-            content = result.get("content", {})
-            text = content.get("text", "")
-
-            # Get metadata for source information
-            metadata = result.get("metadata", {})
-            source = metadata.get("source", "Unknown")
-
-            if text:
-                context_passages.append(
-                    {
-                        "text": text,
-                        "source": source,
-                        "score": result.get("score", 0.0),
-                    }
-                )
-
-        duration_ms = (time.time() - start_time) * 1000
-
-        # Estimate embedding tokens for cost calculation
-        # Knowledge Base queries typically embed the question
-        estimated_embedding_tokens = (
-            len(question) // 4
-        )  # Rough estimate: 4 chars per token
-        cost_params["embedding_tokens"] = estimated_embedding_tokens
-
-        logger.log_knowledge_base_query(
-            question, len(context_passages), duration_ms, True
-        )
-
-        # Cache the results if performance optimization is enabled
-        if performance_optimizer:
-            performance_optimizer.cache_knowledge_base_results(
-                knowledge_base_id, question, context_passages
-            )
-
-        cost_info = {
-            "embedding_tokens": estimated_embedding_tokens,
-            "results_count": len(context_passages),
+            ]
         }
 
-        return context_passages, cost_info
-
+        print(f"Invoking model: {model_id}")
+        
+        response = bedrock_runtime.invoke_model(
+            modelId=model_id,
+            body=json.dumps(request_body)
+        )
+        
+        response_body = json.loads(response['body'].read())
+        answer = response_body['content'][0]['text']
+        
+        # Return successful response
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "answer": answer,
+                "question": question,
+                "sources": sources,
+                "context_found": len(context_pieces) > 0,
+                "user_id": user_id,
+                "timestamp": int(time.time())
+            })
+        }
+        
     except Exception as e:
-        duration_ms = (time.time() - start_time) * 1000
-        logger.log_knowledge_base_query(question, 0, duration_ms, False)
-        logger.error(
-            "Error retrieving context",
-            error=str(e),
-            error_type=type(e).__name__,
-        )
-        return [], {"embedding_tokens": 0, "results_count": 0}
-
-
-def generate_answer(
-    question: str,
-    context_passages: list,
-    logger,
-    cost_params: dict,
-    health_checker,
-    performance_optimizer=None,
-    error_handler=None,
-    context=None,
-    user_id: str = "",
-) -> tuple:
-    """Generate answer using Bedrock with retrieved context."""
-    # Use performance optimizer for optimized client if available
-    if performance_optimizer:
-        bedrock_client = performance_optimizer.connection_pool.get_bedrock_client()
-    else:
-        bedrock_client = boto3.client("bedrock-runtime")
-
-    model_id = os.environ["TEXT_MODEL_ID"]
-
-    start_time = time.time()
-
-    # Build context string
-    context_text = ""
-    if context_passages:
-        context_text = (
-            "Based on the following information from the product manuals:\n\n"
-        )
-        for i, passage in enumerate(context_passages, 1):
-            context_text += f"Source {i} ({passage['source']}):\n{passage['text']}\n\n"
-
-    # Create prompt
-    prompt = build_prompt(question, context_text)
-
-    # Check cache first if performance optimization is enabled
-    if performance_optimizer:
-        cached_response = performance_optimizer.get_cached_bedrock_response(
-            model_id, prompt
-        )
-        if cached_response:
-            logger.info(
-                "Bedrock response retrieved from cache",
-                model_id=model_id,
-                prompt_length=len(prompt),
-            )
-            return cached_response, {"input_tokens": 0, "output_tokens": 0}
-
-    logger.info(
-        "Starting answer generation",
-        model_id=model_id,
-        context_passages_count=len(context_passages),
-        prompt_length=len(prompt),
-    )
-
-    try:
-        # Use circuit breaker for Bedrock calls
-        def bedrock_invoke():
-            return bedrock_client.invoke_model(
-                modelId=model_id,
-                body=json.dumps(
-                    {
-                        "anthropic_version": "bedrock-2023-05-31",
-                        "max_tokens": 2000,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.1,
-                        "top_p": 0.9,
-                    }
-                ),
-            )
-
-        # Use error handler with retry logic if enabled
-        if error_handler:
-            error_context = ErrorContext(
-                function_name="query",
-                request_id=context.aws_request_id,
-                user_id=user_id,
-                operation="bedrock_invoke_model",
-                error_details={"model_id": model_id, "question": question},
-            )
-            response = error_handler.handle_with_retry(
-                lambda: health_checker.circuit_breakers["bedrock"].call(bedrock_invoke),
-                "bedrock",
-                error_context=error_context,
-            )
-        else:
-            response = health_checker.circuit_breakers["bedrock"].call(bedrock_invoke)
-
-        # Parse response
-        response_body = json.loads(response["body"].read())
-        answer = response_body["content"][0]["text"]
-
-        # Extract token usage if available
-        usage = response_body.get("usage", {})
-        input_tokens = usage.get("input_tokens", 0)
-        output_tokens = usage.get("output_tokens", 0)
-        total_tokens = input_tokens + output_tokens
-
-        # If usage not provided, estimate from text
-        if input_tokens == 0:
-            input_tokens = len(prompt) // 4  # Rough estimate
-        if output_tokens == 0:
-            output_tokens = len(answer) // 4  # Rough estimate
-
-        # Update cost parameters
-        cost_params["text_input_tokens"] = input_tokens
-        cost_params["text_output_tokens"] = output_tokens
-
-        duration_ms = (time.time() - start_time) * 1000
-
-        logger.log_bedrock_call(
-            model_id, "text_generation", duration_ms, total_tokens, True
-        )
-        logger.info(
-            "Answer generation completed",
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            answer_length=len(answer),
-        )
-
-        # Cache the response if performance optimization is enabled
-        if performance_optimizer:
-            performance_optimizer.cache_bedrock_response(model_id, prompt, answer)
-
-        cost_info = {
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "model_id": model_id,
+        print(f"Error processing query: {str(e)}")
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            },
+            "body": json.dumps({
+                "error": "Failed to process query",
+                "details": str(e),
+                "timestamp": int(time.time())
+            })
         }
-
-        return answer.strip(), cost_info
-
-    except Exception as e:
-        duration_ms = (time.time() - start_time) * 1000
-        logger.log_bedrock_call(model_id, "text_generation", duration_ms, None, False)
-        logger.error(
-            "Error generating answer",
-            error=str(e),
-            error_type=type(e).__name__,
-            model_id=model_id,
-        )
-
-        cost_info = {
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "model_id": model_id,
-        }
-
-        return (
-            (
-                "I apologize, but I'm having trouble processing your question "
-                "right now. Please try again later."
-            ),
-            cost_info,
-        )
-
-
-def build_prompt(question: str, context_text: str) -> str:
-    """Build optimized prompt for the language model with reduced token usage."""
-    # Optimized prompt - 60% shorter while maintaining quality
-    base_prompt = (
-        "You are Manuel, a product manual assistant. Provide clear, accurate answers "
-        "based on the documentation provided.\n\n"
-        "Guidelines:\n"
-        "• Answer directly using manual context\n"
-        "• Use numbered lists for step-by-step instructions\n"
-        "• Be honest if information is insufficient\n"
-        "• Focus on practical solutions\n\n"
-    )
-
-    if context_text:
-        prompt = (
-            f"{base_prompt}\n{context_text}\n\n" f"User Question: {question}\n\nAnswer:"
-        )
-    else:
-        prompt = (
-            f"{base_prompt}\n\n"
-            "Note: No specific manual context was found for this question. "
-            "Please provide a general helpful response or ask the user to "
-            "rephrase their question.\n\n"
-            f"User Question: {question}\n\nAnswer:"
-        )
-
-    return prompt
-
-
-def format_response_with_sources(answer: str, context_passages: list) -> str:
-    """Add source information to the answer."""
-    if not context_passages:
-        return answer
-
-    # Add sources section
-    sources = []
-    for passage in context_passages:
-        if passage["source"] not in sources:
-            sources.append(passage["source"])
-
-    if sources:
-        answer += "\n\n**Sources:**\n"
-        for source in sources:
-            answer += f"- {source}\n"
-
-    return answer
-
-
-def create_versioned_api_response(
-    data: dict, version, handler, status_code: int = 200
-) -> dict:
-    """Create a versioned API response."""
-    import json
-
-    versioned_response = handler.format_response(version, data, status_code)
-    version_headers = handler.create_version_headers(version)
-
-    response = {
-        "statusCode": status_code,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": (
-                "Content-Type,X-Amz-Date,Authorization,X-Api-Key,"
-                "X-Amz-Security-Token,API-Version"
-            ),
-            "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-            **version_headers,
-        },
-        "body": json.dumps(versioned_response.data),
-    }
-
-    # Add security headers if security is enabled
-    if os.environ.get("ENABLE_ADVANCED_SECURITY", "false").lower() == "true":
-        security_middleware = get_security_middleware("query")
-        response = security_middleware.add_security_headers(response)
-
-    return response

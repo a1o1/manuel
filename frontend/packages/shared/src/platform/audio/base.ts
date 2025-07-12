@@ -125,6 +125,10 @@ export class AudioService {
     return this.adapter.getRecordingDuration();
   }
 
+  getAudioFormat(): string {
+    return this.adapter.getAudioFormat();
+  }
+
   async cleanup(): Promise<void> {
     await this.adapter.cleanup();
   }

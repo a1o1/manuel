@@ -49,8 +49,23 @@ export const generateId = (): string => {
 };
 
 // Platform detection
-export const isIOS = require('react-native').Platform.OS === 'ios';
-export const isAndroid = require('react-native').Platform.OS === 'android';
+export const isIOS = (() => {
+  try {
+    return typeof navigator !== 'undefined' && navigator.product === 'ReactNative' &&
+           require('react-native').Platform.OS === 'ios';
+  } catch {
+    return false;
+  }
+})();
+
+export const isAndroid = (() => {
+  try {
+    return typeof navigator !== 'undefined' && navigator.product === 'ReactNative' &&
+           require('react-native').Platform.OS === 'android';
+  } catch {
+    return false;
+  }
+})();
 
 // Safe area helpers
 export const getStatusBarHeight = (): number => {

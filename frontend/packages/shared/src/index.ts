@@ -14,4 +14,4 @@ export * from './constants';
 // export * from './contexts';
 
 // Export platform adapters
-// export * from './platform';
+export * from './platform';

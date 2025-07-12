@@ -1,10 +1,6 @@
 export * from './base';
-export * from './react-native';
-export * from './node';
 
 import { StorageService, StorageAdapter } from './base';
-import { ReactNativeStorageAdapter } from './react-native';
-import { NodeStorageAdapter } from './node';
 
 // Platform detection
 const isReactNative = typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
@@ -13,8 +9,10 @@ const isNode = typeof process !== 'undefined' && process.versions && process.ver
 // Factory function to create appropriate storage adapter
 export function createStorageAdapter(): StorageAdapter {
   if (isReactNative) {
+    const { ReactNativeStorageAdapter } = require('./react-native');
     return new ReactNativeStorageAdapter();
   } else if (isNode) {
+    const { NodeStorageAdapter } = require('./node');
     return new NodeStorageAdapter();
   } else {
     throw new Error('Unsupported platform for storage adapter');
