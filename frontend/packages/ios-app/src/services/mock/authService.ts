@@ -1,4 +1,5 @@
 import { AuthService } from '../index';
+import { mockUserContext } from './userContext';
 
 export class MockAuthService implements AuthService {
   private currentUser: any = null;
@@ -7,14 +8,20 @@ export class MockAuthService implements AuthService {
     // Simulate API delay
     await this.delay(1500);
 
+    // Map emails to different user IDs for testing user isolation
+    const userId = this.getUserIdFromEmail(email);
+    
     const user = {
-      id: '1',
+      id: userId,
       email,
-      name: email.split('@')[0],
+      name: this.getNameFromEmail(email),
     };
 
     const token = 'mock-jwt-token';
     this.currentUser = user;
+    
+    // Update mock user context
+    mockUserContext.setCurrentUserId(userId);
 
     return { user, token };
   }
@@ -22,14 +29,19 @@ export class MockAuthService implements AuthService {
   async signup(email: string, password: string, name: string) {
     await this.delay(1500);
 
+    const userId = this.getUserIdFromEmail(email);
+
     const user = {
-      id: '1',
+      id: userId,
       email,
       name,
     };
 
     const token = 'mock-jwt-token';
     this.currentUser = user;
+    
+    // Update mock user context
+    mockUserContext.setCurrentUserId(userId);
 
     return { user, token };
   }
@@ -37,11 +49,34 @@ export class MockAuthService implements AuthService {
   async logout() {
     await this.delay(500);
     this.currentUser = null;
+    // Reset to default user
+    mockUserContext.setCurrentUserId('user1');
   }
 
   async getCurrentUser() {
     await this.delay(200);
     return this.currentUser;
+  }
+
+  private getUserIdFromEmail(email: string): string {
+    // Map specific emails to user IDs for testing
+    const emailToUserId: Record<string, string> = {
+      'john.doe@example.com': 'user1',
+      'jane.smith@example.com': 'user2', 
+      'mike.johnson@example.com': 'user3',
+    };
+    
+    return emailToUserId[email] || 'user1';
+  }
+
+  private getNameFromEmail(email: string): string {
+    const emailToName: Record<string, string> = {
+      'john.doe@example.com': 'John Doe',
+      'jane.smith@example.com': 'Jane Smith',
+      'mike.johnson@example.com': 'Mike Johnson',
+    };
+    
+    return emailToName[email] || email.split('@')[0];
   }
 
   async forgotPassword(email: string) {
