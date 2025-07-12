@@ -19,11 +19,11 @@ function makeRequest(options, data = null) {
     return new Promise((resolve, reject) => {
         const req = https.request(options, (res) => {
             let responseData = '';
-            
+
             res.on('data', (chunk) => {
                 responseData += chunk;
             });
-            
+
             res.on('end', () => {
                 try {
                     const parsed = JSON.parse(responseData);
@@ -41,15 +41,15 @@ function makeRequest(options, data = null) {
                 }
             });
         });
-        
+
         req.on('error', (err) => {
             reject(err);
         });
-        
+
         if (data) {
             req.write(JSON.stringify(data));
         }
-        
+
         req.end();
     });
 }
@@ -59,7 +59,7 @@ function makeRequest(options, data = null) {
  */
 async function testPublicEndpoints() {
     console.log('🔍 Testing public endpoints...\n');
-    
+
     // Test health endpoint
     try {
         const healthOptions = {
@@ -71,12 +71,12 @@ async function testPublicEndpoints() {
                 'Content-Type': 'application/json'
             }
         };
-        
+
         const healthResponse = await makeRequest(healthOptions);
         console.log('✅ Health endpoint response:');
         console.log(JSON.stringify(healthResponse.data, null, 2));
         console.log();
-        
+
     } catch (error) {
         console.log('❌ Health endpoint failed:', error.message);
     }
@@ -87,7 +87,7 @@ async function testPublicEndpoints() {
  */
 async function testQueryEndpoint() {
     console.log('🔍 Testing query endpoint (without auth)...\n');
-    
+
     try {
         const queryOptions = {
             hostname: '83bcch9z1c.execute-api.eu-west-1.amazonaws.com',
@@ -98,22 +98,22 @@ async function testQueryEndpoint() {
                 'Content-Type': 'application/json'
             }
         };
-        
+
         const queryData = {
             query: testQuery,
             include_sources: true
         };
-        
+
         const queryResponse = await makeRequest(queryOptions, queryData);
         console.log('📝 Query endpoint response:');
         console.log(`Status: ${queryResponse.statusCode}`);
         console.log('Data:', JSON.stringify(queryResponse.data, null, 2));
         console.log();
-        
+
         if (queryResponse.statusCode === 401 || queryResponse.data.message === 'Missing Authentication Token') {
             console.log('ℹ️  As expected, query endpoint requires authentication');
         }
-        
+
     } catch (error) {
         console.log('❌ Query endpoint test failed:', error.message);
     }
@@ -124,7 +124,7 @@ async function testQueryEndpoint() {
  */
 async function testAuthEndpoints() {
     console.log('🔍 Testing auth-related endpoints...\n');
-    
+
     const authPaths = [
         '/Prod/auth',
         '/Prod/auth/login',
@@ -132,7 +132,7 @@ async function testAuthEndpoints() {
         '/Prod/signup',
         '/Prod/login'
     ];
-    
+
     for (const path of authPaths) {
         try {
             const options = {
@@ -144,13 +144,13 @@ async function testAuthEndpoints() {
                     'Content-Type': 'application/json'
                 }
             };
-            
+
             const response = await makeRequest(options);
             console.log(`${path}: Status ${response.statusCode}`);
             if (response.statusCode !== 404) {
                 console.log('  Response:', JSON.stringify(response.data, null, 2));
             }
-            
+
         } catch (error) {
             console.log(`${path}: Error - ${error.message}`);
         }
@@ -164,15 +164,15 @@ async function testAuthEndpoints() {
 async function main() {
     console.log('🚀 Manuel API Test Script');
     console.log('==========================\n');
-    
+
     console.log(`Target API: ${API_BASE_URL}`);
     console.log(`Test Query: "${testQuery}"`);
     console.log();
-    
+
     await testPublicEndpoints();
     await testQueryEndpoint();
     await testAuthEndpoints();
-    
+
     console.log('📋 Summary:');
     console.log('- The API is accessible and responding');
     console.log('- Health endpoint works without authentication');

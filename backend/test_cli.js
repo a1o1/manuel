@@ -69,11 +69,11 @@ async function query(idToken, question) {
 
         const req = https.request(options, (res) => {
             let responseData = '';
-            
+
             res.on('data', (chunk) => {
                 responseData += chunk;
             });
-            
+
             res.on('end', () => {
                 try {
                     const parsed = JSON.parse(responseData);
@@ -89,11 +89,11 @@ async function query(idToken, question) {
                 }
             });
         });
-        
+
         req.on('error', (err) => {
             reject(err);
         });
-        
+
         req.write(data);
         req.end();
     });
@@ -113,11 +113,11 @@ async function listManuals(idToken) {
 
         const req = https.request(options, (res) => {
             let responseData = '';
-            
+
             res.on('data', (chunk) => {
                 responseData += chunk;
             });
-            
+
             res.on('end', () => {
                 try {
                     const parsed = JSON.parse(responseData);
@@ -133,11 +133,11 @@ async function listManuals(idToken) {
                 }
             });
         });
-        
+
         req.on('error', (err) => {
             reject(err);
         });
-        
+
         req.end();
     });
 }
@@ -171,7 +171,7 @@ async function runInteractiveMode(tokens) {
 
     rl.on('line', async (input) => {
         const trimmed = input.trim();
-        
+
         if (!trimmed) {
             rl.prompt();
             return;
@@ -186,17 +186,17 @@ async function runInteractiveMode(tokens) {
                 rl.close();
                 return;
             }
-            
+
             if (command === 'help') {
                 displayHelp();
                 rl.prompt();
                 return;
             }
-            
+
             if (command === 'manuals') {
                 log('📚 Fetching your manuals...', 'cyan');
                 const result = await listManuals(tokens.IdToken);
-                
+
                 if (result.statusCode === 200 && result.data.manuals) {
                     if (result.data.manuals.length === 0) {
                         log('📄 No manuals found. Upload some manuals first!', 'yellow');
@@ -213,7 +213,7 @@ async function runInteractiveMode(tokens) {
                 rl.prompt();
                 return;
             }
-            
+
             if (command === 'query') {
                 const question = parts.slice(1).join(' ');
                 if (!question) {
@@ -221,17 +221,17 @@ async function runInteractiveMode(tokens) {
                     rl.prompt();
                     return;
                 }
-                
+
                 log(`🔍 Searching for: "${question}"`, 'cyan');
                 log('⏳ Processing with AI...', 'yellow');
-                
+
                 const result = await query(tokens.IdToken, question);
-                
+
                 if (result.statusCode === 200 && result.data.answer) {
                     log('\n🤖 Answer:', 'green');
                     log('─'.repeat(50), 'white');
                     log(result.data.answer, 'white');
-                    
+
                     if (result.data.sources && result.data.sources.length > 0) {
                         log('\n📚 Sources:', 'blue');
                         result.data.sources.forEach((source, i) => {
@@ -239,7 +239,7 @@ async function runInteractiveMode(tokens) {
                             log(`  ${i + 1}. ${filename}`, 'white');
                         });
                     }
-                    
+
                     log(`\n🔍 Context found: ${result.data.context_found ? 'Yes' : 'No'}`, 'yellow');
                     log('');
                 } else {
@@ -248,13 +248,13 @@ async function runInteractiveMode(tokens) {
                 rl.prompt();
                 return;
             }
-            
+
             log(`❌ Unknown command: ${command}. Type "help" for available commands.`, 'red');
-            
+
         } catch (error) {
             log(`❌ Error: ${error.message}`, 'red');
         }
-        
+
         rl.prompt();
     });
 
@@ -266,9 +266,9 @@ async function runInteractiveMode(tokens) {
 
 async function main() {
     displayBanner();
-    
+
     const args = process.argv.slice(2);
-    
+
     if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
         log('Usage:', 'yellow');
         log('  node test_cli.js                 - Start interactive mode', 'white');
@@ -279,7 +279,7 @@ async function main() {
             // Start interactive mode
             log('🔐 Authenticating with stored credentials...', 'cyan');
             const tokens = await authenticateUser('test@example.com', 'TestPassword123!');
-            
+
             if (tokens) {
                 await runInteractiveMode(tokens);
             } else {
@@ -288,33 +288,33 @@ async function main() {
         }
         return;
     }
-    
+
     // Non-interactive mode
     log('🔐 Authenticating...', 'cyan');
     const tokens = await authenticateUser('test@example.com', 'TestPassword123!');
-    
+
     if (!tokens) {
         log('❌ Authentication failed. Check your credentials.', 'red');
         process.exit(1);
     }
-    
+
     const command = args[0];
-    
+
     if (command === 'query') {
         const question = args.slice(1).join(' ');
         if (!question) {
             log('❌ Please provide a question.', 'red');
             process.exit(1);
         }
-        
+
         log(`🔍 Asking: "${question}"`, 'cyan');
         const result = await query(tokens.IdToken, question);
-        
+
         if (result.statusCode === 200 && result.data.answer) {
             log('\n🤖 Answer:', 'green');
             log('─'.repeat(50), 'white');
             console.log(result.data.answer);
-            
+
             if (result.data.sources && result.data.sources.length > 0) {
                 log('\n📚 Sources:', 'blue');
                 result.data.sources.forEach((source, i) => {
@@ -329,7 +329,7 @@ async function main() {
     } else if (command === 'manuals') {
         log('📚 Fetching your manuals...', 'cyan');
         const result = await listManuals(tokens.IdToken);
-        
+
         if (result.statusCode === 200 && result.data.manuals) {
             if (result.data.manuals.length === 0) {
                 log('📄 No manuals found.', 'yellow');

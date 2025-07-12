@@ -35,7 +35,7 @@ function createSRPChallenge(username, password) {
 async function authenticateWithAWS(username, password) {
     try {
         const AWS = require('aws-sdk');
-        
+
         const cognito = new AWS.CognitoIdentityServiceProvider({
             region: REGION
         });
@@ -52,7 +52,7 @@ async function authenticateWithAWS(username, password) {
 
         try {
             const result = await cognito.initiateAuth(params).promise();
-            
+
             if (result.AuthenticationResult) {
                 console.log('✅ Authentication successful!');
                 console.log('Access Token:', result.AuthenticationResult.AccessToken);
@@ -60,15 +60,15 @@ async function authenticateWithAWS(username, password) {
                 console.log('Refresh Token:', result.AuthenticationResult.RefreshToken);
                 return result.AuthenticationResult;
             }
-            
+
         } catch (error) {
             if (error.code === 'NotAuthorizedException' && error.message.includes('USER_PASSWORD_AUTH')) {
                 console.log('ℹ️  USER_PASSWORD_AUTH not allowed, trying USER_SRP_AUTH...');
-                
+
                 // Fall back to SRP authentication
                 params.AuthFlow = 'USER_SRP_AUTH';
                 delete params.AuthParameters.PASSWORD;
-                
+
                 const srpResult = await cognito.initiateAuth(params).promise();
                 console.log('⚠️  SRP challenge received. This requires additional implementation.');
                 console.log('Challenge:', srpResult.ChallengeName);
@@ -76,10 +76,10 @@ async function authenticateWithAWS(username, password) {
             }
             throw error;
         }
-        
+
     } catch (error) {
         console.error('❌ Authentication failed:', error.message);
-        
+
         if (error.code === 'UserNotFoundException') {
             console.log('💡 The user does not exist. Please create the user first.');
         } else if (error.code === 'NotAuthorizedException') {
@@ -87,7 +87,7 @@ async function authenticateWithAWS(username, password) {
         } else if (error.message.includes('aws-sdk')) {
             console.log('💡 AWS SDK not installed. Install with: npm install aws-sdk');
         }
-        
+
         return null;
     }
 }
@@ -115,11 +115,11 @@ async function testQuery(accessToken, query) {
 
         const req = https.request(options, (res) => {
             let responseData = '';
-            
+
             res.on('data', (chunk) => {
                 responseData += chunk;
             });
-            
+
             res.on('end', () => {
                 try {
                     const parsed = JSON.parse(responseData);
@@ -135,11 +135,11 @@ async function testQuery(accessToken, query) {
                 }
             });
         });
-        
+
         req.on('error', (err) => {
             reject(err);
         });
-        
+
         req.write(data);
         req.end();
     });
@@ -152,7 +152,7 @@ async function getStackOutputs() {
     try {
         const AWS = require('aws-sdk');
         const cloudformation = new AWS.CloudFormation({ region: REGION });
-        
+
         // Try common stack names
         const possibleStackNames = [
             'manuel-dev-minimal',
@@ -161,33 +161,33 @@ async function getStackOutputs() {
             'manuel-staging',
             'manuel'
         ];
-        
+
         for (const stackName of possibleStackNames) {
             try {
                 const result = await cloudformation.describeStacks({ StackName: stackName }).promise();
                 const outputs = result.Stacks[0].Outputs;
-                
+
                 console.log(`\n📋 Found stack: ${stackName}`);
                 console.log('Outputs:');
                 outputs.forEach(output => {
                     console.log(`  ${output.OutputKey}: ${output.OutputValue}`);
                 });
-                
+
                 const userPoolId = outputs.find(o => o.OutputKey === 'UserPoolId')?.OutputValue;
                 const clientId = outputs.find(o => o.OutputKey === 'UserPoolClientId')?.OutputValue;
-                
+
                 if (userPoolId && clientId) {
                     return { userPoolId, clientId };
                 }
-                
+
             } catch (error) {
                 // Stack doesn't exist, continue
             }
         }
-        
+
         console.log('❌ No Manuel stacks found or no AWS access');
         return null;
-        
+
     } catch (error) {
         console.log('❌ Error accessing CloudFormation:', error.message);
         return null;
@@ -200,31 +200,31 @@ async function getStackOutputs() {
 async function main() {
     console.log('🚀 Manuel Authentication Helper');
     console.log('================================\n');
-    
+
     // Check if we can get stack outputs
     console.log('🔍 Looking for CloudFormation stack outputs...');
     const stackInfo = await getStackOutputs();
-    
+
     if (stackInfo) {
         console.log(`\n✅ Found User Pool ID: ${stackInfo.userPoolId}`);
         console.log(`✅ Found Client ID: ${stackInfo.clientId}`);
-        
+
         // Update the constants
         const userPoolId = stackInfo.userPoolId;
         const clientId = stackInfo.clientId;
-        
+
         // Test authentication
         console.log('\n🔐 Testing authentication...');
         const tokens = await authenticateWithAWS('test@example.com', 'TestPassword123!');
-        
+
         if (tokens) {
             console.log('\n🧪 Testing query with authentication...');
             const queryResult = await testQuery(tokens.AccessToken, 'How do I adjust microtiming on the analog rytm?');
-            
+
             console.log(`\n📝 Query Result (Status: ${queryResult.statusCode}):`);
             console.log(JSON.stringify(queryResult.data, null, 2));
         }
-        
+
     } else {
         console.log('\n📋 Manual Setup Required:');
         console.log('1. Get your User Pool ID and Client ID from CloudFormation outputs:');
