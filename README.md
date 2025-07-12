@@ -10,12 +10,14 @@
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - AWS CLI configured with appropriate permissions
 - Node.js 18+ for frontend and build tools
 - Python 3.11+ for backend development
 - SAM CLI for serverless deployment
 
 ### Backend Deployment
+
 ```bash
 cd backend
 sam build
@@ -23,16 +25,36 @@ sam deploy --parameter-overrides-file parameters.json
 ```
 
 ### Frontend Setup
+
+#### iOS App
+
 ```bash
-cd frontend
+cd frontend/packages/ios-app
 npm install
 expo start
+```
+
+#### CLI App
+
+```bash
+cd frontend/packages/cli-app
+npm install
+npm run build
+npm link
+manuel --help
 ```
 
 ## 📚 Documentation
 
 - [Backend Documentation](backend/README.md) - AWS serverless backend
-- [Frontend Documentation](frontend/README.md) - React Native mobile app
+- [Frontend Documentation](frontend/README.md) - Dual-platform frontend
+  architecture
+- [iOS App Documentation](frontend/packages/ios-app/README.md) - React Native
+  iOS app
+- [CLI App Documentation](frontend/packages/cli-app/README.md) - Command-line
+  interface
+- [Shared Library Documentation](frontend/packages/shared/README.md) - Common
+  business logic
 - [Contributing Guidelines](CONTRIBUTING.md) - Development workflow
 - [Remote Setup Guide](REMOTE_SETUP.md) - Repository setup
 - [Security Policy](SECURITY.md) - Security guidelines
@@ -40,29 +62,38 @@ expo start
 ## 🏗️ Architecture
 
 ### High-Level Overview
+
 ```mermaid
 graph TB
-    A[React Native App] --> B[API Gateway]
-    B --> C[Lambda Functions]
-    C --> D[AWS Bedrock]
-    C --> E[DynamoDB]
-    C --> F[S3]
-    C --> G[Cognito]
-    C --> H[Transcribe]
-    
-    D --> I[Claude 3.5 Sonnet]
-    D --> J[Titan Embeddings]
-    D --> K[Knowledge Base]
-    
-    L[CloudWatch] --> M[Monitoring Dashboard]
-    N[WAF] --> B
-    O[Redis Cache] --> C
+    A[iOS App - React Native] --> B[API Gateway]
+    C[CLI App - Node.js] --> B
+    D[Shared Library] --> A
+    D --> C
+
+    B --> E[Lambda Functions]
+    E --> F[AWS Bedrock]
+    E --> G[DynamoDB]
+    E --> H[S3]
+    E --> I[Cognito]
+    E --> J[Transcribe]
+
+    F --> K[Claude 3.5 Sonnet]
+    F --> L[Titan Embeddings]
+    F --> M[Knowledge Base]
+
+    N[CloudWatch] --> O[Monitoring Dashboard]
+    P[WAF] --> B
+    Q[Redis Cache] --> E
 ```
 
 ### Technology Stack
+
 - **Backend**: AWS Serverless (Lambda, API Gateway, DynamoDB, S3)
 - **AI/ML**: AWS Bedrock (Claude 3.5 Sonnet, Titan Embeddings)
-- **Frontend**: React Native with Expo
+- **Frontend**: Dual-platform architecture
+  - **iOS**: React Native with Expo
+  - **CLI**: Node.js with Commander.js and Inquirer
+  - **Shared**: TypeScript library with platform adapters
 - **Authentication**: AWS Cognito with JWT tokens
 - **Monitoring**: CloudWatch with custom dashboards
 - **Security**: Multi-layer security with WAF and middleware
@@ -103,12 +134,14 @@ graph TB
 ## 🚀 Deployment Environments
 
 ### Development
+
 - Basic resource allocation
 - Permissive CORS settings
 - No email alerts
 - Local testing support
 
 ### Production
+
 - Enhanced performance configuration
 - Restricted CORS to specific domains
 - Email alerts enabled
@@ -116,6 +149,7 @@ graph TB
 - Extended log retention
 
 ### Claude 4 Testing
+
 - Conservative quotas for cost control
 - Enhanced monitoring and alerting
 - Cross-region inference profiles
@@ -123,7 +157,8 @@ graph TB
 
 ## 🤝 Contributing
 
-We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on:
+We welcome contributions! Please read our
+[Contributing Guidelines](CONTRIBUTING.md) for details on:
 
 - Code of conduct
 - Development setup
@@ -132,6 +167,7 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 - Code review guidelines
 
 ### Quick Contribution Setup
+
 ```bash
 # Clone the repository
 git clone https://github.com/a1o1/manuel.git
@@ -151,7 +187,8 @@ pre-commit install
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
+for details.
 
 ## 🔗 Links
 
@@ -165,30 +202,39 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Documentation**: Check the comprehensive documentation in each module
 - **Issues**: Report bugs and request features via GitHub Issues
 - **Discussions**: Use GitHub Discussions for questions and community support
-- **Security**: Report security vulnerabilities privately via security@manuel.com
+- **Security**: Report security vulnerabilities privately via
+  security@manuel.com
 
 ## 🎯 Roadmap
 
 ### Phase 1: Foundation (Completed)
+
 - ✅ Enterprise-grade backend architecture
 - ✅ Multi-layer security implementation
 - ✅ Comprehensive testing framework
 - ✅ Monitoring and observability
 - ✅ CI/CD pipeline setup
 
-### Phase 2: Frontend & Mobile (In Progress)
-- 🔄 React Native mobile application
-- 🔄 Voice recording and playback
-- 🔄 Authentication integration
-- 🔄 Offline capability
+### Phase 2: Frontend & Mobile (Completed)
+
+- ✅ Dual-platform frontend architecture
+- ✅ React Native iOS application
+- ✅ Node.js CLI application
+- ✅ Shared business logic library
+- ✅ Platform adapter pattern
+- ✅ Voice recording and playback
+- ✅ Authentication integration
+- ✅ Interactive terminal interface
 
 ### Phase 3: Advanced Features (Planned)
+
 - 📋 Multi-language support
 - 📋 Advanced analytics dashboard
 - 📋 Custom model fine-tuning
 - 📋 Enterprise SSO integration
 
 ### Phase 4: Scale & Optimization (Planned)
+
 - 📋 Multi-region deployment
 - 📋 Advanced caching strategies
 - 📋 Performance optimization
