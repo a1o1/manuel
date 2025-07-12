@@ -11,7 +11,7 @@ This frontend consists of two applications that share a common core library:
 frontend/
 ├── packages/
 │   ├── shared/          # Shared business logic and platform adapters
-│   ├── ios-app/         # React Native iOS application
+│   ├── ios-app/         # React Native iOS application with mock services
 │   └── cli-app/         # Node.js CLI application
 ├── package.json         # Workspace configuration
 └── README.md
@@ -80,6 +80,8 @@ React Native application featuring:
 - **Manual Management**: Upload, view, delete manuals
 - **Usage Tracking**: Monitor quotas and costs
 - **Native iOS Design**: Following iOS Human Interface Guidelines
+- **Development Tools**: Environment switcher and mock user testing
+- **User Isolation Testing**: Mock services for testing user data separation
 
 ### @manuel/cli-app
 
@@ -155,6 +157,43 @@ Available adapters:
 - **StorageAdapter**: Secure storage abstraction
 - **AudioAdapter**: Audio recording abstraction
 - **FileAdapter**: File handling abstraction
+
+## Development & Testing Features
+
+### Mock Services (iOS App)
+
+The iOS app includes comprehensive mock services for development and testing:
+
+- **User Context Simulation**: Switch between different mock users
+- **User-Scoped Data**: Each mock user has different manuals and usage data
+- **Environment Switcher**: Toggle between mock and production modes
+- **Development Indicators**: Visual indicators for development mode
+
+#### Mock Users
+
+- **John Doe (user1)**: Has Router and TV manuals
+- **Jane Smith (user2)**: Has Coffee Machine manual
+- **Mike Johnson (user3)**: No manuals (empty state testing)
+
+#### Environment Switching
+
+```typescript
+// Access environment switcher in development builds
+import { EnvironmentSwitcher } from './components/EnvironmentSwitcher';
+
+// Toggle between mock and production services
+switchToMock(); // Use mock services
+switchToProduction(); // Use real API services
+```
+
+### User Isolation Testing
+
+The mock services demonstrate user data isolation by:
+
+- Maintaining separate data stores per user
+- Simulating user-scoped API responses
+- Testing user switching without backend changes
+- Validating UI behavior with different data scenarios
 
 ## Key Features
 

@@ -5,7 +5,9 @@ Shared business logic and platform adapters for Manuel iOS and CLI applications.
 ## Overview
 
 This package provides a unified interface for both iOS and CLI applications,
-abstracting platform-specific functionality behind consistent APIs.
+abstracting platform-specific functionality behind consistent APIs. All services
+automatically handle user data isolation, ensuring each user only accesses their
+own documents and data.
 
 ## Architecture
 
@@ -41,9 +43,9 @@ await storage.setItem('auth_token', token); // Works on both platforms
 Business logic services that work consistently across platforms:
 
 - **AuthService**: Authentication and user management
-- **QueryService**: Text and voice query processing
-- **ManualsService**: Manual upload, download, and management
-- **UsageService**: Usage tracking and analytics
+- **QueryService**: Text and voice query processing (user-scoped)
+- **ManualsService**: Manual upload, download, and management (user-scoped)
+- **UsageService**: Usage tracking and analytics (user-scoped)
 
 ```typescript
 import { authService, queryService } from '@manuel/shared';
@@ -64,6 +66,34 @@ import { getPlatform } from '@manuel/shared';
 
 const platform = getPlatform(); // 'react-native' | 'node'
 ```
+
+## User Data Isolation
+
+All services in the shared library automatically implement user data isolation:
+
+### Automatic User Scoping
+
+- **Authentication**: User context automatically maintained across services
+- **API Calls**: All requests include user authentication headers
+- **Data Filtering**: Backend filters all responses to user-owned data only
+- **Secure by Default**: No additional code needed for user isolation
+
+### Service Behavior
+
+```typescript
+// All operations are automatically user-scoped
+const manuals = await manualsService.getManuals(); // Only user's manuals
+const result = await queryService.textQuery('question'); // Only user's documents
+const usage = await usageService.getUsageStats(); // Only user's usage data
+```
+
+### Mock Services (Development)
+
+For iOS development, mock services provide user isolation testing:
+
+- Simulate different users with separate data
+- Test user switching scenarios
+- Validate UI behavior with user-scoped data
 
 ## Installation
 
@@ -161,23 +191,23 @@ Tests use Jest and are located alongside source files with `.test.ts` extension.
 
 #### QueryService
 
-- `textQuery(query, options?)` - Submit text query
-- `voiceQuery(audioBase64, options?)` - Submit voice query
+- `textQuery(query, options?)` - Submit text query (user-scoped results)
+- `voiceQuery(audioBase64, options?)` - Submit voice query (user-scoped results)
 
 #### ManualsService
 
-- `getManuals()` - List all manuals
-- `getManual(id)` - Get manual details
-- `uploadManual(file, name?)` - Upload manual file
-- `downloadManual(url, name?)` - Download manual from URL
-- `deleteManual(id)` - Delete manual
+- `getManuals()` - List user's manuals only
+- `getManual(id)` - Get manual details (user-owned only)
+- `uploadManual(file, name?)` - Upload manual file (associated with user)
+- `downloadManual(url, name?)` - Download manual from URL (associated with user)
+- `deleteManual(id)` - Delete manual (user-owned only)
 
 #### UsageService
 
-- `getUsageStats()` - Get usage statistics
-- `getQuotaLimits()` - Get quota information
-- `getCostBreakdown(period?)` - Get cost analysis
-- `exportUsageData(startDate, endDate, format)` - Export usage data
+- `getUsageStats()` - Get user's usage statistics
+- `getQuotaLimits()` - Get user's quota information
+- `getCostBreakdown(period?)` - Get user's cost analysis
+- `exportUsageData(startDate, endDate, format)` - Export user's usage data
 
 ### Platform Adapters
 

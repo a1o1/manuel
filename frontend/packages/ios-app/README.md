@@ -10,6 +10,8 @@ React Native iOS application for querying product manuals using voice and text.
 - **Manual Management**: Upload, view, and organize product manuals
 - **Usage Tracking**: Monitor quotas, costs, and query history
 - **Native iOS Design**: Follows iOS Human Interface Guidelines
+- **Development Tools**: Environment switcher and mock user testing
+- **User Isolation**: Complete separation of user data and testing framework
 
 ## Prerequisites
 
@@ -66,11 +68,15 @@ expo build:ios --type archive
 ```
 src/
 ├── components/        # Reusable UI components
+│   └── EnvironmentSwitcher.tsx  # Development mode switcher
 ├── screens/          # Screen components
 │   ├── auth/         # Authentication screens
 │   └── main/         # Main app screens
 ├── navigation/       # Navigation configuration
 ├── hooks/           # Custom React hooks
+├── services/        # Service layer
+│   └── mock/        # Mock services for testing
+├── config/          # Configuration and environment settings
 ├── utils/           # Utility functions
 ├── types/           # TypeScript type definitions
 └── App.tsx          # Root component
@@ -114,6 +120,75 @@ Root Navigator
     ├── Manual Detail
     └── Usage
 ```
+
+## Development & Testing Features
+
+### Environment Switcher
+
+A development tool available in debug builds that allows switching between mock
+and production environments:
+
+```typescript
+// Access via floating button in top-right corner (dev builds only)
+// Shows current environment: MOCK or PRODUCTION
+// Provides toggle to switch between environments
+```
+
+**Features:**
+
+- **Environment Toggle**: Switch between mock and production APIs
+- **Visual Indicators**: Clear indication of current environment mode
+- **Restart Prompt**: Guides user to restart app after environment change
+
+### Mock Services
+
+Comprehensive mock services for testing user isolation and data scenarios:
+
+```typescript
+// Mock services available in development
+src/services/mock/
+├── authService.ts      # Mock authentication
+├── manualsService.ts   # Mock manual data per user
+├── queryService.ts     # Mock query responses
+├── usageService.ts     # Mock usage statistics
+└── userContext.ts      # User switching functionality
+```
+
+### User Isolation Testing
+
+Test different user scenarios without backend setup:
+
+#### Mock Users
+
+- **John Doe (user1)**: Router and TV manuals, active usage
+- **Jane Smith (user2)**: Coffee machine manual, moderate usage
+- **Mike Johnson (user3)**: No manuals, empty state testing
+
+#### User Switching
+
+```typescript
+// Switch active user in development
+mockUserContext.setCurrentUserId('user2');
+
+// Each user has:
+// - Separate manual libraries
+// - Different usage statistics
+// - Isolated query history
+// - Unique authentication context
+```
+
+#### Testing Benefits
+
+- **No Backend Required**: Test user isolation without API setup
+- **Rapid Iteration**: Switch between users instantly
+- **Edge Case Testing**: Test empty states and error conditions
+- **UI Validation**: Verify user-scoped data display correctly
+
+### Configuration Files
+
+- `src/config/environment.ts`: Environment detection and switching
+- `src/services/mock/userContext.ts`: User context management
+- Development indicators automatically hidden in production builds
 
 ## Features in Detail
 

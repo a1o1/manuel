@@ -37,6 +37,7 @@
 - Use Cognito for authentication, not custom auth
 - Implement user quotas via DynamoDB before expensive operations
 - Use Bedrock Knowledge Base for RAG, not custom vector DB
+- Implement user data isolation using metadata filtering
 - Prefer AWS-native solutions over third-party services
 - Enable X-Ray tracing in production for distributed tracing
 - Use CloudWatch structured logging for observability
@@ -57,9 +58,11 @@
 - Shared utilities: `backend/src/shared/`
 - Parameter files: `backend/parameters*.json`
 - Frontend components: `frontend/src/components/`
+- Frontend mock services: `frontend/packages/ios-app/src/services/mock/`
 - AWS templates: `backend/template.yaml`
 - Pipeline infrastructure: `backend/pipeline-template.yaml`
 - Improvement plan: `backend/BACKEND_IMPROVEMENT_PLAN.md`
+- User isolation docs: `backend/METADATA_FILTERING_IMPLEMENTATION.md`
 
 ## Parameter Files
 
@@ -84,6 +87,8 @@
 - Test quota enforcement for all API endpoints
 - Validate audio processing with various file formats
 - Check authentication flows thoroughly
+- Test user data isolation and metadata filtering
+- Verify frontend mock services and user switching
 - Monitor CloudWatch dashboards after deployments
 - Verify structured logging is working correctly
 

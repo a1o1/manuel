@@ -12,6 +12,7 @@ Command-line interface for querying product manuals using voice and text.
 - **Usage Analytics**: Detailed usage statistics and export capabilities
 - **Configuration**: Persistent settings and preferences
 - **Cross-Platform**: Works on macOS, Linux, and Windows
+- **User Data Isolation**: Complete separation of user data and queries
 
 ## Installation
 
@@ -70,36 +71,38 @@ manuel auth reset-password            # Reset password via email
 ### Queries
 
 ```bash
-# Text queries
+# Text queries (user-scoped automatically)
 manuel query "How do I configure this?"
 manuel query "Setup instructions" --sources
 manuel q "Quick question"             # Short alias
 
-# Voice queries
+# Voice queries (user-scoped automatically)
 manuel query --voice                  # Record voice query
 manuel query -v                       # Short flag
 
 # Interactive query mode
 manuel query --interactive            # Chat-style interface
 manuel query -i                       # Short flag
+
+# All queries automatically filtered to user's documents only
 ```
 
 ### Manual Management
 
 ```bash
-# List manuals
-manuel manuals list                   # List all manuals
+# List manuals (user's documents only)
+manuel manuals list                   # List all user's manuals
 manuel manuals ls                     # Short alias
 
-# Upload manual
+# Upload manual (associated with user)
 manuel manuals upload <file>          # Upload PDF file
 manuel manuals upload manual.pdf --name "Router Manual"
 
-# Download from URL
+# Download from URL (associated with user)
 manuel manuals download <url>         # Download PDF from URL
 manuel manuals download https://example.com/manual.pdf --name "Manual"
 
-# Delete manual
+# Delete manual (user's documents only)
 manuel manuals delete <manual-id>     # Delete by ID
 manuel manuals rm <manual-id>         # Short alias
 manuel manuals delete <manual-id> --force  # Skip confirmation
@@ -107,6 +110,8 @@ manuel manuals delete <manual-id> --force  # Skip confirmation
 # Interactive management
 manuel manuals interactive            # Interactive menu
 manuel manuals                        # Same as interactive
+
+# All operations automatically scoped to authenticated user
 ```
 
 ### Usage Analytics

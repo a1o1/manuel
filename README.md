@@ -79,7 +79,7 @@ graph TB
 
     F --> K[Claude 3.5 Sonnet]
     F --> L[Titan Embeddings]
-    F --> M[Knowledge Base]
+    F --> M[Knowledge Base with User Filtering]
 
     N[CloudWatch] --> O[Monitoring Dashboard]
     P[WAF] --> B
@@ -103,6 +103,8 @@ graph TB
 ## 🔒 Security Features
 
 - **Multi-Layer Security**: WAF protection + application middleware
+- **User Data Isolation**: Complete separation of user data using metadata
+  filtering
 - **Input Validation**: SQL injection and XSS prevention
 - **Rate Limiting**: IP-based and user-based throttling
 - **Authentication**: JWT-based authentication with refresh tokens
@@ -225,6 +227,8 @@ for details.
 - ✅ Voice recording and playback
 - ✅ Authentication integration
 - ✅ Interactive terminal interface
+- ✅ User data isolation and testing framework
+- ✅ Environment switching for development
 
 ### Phase 3: Advanced Features (Planned)
 
