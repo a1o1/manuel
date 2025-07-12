@@ -1,0 +1,17 @@
+{
+  "name": "Manuel",
+  "short_name": "Manuel",
+  "description": "Voice assistant for product manuals",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#007AFF",
+  "background_color": "#F2F2F7",
+  "icons": [
+    {
+      "src": "./assets/icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

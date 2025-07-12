@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "ios": "yarn workspace @manuel/ios-app start",
+    "ios:web": "yarn workspace @manuel/ios-app start:web",
+    "ios:all": "yarn workspace @manuel/ios-app start:all",
     "ios:build": "yarn workspace @manuel/ios-app build",
     "ios:test": "yarn workspace @manuel/ios-app test",
     "cli": "yarn workspace @manuel/cli-app start",
