@@ -86,13 +86,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             if content:
                 context_pieces.append(content)
 
-                # Extract source information
+                # Extract source information with proper structure for frontend
                 location = result.get("location", {})
+                score = result.get("score", 0.0)  # Get confidence score
+
                 if location.get("type") == "S3":
                     s3_location = location.get("s3Location", {})
                     source_uri = s3_location.get("uri", "")
                     if source_uri:
-                        sources.append(source_uri)
+                        # Create proper source object structure
+                        source_obj = {
+                            "content": content,
+                            "metadata": {"source": source_uri, "score": score},
+                        }
+                        sources.append(source_obj)
 
         context = "\n\n".join(context_pieces)
 

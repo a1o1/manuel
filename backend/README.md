@@ -286,10 +286,71 @@ POST /api/query
 Response:
 {
   "answer": "To configure wireless settings, follow these steps...",
-  "context_used": 3,
-  "usage": { ... }
+  "question": "How do I configure the wireless settings?",
+  "sources": [
+    {
+      "content": "Wireless configuration section...",
+      "metadata": {
+        "source": "s3://bucket/manuals/router-manual.pdf",
+        "score": 0.95
+      }
+    }
+  ],
+  "context_found": true,
+  "user_id": "auth0|user123",
+  "timestamp": 1673544000
 }
 ```
+
+#### List Manuals
+
+```json
+GET /api/manuals
+
+Response:
+{
+  "manuals": [
+    {
+      "id": "manual-123",
+      "name": "Router Manual",
+      "size": 1024768,
+      "upload_date": "2024-01-10T10:30:00.000Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+### API Response Format Changes (December 2025)
+
+Recent fixes were implemented to resolve response format mismatches between
+frontend and backend:
+
+#### Parameter Name Mapping
+
+- **Query Parameter**: Frontend sends `query` → Backend expects `question`
+- **Fixed**: Frontend now sends `question` parameter to match backend
+  expectation
+
+#### Response Field Mapping
+
+- **Answer Field**: Backend returns `answer` → Frontend expects `response`
+- **Fixed**: Frontend service maps `response.answer` to `response.response`
+
+#### Manual Object Structure
+
+- **ID Field**: Backend returns `id` → Frontend expected `key`
+- **Date Field**: Backend returns `upload_date` → Frontend expected
+  `last_modified`
+- **Fixed**: Frontend types updated to match backend response structure
+
+#### Sources Structure
+
+- **Backend Returns**: Array of objects with `content` and `metadata.source`,
+  `metadata.score`
+- **Frontend Expected**: Objects with nested metadata structure
+- **Fixed**: Backend now returns properly structured source objects with
+  confidence scores
 
 ## User Data Isolation
 

@@ -35,8 +35,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "body": "",
             }
 
-        # Extract user ID from Cognito JWT (simplified)
-        user_id = "default-user"  # For testing, we'll use a default user
+        # Extract user ID from Cognito JWT
+        user_id = "default-user"  # Fallback for testing
         claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
         if claims and "sub" in claims:
             user_id = claims["sub"]
