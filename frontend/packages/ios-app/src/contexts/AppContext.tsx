@@ -31,7 +31,9 @@ interface AppContextType {
 
   // Auth actions
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signup: (email: string, password: string, firstName: string, lastName?: string) => Promise<void>;
+  confirmSignup: (email: string, code: string) => Promise<void>;
+  resendConfirmationCode: (email: string) => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
 
@@ -99,14 +101,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, firstName: string, lastName?: string) => {
     setIsAuthLoading(true);
     try {
-      const { user: newUser } = await authService.signup(email, password, name);
+      // Combine first and last name like the CLI does
+      const fullName = lastName ? `${firstName} ${lastName}` : firstName;
+      const { user: newUser } = await authService.signup(email, password, fullName);
       setUser(newUser);
     } finally {
       setIsAuthLoading(false);
     }
+  };
+
+  const confirmSignup = async (email: string, code: string) => {
+    await authService.confirmSignup(email, code);
+  };
+
+  const resendConfirmationCode = async (email: string) => {
+    await authService.resendConfirmationCode(email);
   };
 
   const logout = async () => {
@@ -151,6 +163,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Auth actions
     login,
     signup,
+    confirmSignup,
+    resendConfirmationCode,
     logout,
     forgotPassword,
 
@@ -175,13 +189,15 @@ export function useApp(): AppContextType {
 
 // Backwards compatibility exports
 export const useAuth = () => {
-  const { user, isAuthenticated, isAuthLoading, login, signup, logout, forgotPassword } = useApp();
+  const { user, isAuthenticated, isAuthLoading, login, signup, confirmSignup, resendConfirmationCode, logout, forgotPassword } = useApp();
   return {
     user,
     isAuthenticated,
     isLoading: isAuthLoading,
     login,
     signup,
+    confirmSignup,
+    resendConfirmationCode,
     logout,
     forgotPassword
   };

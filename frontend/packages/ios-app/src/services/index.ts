@@ -17,6 +17,8 @@ import { MockManualsService } from './mock/manualsService';
 export interface AuthService {
   login(email: string, password: string): Promise<{ user: any; token: string }>;
   signup(email: string, password: string, name: string): Promise<{ user: any; token: string }>;
+  confirmSignup(email: string, code: string): Promise<void>;
+  resendConfirmationCode(email: string): Promise<void>;
   logout(): Promise<void>;
   getCurrentUser(): Promise<any>;
   forgotPassword(email: string): Promise<void>;

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AppContext';
+import { handleCognitoError, getActionButtonText } from '../../utils/cognitoErrors';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
@@ -53,10 +54,42 @@ export function SignupScreen() {
         formData.email.trim(),
         formData.password,
         formData.firstName.trim(),
-        formData.lastName.trim()
+        formData.lastName.trim() || undefined
+      );
+      
+      // If signup succeeds but user needs confirmation, show confirmation message
+      Alert.alert(
+        'Account Created!',
+        'Please check your email for a verification code to complete your account setup.',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate to a confirmation screen if you create one
+              // For now, just stay on this screen or go back to login
+              navigation.navigate('Login');
+            }
+          }
+        ]
       );
     } catch (error) {
-      Alert.alert('Signup Failed', 'Unable to create account. Please try again.');
+      const cognitoError = handleCognitoError(error);
+      
+      Alert.alert(
+        cognitoError.title,
+        cognitoError.message,
+        [
+          {
+            text: getActionButtonText(cognitoError.actionRequired),
+            onPress: () => {
+              if (cognitoError.actionRequired === 'confirm_signup') {
+                // Navigate to confirmation screen or show confirmation modal
+                navigation.navigate('Login');
+              }
+            }
+          }
+        ]
+      );
     } finally {
       setIsLoading(false);
     }

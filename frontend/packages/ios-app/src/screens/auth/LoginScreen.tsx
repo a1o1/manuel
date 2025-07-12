@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvo
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AppContext';
+import { handleCognitoError, getActionButtonText } from '../../utils/cognitoErrors';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
@@ -10,7 +11,7 @@ type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, '
 
 export function LoginScreen() {
   const navigation = useNavigation<LoginScreenNavigationProp>();
-  const { login } = useAuth();
+  const { login, confirmSignup, resendConfirmationCode } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,10 +26,78 @@ export function LoginScreen() {
     try {
       await login(email.trim(), password);
     } catch (error) {
-      Alert.alert('Login Failed', 'Please check your credentials and try again');
+      const cognitoError = handleCognitoError(error);
+      
+      Alert.alert(
+        cognitoError.title,
+        cognitoError.message,
+        [
+          {
+            text: getActionButtonText(cognitoError.actionRequired),
+            onPress: async () => {
+              if (cognitoError.actionRequired === 'confirm_signup') {
+                // Create confirmation code prompt
+                showConfirmationPrompt();
+              } else if (cognitoError.actionRequired === 'resend_code') {
+                await handleResendCode();
+              }
+            }
+          },
+          ...(cognitoError.actionRequired === 'confirm_signup' ? [{
+            text: 'Resend Code',
+            onPress: async () => await handleResendCode()
+          }] : [])
+        ]
+      );
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleResendCode = async () => {
+    if (!email.trim()) {
+      Alert.alert('Error', 'Please enter your email address first');
+      return;
+    }
+
+    try {
+      await resendConfirmationCode(email.trim());
+      Alert.alert(
+        'Code Sent',
+        'A new verification code has been sent to your email.',
+        [{ text: 'OK', onPress: showConfirmationPrompt }]
+      );
+    } catch (error) {
+      const cognitoError = handleCognitoError(error);
+      Alert.alert(cognitoError.title, cognitoError.message);
+    }
+  };
+
+  const showConfirmationPrompt = () => {
+    Alert.prompt(
+      'Verify Account',
+      'Enter the 6-digit code from your email:',
+      async (code) => {
+        if (code && code.length === 6) {
+          try {
+            await confirmSignup(email.trim(), code);
+            Alert.alert(
+              'Account Verified!',
+              'Your account has been verified. You can now sign in.',
+              [{ text: 'OK', onPress: () => handleLogin() }]
+            );
+          } catch (error) {
+            const cognitoError = handleCognitoError(error);
+            Alert.alert(cognitoError.title, cognitoError.message);
+          }
+        } else {
+          Alert.alert('Invalid Code', 'Please enter a 6-digit verification code');
+        }
+      },
+      'plain-text',
+      '',
+      'number-pad'
+    );
   };
 
   return (

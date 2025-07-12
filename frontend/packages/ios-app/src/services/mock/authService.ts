@@ -79,6 +79,22 @@ export class MockAuthService implements AuthService {
     return emailToName[email] || email.split('@')[0];
   }
 
+  async confirmSignup(email: string, code: string) {
+    await this.delay(1000);
+    
+    // Mock validation - accept any 6-digit code
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+      throw new Error('Invalid verification code provided');
+    }
+    
+    // Mock success - in real app would verify with Cognito
+  }
+
+  async resendConfirmationCode(email: string) {
+    await this.delay(1000);
+    // Mock implementation - in real app would resend via Cognito
+  }
+
   async forgotPassword(email: string) {
     await this.delay(1000);
     // Mock implementation - in real app would send email
