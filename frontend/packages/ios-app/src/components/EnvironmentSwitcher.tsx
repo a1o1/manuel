@@ -52,10 +52,16 @@ export function EnvironmentSwitcher() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Development Settings</Text>
-            
+
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Environment</Text>
               <Text style={styles.currentMode}>Current: {ENV_CONFIG.MODE}</Text>
+              <Text style={styles.featureDescription}>
+                {isMockMode()
+                  ? 'Mock: Simulated data, no network calls'
+                  : 'Production: Real API, enhanced errors, rate limits, retries'
+                }
+              </Text>
               <TouchableOpacity style={styles.switchButton} onPress={handleSwitchMode}>
                 <Text style={styles.switchButtonText}>
                   Switch to {isMockMode() ? 'Production' : 'Mock'}
@@ -67,9 +73,9 @@ export function EnvironmentSwitcher() {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Mock User</Text>
                 <Text style={styles.currentMode}>Current: {mockUserContext.getCurrentUserName()}</Text>
-                
-                <TouchableOpacity 
-                  style={[styles.userButton, currentUserId === 'user1' && styles.activeUserButton]} 
+
+                <TouchableOpacity
+                  style={[styles.userButton, currentUserId === 'user1' && styles.activeUserButton]}
                   onPress={() => switchUser('user1', 'John Doe')}
                 >
                   <Text style={[styles.userButtonText, currentUserId === 'user1' && styles.activeUserButtonText]}>
@@ -77,8 +83,8 @@ export function EnvironmentSwitcher() {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={[styles.userButton, currentUserId === 'user2' && styles.activeUserButton]} 
+                <TouchableOpacity
+                  style={[styles.userButton, currentUserId === 'user2' && styles.activeUserButton]}
                   onPress={() => switchUser('user2', 'Jane Smith')}
                 >
                   <Text style={[styles.userButtonText, currentUserId === 'user2' && styles.activeUserButtonText]}>
@@ -86,8 +92,8 @@ export function EnvironmentSwitcher() {
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                  style={[styles.userButton, currentUserId === 'user3' && styles.activeUserButton]} 
+                <TouchableOpacity
+                  style={[styles.userButton, currentUserId === 'user3' && styles.activeUserButton]}
                   onPress={() => switchUser('user3', 'Mike Johnson')}
                 >
                   <Text style={[styles.userButtonText, currentUserId === 'user3' && styles.activeUserButtonText]}>
@@ -201,5 +207,12 @@ const styles = StyleSheet.create({
   closeButtonText: {
     color: '#007AFF',
     fontSize: 16,
+  },
+  featureDescription: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 16,
   },
 });

@@ -1,12 +1,36 @@
 """
-Manuel - Health Check Function (Minimal Version)
-Simple health check with Redis cache validation
+Manuel - Health Check Function (Enhanced Security Version)
+Health check with Redis cache validation and security hardening
 """
 
 import json
 import os
+
+# Import security middleware
+import sys
 import time
 from typing import Any, Dict
+
+sys.path.append("/opt/python")  # Lambda layer path
+sys.path.append("../../../shared")  # Local development path
+
+try:
+    from security_headers import SecurityLevel, security_headers
+    from security_middleware import security_middleware
+
+    SECURITY_AVAILABLE = True
+except ImportError:
+    # Fallback for minimal deployment
+    print("Security modules not available, using fallback")
+    security_headers = lambda level: lambda func: func
+    security_middleware = lambda **kwargs: lambda func: func
+
+    class SecurityLevel:
+        STRICT = "STRICT"
+        MODERATE = "MODERATE"
+        PERMISSIVE = "PERMISSIVE"
+
+    SECURITY_AVAILABLE = False
 
 
 def test_redis_connection() -> Dict[str, Any]:
@@ -110,8 +134,16 @@ def test_redis_connection() -> Dict[str, Any]:
         }
 
 
+@security_middleware(
+    rate_limit_requests=100,  # Higher limit for health checks
+    rate_limit_window_minutes=5,  # Shorter window for health checks
+    max_request_size_mb=1,  # Small requests only
+    enable_ip_allowlist=False,  # Allow all IPs for health checks
+    enable_request_validation=False,  # No complex validation needed
+)
+@security_headers(SecurityLevel.STRICT)
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Handle health check requests"""
+    """Handle health check requests with enhanced security"""
 
     try:
         # Simple health check without dependencies

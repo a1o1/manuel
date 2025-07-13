@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAudioRecording } from '../../hooks/useAudioRecording';
 import { queryService } from '../../services';
+import { showErrorToUser, ManuelError } from '../../services/real/errorHandler';
+import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
 
 interface VoiceQueryResult {
   transcription: string;
@@ -84,7 +86,12 @@ export function VoiceQueryScreen() {
         setResult(queryResult);
       }
     } catch (error) {
-      Alert.alert('Processing Error', 'Failed to process your voice query. Please try again.');
+      if (isEnhancedErrorHandlingEnabled() && error instanceof Error) {
+        const manuelError = error as ManuelError;
+        showErrorToUser(manuelError, 'Voice Query Failed');
+      } else {
+        Alert.alert('Processing Error', 'Failed to process your voice query. Please try again.');
+      }
     } finally {
       setIsProcessing(false);
     }

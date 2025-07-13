@@ -107,6 +107,33 @@ Parameters:
       ]
     Description: Redis cache node type
 
+  SecurityLevel:
+    Type: String
+    Default: "MODERATE"
+    AllowedValues: ["STRICT", "MODERATE", "PERMISSIVE"]
+    Description: Security level for API protection
+
+  EnableAdvancedSecurity:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description:
+      Enable advanced security features (rate limiting, validation, headers)
+
+  RateLimitRequests:
+    Type: Number
+    Default: 50
+    MinValue: 10
+    MaxValue: 1000
+    Description: Number of requests allowed per rate limit window
+
+  RateLimitWindowMinutes:
+    Type: Number
+    Default: 15
+    MinValue: 1
+    MaxValue: 60
+    Description: Rate limit window in minutes
+
   EnableS3Versioning:
     Type: String
     Default: "true"
@@ -186,10 +213,14 @@ Globals:
         TEXT_MODEL_ID: !Ref TextModelId
         USE_INFERENCE_PROFILE: !Ref UseInferenceProfile
         KNOWLEDGE_BASE_RETRIEVAL_RESULTS: !Ref KnowledgeBaseRetrievalResults
+        SECURITY_LEVEL: !Ref SecurityLevel
+        ENABLE_ADVANCED_SECURITY: !Ref EnableAdvancedSecurity
+        RATE_LIMIT_REQUESTS: !Ref RateLimitRequests
+        RATE_LIMIT_WINDOW_MINUTES: !Ref RateLimitWindowMinutes
   Api:
     Cors:
       AllowMethods: "'GET,POST,OPTIONS'"
-      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Requested-With'"
       AllowOrigin: !Sub "'${CorsAllowedOrigins}'"
     Auth:
       DefaultAuthorizer: CognitoAuth
@@ -205,6 +236,19 @@ Resources:
       LayerName: !Sub manuel-redis-layer-${Stage}
       Description: Redis client library for Python
       ContentUri: layers/redis/
+      CompatibleRuntimes:
+        - python3.11
+        - python3.10
+        - python3.9
+      RetentionPolicy: Delete
+
+  # Lambda Layer for Security Dependencies
+  SecurityLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub manuel-security-layer-${Stage}
+      Description: Security middleware and validation libraries
+      ContentUri: layers/security/
       CompatibleRuntimes:
         - python3.11
         - python3.10
@@ -534,6 +578,7 @@ Resources:
       Timeout: 30
       Layers:
         - !Ref RedisLayer
+        - !Ref SecurityLayer
       VpcConfig: !If
         - EnableRedisCaching
         - SecurityGroupIds:
@@ -574,6 +619,7 @@ Resources:
       Timeout: 600
       Layers:
         - !Ref RedisLayer
+        - !Ref SecurityLayer
       VpcConfig: !If
         - EnableRedisCaching
         - SecurityGroupIds:

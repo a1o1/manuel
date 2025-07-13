@@ -1,11 +1,11 @@
 // Service factory - switches between mock and real implementations
 import { ENV_CONFIG } from '../config/environment';
 
-// Import real services (will be created when backend is ready)
-// import { RealAuthService } from './real/authService';
-// import { RealUsageService } from './real/usageService';
-// import { RealQueryService } from './real/queryService';
-// import { RealManualsService } from './real/manualsService';
+// Import real services
+import { RealAuthService } from './real/authService';
+import { RealUsageService } from './real/usageService';
+import { RealQueryService } from './real/queryService';
+import { RealManualsService } from './real/manualsService';
 
 // Import mock services
 import { MockAuthService } from './mock/authService';
@@ -46,32 +46,28 @@ export const createAuthService = (): AuthService => {
   if (ENV_CONFIG.FEATURES.MOCK_AUTH) {
     return new MockAuthService();
   }
-  // return new RealAuthService();
-  throw new Error('Real auth service not implemented yet');
+  return new RealAuthService();
 };
 
 export const createUsageService = (): UsageService => {
   if (ENV_CONFIG.FEATURES.MOCK_USAGE) {
     return new MockUsageService();
   }
-  // return new RealUsageService();
-  throw new Error('Real usage service not implemented yet');
+  return new RealUsageService();
 };
 
 export const createQueryService = (): QueryService => {
   if (ENV_CONFIG.FEATURES.MOCK_QUERIES) {
     return new MockQueryService();
   }
-  // return new RealQueryService();
-  throw new Error('Real query service not implemented yet');
+  return new RealQueryService();
 };
 
 export const createManualsService = (): ManualsService => {
   if (ENV_CONFIG.FEATURES.MOCK_MANUALS) {
     return new MockManualsService();
   }
-  // return new RealManualsService();
-  throw new Error('Real manuals service not implemented yet');
+  return new RealManualsService();
 };
 
 // Export singleton instances

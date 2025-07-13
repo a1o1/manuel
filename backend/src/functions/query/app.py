@@ -1,17 +1,55 @@
 """
-Manuel - Query Function (Minimal Version)
-Simple RAG query processing without complex dependencies
+Manuel - Query Function (Enhanced Security Version)
+RAG query processing with comprehensive security hardening
 """
 
 import base64
 import hashlib
 import json
 import os
+
+# Import security middleware
+import sys
 import time
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import boto3
+
+sys.path.append("/opt/python")  # Lambda layer path
+sys.path.append("../../../shared")  # Local development path
+
+try:
+    from input_validation import InputType, InputValidator, ValidationRule
+    from security_headers import SecurityLevel, security_headers
+    from security_middleware import security_middleware
+
+    SECURITY_AVAILABLE = True
+except ImportError:
+    # Fallback for minimal deployment
+    print("Security modules not available, using fallback")
+    security_headers = lambda level: lambda func: func
+    security_middleware = lambda **kwargs: lambda func: func
+
+    class SecurityLevel:
+        STRICT = "STRICT"
+        MODERATE = "MODERATE"
+        PERMISSIVE = "PERMISSIVE"
+
+    class InputType:
+        TEXT = "text"
+        BASE64 = "base64"
+
+    class ValidationRule:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class InputValidator:
+        @staticmethod
+        def validate(data, rule):
+            return data, True, None
+
+    SECURITY_AVAILABLE = False
 
 
 def get_cache_client() -> Optional[object]:
@@ -181,8 +219,32 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
         return ""
 
 
+# Input validation schemas
+QUERY_TEXT_RULE = ValidationRule(
+    input_type=InputType.TEXT, min_length=1, max_length=1000, required=True
+)
+
+AUDIO_DATA_RULE = ValidationRule(
+    input_type=InputType.BASE64,
+    max_length=50_000_000,  # ~50MB base64 encoded
+    required=False,
+)
+
+CONTENT_TYPE_RULE = ValidationRule(
+    input_type=InputType.TEXT, max_length=100, required=False
+)
+
+
+@security_middleware(
+    rate_limit_requests=50,  # requests per window
+    rate_limit_window_minutes=15,  # 15-minute windows
+    max_request_size_mb=50,  # Max 50MB for audio
+    enable_ip_allowlist=True,
+    enable_request_validation=True,
+)
+@security_headers(SecurityLevel.MODERATE)
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
-    """Handle RAG query requests"""
+    """Handle RAG query requests with enhanced security"""
 
     try:
         # Get environment variables
@@ -214,17 +276,89 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if claims and "sub" in claims:
             user_id = claims["sub"]
 
-        # Parse request body
+        # Parse and validate request body
         body = event.get("body", "{}")
         if isinstance(body, str):
-            body_data = json.loads(body)
+            try:
+                body_data = json.loads(body)
+            except json.JSONDecodeError:
+                return {
+                    "statusCode": 400,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                    "body": json.dumps({"error": "Invalid JSON in request body"}),
+                }
         else:
             body_data = body
 
-        # Check if this is an audio request or text request
+        # Extract and validate inputs
         file_data = body_data.get("file_data")
         content_type = body_data.get("content_type")
         question = body_data.get("question")
+
+        # Validate inputs using security middleware (if available)
+        if SECURITY_AVAILABLE:
+            if file_data:
+                # Validate audio data
+                file_data, is_valid, error_msg = InputValidator.validate(
+                    file_data, AUDIO_DATA_RULE
+                )
+                if not is_valid:
+                    return {
+                        "statusCode": 400,
+                        "headers": {
+                            "Content-Type": "application/json",
+                            "Access-Control-Allow-Origin": "*",
+                        },
+                        "body": json.dumps(
+                            {"error": f"Invalid audio data: {error_msg}"}
+                        ),
+                    }
+
+                # Validate content type
+                if content_type:
+                    content_type, is_valid, error_msg = InputValidator.validate(
+                        content_type, CONTENT_TYPE_RULE
+                    )
+                    if not is_valid:
+                        return {
+                            "statusCode": 400,
+                            "headers": {
+                                "Content-Type": "application/json",
+                                "Access-Control-Allow-Origin": "*",
+                            },
+                            "body": json.dumps(
+                                {"error": f"Invalid content type: {error_msg}"}
+                            ),
+                        }
+
+            # Validate question text
+            if question:
+                question, is_valid, error_msg = InputValidator.validate(
+                    question, QUERY_TEXT_RULE
+                )
+                if not is_valid:
+                    return {
+                        "statusCode": 400,
+                        "headers": {
+                            "Content-Type": "application/json",
+                            "Access-Control-Allow-Origin": "*",
+                        },
+                        "body": json.dumps({"error": f"Invalid question: {error_msg}"}),
+                    }
+        else:
+            # Basic validation when security modules not available
+            if question and len(question) > 1000:
+                return {
+                    "statusCode": 400,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                    "body": json.dumps({"error": "Question too long"}),
+                }
 
         # If audio data is provided, transcribe it first
         if file_data and content_type:

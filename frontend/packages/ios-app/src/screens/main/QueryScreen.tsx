@@ -4,6 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { queryService } from '../../services';
+import { showErrorToUser, ManuelError } from '../../services/real/errorHandler';
+import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
+import { RateLimitIndicator } from '../../components/RateLimitIndicator';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -40,7 +43,12 @@ export function QueryScreen() {
       const response = await queryService.textQuery(query.trim(), { includeSources });
       setResult(response);
     } catch (error) {
-      Alert.alert('Error', 'Failed to get answer. Please try again.');
+      if (isEnhancedErrorHandlingEnabled() && error instanceof Error) {
+        const manuelError = error as ManuelError;
+        showErrorToUser(manuelError, 'Query Failed');
+      } else {
+        Alert.alert('Error', 'Failed to get answer. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -120,6 +128,10 @@ export function QueryScreen() {
                 <Text style={styles.voiceQueryButtonText}>Voice Query</Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          <View style={styles.rateLimitSection}>
+            <RateLimitIndicator compact />
           </View>
 
           {result && (
@@ -283,6 +295,10 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+  },
+  rateLimitSection: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
   },
   resultSection: {
     padding: 20,
