@@ -13,7 +13,30 @@ async function requireAuth() {
     if (!tokens) {
         throw new error_1.CLIError(`Authentication required. Please run "${chalk_1.default.cyan('manuel auth login')}" first.`);
     }
-    // TODO: Check if tokens are still valid
-    // For now, we'll rely on the API to return 401 if tokens are expired
+    // Check if we have a valid session with Cognito
+    try {
+        const isAuthenticated = await shared_1.authService.isAuthenticated();
+        if (!isAuthenticated) {
+            // Try to refresh tokens
+            try {
+                const newTokens = await shared_1.authService.refreshTokens();
+                await storageService.storeAuthTokens({
+                    accessToken: newTokens.AccessToken,
+                    refreshToken: newTokens.RefreshToken,
+                    idToken: newTokens.IdToken,
+                });
+            }
+            catch (refreshError) {
+                // Refresh failed, user needs to log in again
+                await storageService.removeAuthTokens();
+                await storageService.removeUser();
+                throw new error_1.CLIError(`Your session has expired. Please run "${chalk_1.default.cyan('manuel auth login')}" to sign in again.`);
+            }
+        }
+    }
+    catch (error) {
+        // If we can't check authentication status, the user should log in again
+        throw new error_1.CLIError(`Authentication verification failed. Please run "${chalk_1.default.cyan('manuel auth login')}" to sign in again.`);
+    }
 }
 //# sourceMappingURL=auth.js.map

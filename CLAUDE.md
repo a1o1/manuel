@@ -13,6 +13,7 @@
 **Status: ✅ FULLY FUNCTIONAL**
 
 The complete voice query pipeline is now working end-to-end:
+
 - ✅ Audio recording with CLI (sox integration)
 - ✅ AWS Transcribe speech-to-text conversion
 - ✅ RAG-based Knowledge Base querying
@@ -26,8 +27,10 @@ The complete voice query pipeline is now working end-to-end:
 ### Backend
 
 - Build backend: `sam build`
-- Deploy backend (minimal template):
-  `sam deploy --template-file template-minimal.yaml --resolve-s3 --parameter-overrides "Stage=dev TextModelId=eu.anthropic.claude-sonnet-4-20250514-v1:0 UseInferenceProfile=true" --no-confirm-changeset`
+- Deploy minimal backend:
+  `sam deploy --template template-minimal.yaml --resolve-s3`
+- Deploy enterprise backend:
+  `sam deploy --parameter-overrides-file backend/parameters-migration.json`
 - Deploy production:
   `sam deploy --parameter-overrides-file backend/parameters-production.json`
 - Deploy with Claude 4:
@@ -37,25 +40,20 @@ The complete voice query pipeline is now working end-to-end:
 ### Frontend
 
 - Run iOS app: `expo start` (in frontend directory)
-- Build CLI: `cd frontend/packages/cli-app && npm run build`
-- Install CLI globally: `cd frontend/packages/cli-app && npm install -g .`
-- Test CLI: `manuel --help`
+- Run CLI: `npm run cli` (in frontend directory)
+- Test CLI: `npm run cli -- --help`
 - Lint frontend: `npm run lint`
 
 ### CLI Commands
 
-- Authentication: `manuel auth login/logout/status`
-- **Text queries: `manuel ask "question"` or `manuel query ask "question"`**
-- **Voice queries: `manuel query voice`** ✅ **WORKING END-TO-END**
-- Manage manuals: `manuel manuals list/upload/download`
-- Bootstrap system: `manuel bootstrap populate/clear/status`
-- Monitor ingestion: `manuel ingestion status/job/files`
-- View usage: `manuel usage today/week/month`
-- Configuration: `manuel config get/set`
-
-### Alternative Test CLI
-
-- Simple CLI: `node backend/test_cli.js` (simpler interface, same functionality)
+- Authentication: `npm run cli auth login/logout/status`
+- **Text queries: `npm run cli ask "question"`**
+- **Voice queries: `npm run cli query voice`** ✅ **WORKING END-TO-END**
+- Manage manuals: `npm run cli manuals list/upload/download`
+- Bootstrap system: `npm run cli bootstrap populate/clear/status`
+- Monitor ingestion: `npm run cli ingestion status/job/files`
+- View usage: `npm run cli usage today/week/month`
+- Configuration: `npm run cli config get/set`
 
 ## Code Style & Conventions
 
@@ -244,32 +242,40 @@ The complete voice query pipeline is now working end-to-end:
 
 ### Overview
 
-The voice query system provides end-to-end audio processing, enabling users to ask questions about their manuals using voice input. The system integrates AWS Transcribe for speech-to-text conversion with the existing RAG-based query pipeline.
+The voice query system provides end-to-end audio processing, enabling users to
+ask questions about their manuals using voice input. The system integrates AWS
+Transcribe for speech-to-text conversion with the existing RAG-based query
+pipeline.
 
 ### Voice Query Workflow
 
-1. **Audio Recording:** CLI captures audio using platform-native tools (sox on macOS/Linux)
+1. **Audio Recording:** CLI captures audio using platform-native tools (sox on
+   macOS/Linux)
 2. **Audio Upload:** Base64-encoded audio uploaded to S3 temp storage
 3. **Transcription:** AWS Transcribe converts speech to text
-4. **Query Processing:** Transcribed text processed through Knowledge Base RAG system
+4. **Query Processing:** Transcribed text processed through Knowledge Base RAG
+   system
 5. **Response:** Answer returned with sources and metadata
 6. **Cleanup:** Temporary audio files automatically removed
 
 ### Technical Implementation
 
 **Audio Recording:**
+
 - Platform detection: Node.js CLI uses sox, React Native uses Expo AV
 - Configurable duration (default 30 seconds)
 - High-quality recording: 44.1kHz, 16-bit, mono
 - Real-time recording controls (start/stop/pause)
 
 **Transcription Pipeline:**
+
 - AWS Transcribe integration with job polling
 - Support for multiple audio formats (WAV, MP3, MP4, FLAC)
 - Real-time job status monitoring
 - Automatic cleanup of S3 temporary files and transcription jobs
 
 **Query Integration:**
+
 - Seamless integration with existing query function
 - Same response format as text queries
 - Full source attribution and cost tracking
@@ -294,11 +300,13 @@ manuel query interactive
 ### Dependencies
 
 **System Requirements:**
+
 - macOS/Linux: sox audio utility (`brew install sox`)
 - Node.js: Built-in audio processing
 - AWS: Transcribe, S3, Bedrock services
 
 **Audio Processing:**
+
 - No external audio libraries required for CLI
 - Uses platform-native audio utilities
 - Automatic permission handling and error recovery
@@ -317,7 +325,8 @@ manuel query interactive
 - **Parallel Processing:** Audio upload and transcription job creation
 - **Resource Cleanup:** Automatic S3 and Transcribe job cleanup
 - **Caching:** Reuse audio service instances across requests
-- **Standard Library Usage:** Replaced `requests` with `urllib` for better Lambda performance
+- **Standard Library Usage:** Replaced `requests` with `urllib` for better
+  Lambda performance
 
 ### Troubleshooting
 

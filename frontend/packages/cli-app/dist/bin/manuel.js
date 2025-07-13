@@ -47,6 +47,8 @@ const query_1 = require("../commands/query");
 const manuals_1 = require("../commands/manuals");
 const usage_1 = require("../commands/usage");
 const config_1 = require("../commands/config");
+const bootstrap_1 = require("../commands/bootstrap");
+const ingestion_1 = require("../commands/ingestion");
 const program = new commander_1.Command();
 exports.program = program;
 // ASCII Art Banner
@@ -111,6 +113,13 @@ async function main() {
             .alias('c')
             .description('Manage configuration');
         config_1.ConfigCommand.register(configCmd);
+        // Bootstrap commands
+        const bootstrapCmd = program
+            .command('bootstrap')
+            .description('Bootstrap system with sample data');
+        bootstrap_1.BootstrapCommand.register(bootstrapCmd);
+        // Ingestion monitoring commands
+        ingestion_1.IngestionCommand.register(program);
         // Quick commands (shortcuts)
         program
             .command('ask <question>')
@@ -166,6 +175,8 @@ Examples:
   $ manuel download https://...          Download from URL
   $ manuel manuals list                  List all manuals
   $ manuel usage today                   View today's usage
+  $ manuel bootstrap populate           Process existing manuals
+  $ manuel ingestion status             Check ingestion jobs
   $ manuel interactive                   Start interactive mode
 
 For more help on a specific command:

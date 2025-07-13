@@ -1,0 +1,59 @@
+{
+  "commitizen": {
+    "name": "cz_conventional_commits",
+    "version": "1.1.0",
+    "version_files": [
+      "package.json:version",
+      "frontend/package.json:version",
+      "frontend/packages/shared/package.json:version",
+      "frontend/packages/ios-app/package.json:version",
+      "frontend/packages/cli-app/package.json:version",
+      "backend/package.json:version",
+      "backend/pyproject.toml:version"
+    ],
+    "style": [
+      ["qmark", "fg:#ff9d00 bold"],
+      ["question", "bold"],
+      ["answer", "fg:#ff9d00 bold"],
+      ["pointer", "fg:#ff9d00 bold"],
+      ["highlighted", "fg:#ff9d00 bold"],
+      ["selected", "fg:#cc5454"],
+      ["separator", "fg:#cc5454"],
+      ["instruction", ""],
+      ["text", ""],
+      ["disabled", "fg:#858585 italic"]
+    ],
+    "customize": {
+      "message_template": "{{change_type}}{{scope}}: {{message}}{{body}}{{footer}}",
+      "example": "feat(voice): implement end-to-end voice query system\n\nAdd complete voice query pipeline with AWS Transcribe integration.\nIncludes audio recording, transcription, and RAG-based responses.\n\nCloses #456",
+      "schema": "<type>(<scope>): <subject>\n<BLANK LINE>\n<body>\n<BLANK LINE>\n<footer>",
+      "schema_pattern": "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.+\\))?: .{1,50}",
+      "bump_pattern": "^(feat|fix|perf|refactor|BREAKING CHANGE)",
+      "bump_map": {
+        "BREAKING CHANGE": "MAJOR",
+        "feat": "MINOR",
+        "fix": "PATCH",
+        "perf": "PATCH",
+        "refactor": "PATCH"
+      },
+      "change_type_order": [
+        "BREAKING CHANGE",
+        "feat",
+        "fix",
+        "perf",
+        "refactor",
+        "build",
+        "ci",
+        "docs",
+        "style",
+        "test",
+        "chore",
+        "revert"
+      ]
+    },
+    "info": {
+      "title": "Manuel - Enterprise Voice Assistant",
+      "description": "Voice-powered assistant for product manuals using AWS Bedrock and React Native"
+    }
+  }
+}

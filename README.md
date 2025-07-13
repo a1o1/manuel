@@ -21,7 +21,7 @@
 ```bash
 cd backend
 sam build
-sam deploy --parameter-overrides-file parameters.json
+sam deploy --template template-minimal.yaml --resolve-s3
 ```
 
 ### Frontend Setup
@@ -37,11 +37,14 @@ expo start
 #### CLI App
 
 ```bash
-cd frontend/packages/cli-app
+cd frontend
 npm install
-npm run build
-npm link
-manuel --help
+npm run cli -- --help
+# Quick commands:
+npm run cli auth login
+npm run cli manuals list
+npm run cli ask "your question"
+npm run cli query voice
 ```
 
 ## 📚 Documentation
@@ -229,6 +232,9 @@ for details.
 - ✅ Interactive terminal interface
 - ✅ User data isolation and testing framework
 - ✅ Environment switching for development
+- ✅ End-to-end voice query functionality
+- ✅ File deduplication system
+- ✅ URL-based manual upload
 
 ### Phase 3: Advanced Features (Planned)
 

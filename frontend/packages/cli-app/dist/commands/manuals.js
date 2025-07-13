@@ -75,7 +75,12 @@ class ManualsCommand {
         await (0, auth_1.requireAuth)();
         const spinner = (0, ora_1.default)('Loading manuals...').start();
         try {
+            // Add progress indication for long-running requests
+            const timeout = setTimeout(() => {
+                spinner.text = 'Still loading... (this may take up to 30 seconds)';
+            }, 5000);
             const { manuals, count } = await shared_1.manualService.getManuals();
+            clearTimeout(timeout);
             spinner.succeed(`Found ${count} manual${count !== 1 ? 's' : ''}`);
             if (count === 0) {
                 console.log(chalk_1.default.yellow('\nNo manuals found.'));
@@ -94,8 +99,8 @@ class ManualsCommand {
                 tableData.push([
                     chalk_1.default.white(manual.name),
                     chalk_1.default.gray((0, formatting_1.formatFileSize)(manual.size)),
-                    chalk_1.default.gray((0, formatting_1.formatRelativeTime)(manual.last_modified)),
-                    options.verbose ? chalk_1.default.gray(manual.key) : chalk_1.default.gray(manual.key.substring(0, 20) + '...')
+                    chalk_1.default.gray((0, formatting_1.formatRelativeTime)(manual.upload_date)),
+                    options.verbose ? chalk_1.default.gray(manual.id) : chalk_1.default.gray(manual.id.substring(0, 20) + '...')
                 ]);
             });
             console.log('\n' + (0, table_1.table)(tableData, {
@@ -120,6 +125,10 @@ class ManualsCommand {
         }
         catch (error) {
             spinner.fail('Failed to load manuals');
+            // Check if it's a timeout error
+            if (error && typeof error === 'object' && 'code' in error && error.code === 'ECONNABORTED') {
+                throw new error_1.CLIError('Request timed out. The API may be experiencing delays. Please try again.');
+            }
             throw new error_1.CLIError(`Failed to load manuals: ${error}`);
         }
     }
@@ -242,10 +251,9 @@ class ManualsCommand {
             spinner.succeed('Manual information loaded');
             console.log(chalk_1.default.bold('\n📄 Manual Information:'));
             console.log(chalk_1.default.white(`Name: ${manual.name}`));
-            console.log(chalk_1.default.gray(`Key: ${manual.key}`));
+            console.log(chalk_1.default.gray(`ID: ${manual.id}`));
             console.log(chalk_1.default.gray(`Size: ${(0, formatting_1.formatFileSize)(manual.size)}`));
-            console.log(chalk_1.default.gray(`Modified: ${(0, formatting_1.formatRelativeTime)(manual.last_modified)}`));
-            console.log(chalk_1.default.gray(`ETag: ${manual.etag}`));
+            console.log(chalk_1.default.gray(`Uploaded: ${(0, formatting_1.formatRelativeTime)(manual.upload_date)}`));
             console.log(chalk_1.default.bold('\n🔄 Processing Status:'));
             console.log(chalk_1.default.gray(`Status: ${status.status}`));
             if (status.job_id) {
@@ -278,8 +286,8 @@ class ManualsCommand {
             filtered.forEach(manual => {
                 console.log(chalk_1.default.white(`\n📄 ${manual.name}`));
                 console.log(chalk_1.default.gray(`   Size: ${(0, formatting_1.formatFileSize)(manual.size)}`));
-                console.log(chalk_1.default.gray(`   Modified: ${(0, formatting_1.formatRelativeTime)(manual.last_modified)}`));
-                console.log(chalk_1.default.gray(`   Key: ${manual.key}`));
+                console.log(chalk_1.default.gray(`   Uploaded: ${(0, formatting_1.formatRelativeTime)(manual.upload_date)}`));
+                console.log(chalk_1.default.gray(`   ID: ${manual.id}`));
             });
         }
         catch (error) {
