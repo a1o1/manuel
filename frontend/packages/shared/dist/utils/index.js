@@ -14,12 +14,48 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sleep = exports.groupBy = exports.hexToRgba = exports.getStatusBarHeight = exports.isAndroid = exports.isIOS = exports.generateId = exports.throttle = exports.debounce = exports.handleApiError = void 0;
+exports.calculateBackoffDelay = exports.isSecurityError = exports.getRateLimitRetryAfter = exports.isRateLimitError = exports.sleep = exports.groupBy = exports.hexToRgba = exports.getStatusBarHeight = exports.isAndroid = exports.isIOS = exports.generateId = exports.throttle = exports.debounce = exports.handleApiError = void 0;
 __exportStar(require("./storage"), exports);
 __exportStar(require("./validation"), exports);
 __exportStar(require("./formatting"), exports);
 // Error handling utilities
 const handleApiError = (error) => {
+    // Handle rate limiting (429 errors)
+    if (error?.response?.status === 429) {
+        const retryAfter = error.response.data?.retry_after || 60;
+        return `Rate limit exceeded. Please wait ${retryAfter} seconds before trying again.`;
+    }
+    // Handle security violations (403 errors)
+    if (error?.response?.status === 403) {
+        if (error.response.data?.error?.includes('IP not allowed')) {
+            return 'Access denied: Your IP address is not in the allowlist. Please contact your administrator.';
+        }
+        return error.response.data?.error || 'Access denied. Please check your network configuration.';
+    }
+    // Handle validation errors (400 errors with security context)
+    if (error?.response?.status === 400 && error?.response?.data?.error) {
+        const errorMsg = error.response.data.error;
+        if (errorMsg.includes('Invalid input') || errorMsg.includes('Input validation failed')) {
+            return 'Invalid input detected. Please check your request and try again.';
+        }
+        if (errorMsg.includes('Request too large')) {
+            return 'Request size exceeds the maximum allowed limit. Please reduce the file size or content length.';
+        }
+        return errorMsg;
+    }
+    // Handle authentication errors (401 errors)
+    if (error?.response?.status === 401) {
+        return 'Authentication failed. Please log in again.';
+    }
+    // Handle timeout errors specifically
+    if (error?.code === 'ECONNABORTED' || error?.message?.includes('timeout')) {
+        return 'Request timed out. Please check your connection and try again.';
+    }
+    // Handle network errors
+    if (error?.code === 'ENOTFOUND' || error?.code === 'ECONNREFUSED') {
+        return 'Network error. Please check your internet connection.';
+    }
+    // Existing error handling for other cases
     if (error?.response?.data?.error) {
         return error.response.data.error;
     }
@@ -110,4 +146,36 @@ const sleep = (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 };
 exports.sleep = sleep;
+// Rate limiting utilities
+const isRateLimitError = (error) => {
+    return error?.response?.status === 429;
+};
+exports.isRateLimitError = isRateLimitError;
+const getRateLimitRetryAfter = (error) => {
+    if (!(0, exports.isRateLimitError)(error))
+        return 0;
+    // Check retry-after header first, then response data
+    const headerRetryAfter = parseInt(error.response?.headers?.['retry-after'] || '0', 10);
+    const dataRetryAfter = error.response?.data?.retry_after || 60;
+    return Math.max(headerRetryAfter, dataRetryAfter);
+};
+exports.getRateLimitRetryAfter = getRateLimitRetryAfter;
+// Security error detection utilities
+const isSecurityError = (error) => {
+    const status = error?.response?.status;
+    const message = error?.response?.data?.error || error?.message || '';
+    return (status === 403 || // Access denied
+        status === 429 || // Rate limiting
+        (status === 400 && (message.includes('Invalid input') ||
+            message.includes('Input validation failed') ||
+            message.includes('Request too large'))));
+};
+exports.isSecurityError = isSecurityError;
+// Exponential backoff utility
+const calculateBackoffDelay = (attempt, baseDelay = 1000, maxDelay = 30000) => {
+    const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+    // Add jitter to prevent thundering herd
+    return delay + Math.random() * 1000;
+};
+exports.calculateBackoffDelay = calculateBackoffDelay;
 //# sourceMappingURL=index.js.map

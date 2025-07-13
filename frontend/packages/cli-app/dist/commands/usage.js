@@ -183,6 +183,15 @@ class UsageCommand {
             console.log(chalk_1.default.bold('\n📊 Usage:'));
             console.log(chalk_1.default.gray(`Daily: ${dailyPercent} used`));
             console.log(chalk_1.default.gray(`Monthly: ${monthlyPercent} used`));
+            // Rate limiting information
+            console.log(chalk_1.default.bold('\n🚦 Rate Limits:'));
+            console.log(chalk_1.default.white(`API requests: ${shared_1.API_CONFIG.RATE_LIMIT.REQUESTS_PER_WINDOW} requests per ${shared_1.API_CONFIG.RATE_LIMIT.WINDOW_MINUTES} minutes`));
+            console.log(chalk_1.default.gray(`  Auto-retry: ${shared_1.API_CONFIG.SECURITY.ENABLE_RETRY_ON_RATE_LIMIT ? 'Enabled' : 'Disabled'}`));
+            console.log(chalk_1.default.gray(`  Max retry wait: ${shared_1.API_CONFIG.RATE_LIMIT.MAX_RETRY_WAIT} seconds`));
+            // Security settings
+            console.log(chalk_1.default.bold('\n🔒 Security Settings:'));
+            console.log(chalk_1.default.gray(`Max request size: ${Math.round(shared_1.API_CONFIG.SECURITY.MAX_REQUEST_SIZE / (1024 * 1024))}MB`));
+            console.log(chalk_1.default.gray(`Input validation: ${shared_1.API_CONFIG.SECURITY.VALIDATE_INPUT ? 'Enabled' : 'Disabled'}`));
         }
         catch (error) {
             spinner.fail('Failed to load quota information');

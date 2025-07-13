@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { table } from 'table';
-import { usageService } from '@manuel/shared';
+import { usageService, API_CONFIG } from '@manuel/shared';
 import { CLIError, handleError } from '../utils/error';
 import { formatCurrency, formatNumber, formatPercentage } from '../utils/formatting';
 import { requireAuth } from '../utils/auth';
@@ -179,6 +179,17 @@ export class UsageCommand {
       console.log(chalk.bold('\n📊 Usage:'));
       console.log(chalk.gray(`Daily: ${dailyPercent} used`));
       console.log(chalk.gray(`Monthly: ${monthlyPercent} used`));
+
+      // Rate limiting information
+      console.log(chalk.bold('\n🚦 Rate Limits:'));
+      console.log(chalk.white(`API requests: ${API_CONFIG.RATE_LIMIT.REQUESTS_PER_WINDOW} requests per ${API_CONFIG.RATE_LIMIT.WINDOW_MINUTES} minutes`));
+      console.log(chalk.gray(`  Auto-retry: ${API_CONFIG.SECURITY.ENABLE_RETRY_ON_RATE_LIMIT ? 'Enabled' : 'Disabled'}`));
+      console.log(chalk.gray(`  Max retry wait: ${API_CONFIG.RATE_LIMIT.MAX_RETRY_WAIT} seconds`));
+
+      // Security settings
+      console.log(chalk.bold('\n🔒 Security Settings:'));
+      console.log(chalk.gray(`Max request size: ${Math.round(API_CONFIG.SECURITY.MAX_REQUEST_SIZE / (1024 * 1024))}MB`));
+      console.log(chalk.gray(`Input validation: ${API_CONFIG.SECURITY.VALIDATE_INPUT ? 'Enabled' : 'Disabled'}`));
 
     } catch (error) {
       spinner.fail('Failed to load quota information');

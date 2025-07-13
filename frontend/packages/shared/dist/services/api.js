@@ -33,6 +33,7 @@ class ApiService {
         });
         // Response interceptor for error handling
         this.client.interceptors.response.use((response) => response, async (error) => {
+            // Handle authentication errors (401)
             if (error.response?.status === 401 && !error.config._retry) {
                 // Token expired, try to refresh (but only once)
                 error.config._retry = true;
@@ -50,6 +51,33 @@ class ApiService {
                     await storage_1.AuthStorage.removeTokens();
                     throw new Error('Authentication failed. Please log in again.');
                 }
+            }
+            // Handle rate limiting (429) with automatic retry
+            if (error.response?.status === 429 && !error.config._rateLimitRetry && constants_1.API_CONFIG.SECURITY.ENABLE_RETRY_ON_RATE_LIMIT) {
+                error.config._rateLimitRetry = true;
+                // Extract retry-after from response (in seconds)
+                const retryAfter = Math.max(parseInt(error.response.headers['retry-after'] || '0', 10), error.response.data?.retry_after || 60);
+                // Only retry if the wait time is reasonable (configurable max wait time)
+                if (retryAfter <= constants_1.API_CONFIG.RATE_LIMIT.MAX_RETRY_WAIT) {
+                    return new Promise((resolve) => {
+                        setTimeout(() => {
+                            resolve(this.client.request(error.config));
+                        }, retryAfter * 1000);
+                    });
+                }
+            }
+            // Handle network timeouts with exponential backoff
+            if ((error.code === 'ECONNABORTED' || error.message?.includes('timeout')) &&
+                !error.config._timeoutRetry) {
+                error.config._timeoutRetry = true;
+                // Retry after a short delay
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        this.client.request(error.config)
+                            .then(resolve)
+                            .catch(reject);
+                    }, 2000); // 2 second delay for timeout retries
+                });
             }
             return Promise.reject(error);
         });

@@ -4,6 +4,18 @@ export const API_CONFIG = {
   TIMEOUT: 30000, // 30 seconds
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000, // 1 second
+  // Rate limiting configuration (based on backend settings)
+  RATE_LIMIT: {
+    REQUESTS_PER_WINDOW: 50, // 50 requests per window
+    WINDOW_MINUTES: 15, // 15-minute windows
+    MAX_RETRY_WAIT: 300, // Maximum seconds to wait for rate limit retry (5 minutes)
+  },
+  // Security configuration
+  SECURITY: {
+    MAX_REQUEST_SIZE: 50 * 1024 * 1024, // 50MB (aligned with backend)
+    VALIDATE_INPUT: true,
+    ENABLE_RETRY_ON_RATE_LIMIT: true,
+  },
 };
 
 // AWS Cognito Configuration

@@ -3,6 +3,16 @@ export declare const API_CONFIG: {
     TIMEOUT: number;
     RETRY_ATTEMPTS: number;
     RETRY_DELAY: number;
+    RATE_LIMIT: {
+        REQUESTS_PER_WINDOW: number;
+        WINDOW_MINUTES: number;
+        MAX_RETRY_WAIT: number;
+    };
+    SECURITY: {
+        MAX_REQUEST_SIZE: number;
+        VALIDATE_INPUT: boolean;
+        ENABLE_RETRY_ON_RATE_LIMIT: boolean;
+    };
 };
 export declare const COGNITO_CONFIG: {
     USER_POOL_ID: string;

@@ -105,16 +105,23 @@ graph TB
 
 ## 🔒 Security Features
 
+- **Enhanced API Security**: Rate limiting (50 req/15min) with automatic retry
+  logic
 - **Multi-Layer Security**: WAF protection + application middleware
 - **User Data Isolation**: Complete separation of user data using metadata
   filtering
-- **Input Validation**: SQL injection and XSS prevention
-- **Rate Limiting**: IP-based and user-based throttling
+- **Input Validation**: Advanced XSS and SQL injection prevention with
+  sanitization
+- **VPC Security**: Private subnet isolation with secure VPC endpoints
 - **Authentication**: JWT-based authentication with refresh tokens
 - **Encryption**: Data encryption at rest and in transit
-- **Security Headers**: Comprehensive security headers (HSTS, CSP, etc.)
+- **Security Headers**: Comprehensive security headers (HSTS, CSP,
+  X-Frame-Options)
 - **IP Allowlisting**: Configurable IP address restrictions
-- **Security Testing**: Automated security scanning and testing
+- **Redis Caching**: Secure Redis caching with user isolation
+- **Smart Error Handling**: User-friendly security error messages and recovery
+  tips
+- **Security Testing**: Automated security scanning and penetration testing
 
 ## 🧪 Testing & Quality
 
@@ -235,6 +242,9 @@ for details.
 - ✅ End-to-end voice query functionality
 - ✅ File deduplication system
 - ✅ URL-based manual upload
+- ✅ Enhanced CLI security features (v1.0.2)
+- ✅ Redis caching for performance optimization
+- ✅ Advanced API security hardening
 
 ### Phase 3: Advanced Features (Planned)
 
