@@ -129,3 +129,4 @@ docs/_build/
 
 # Development/debugging scripts
 check-jwt.js
+backend/layers/

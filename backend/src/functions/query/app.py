@@ -4,13 +4,83 @@ Simple RAG query processing without complex dependencies
 """
 
 import base64
+import hashlib
 import json
 import os
 import time
 import uuid
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 import boto3
+
+
+def get_cache_client() -> Optional[object]:
+    """Get Redis cache client if available"""
+    try:
+        redis_endpoint = os.environ.get("REDIS_ENDPOINT", "")
+        redis_port = os.environ.get("REDIS_PORT", "6379")
+        enable_redis = os.environ.get("ENABLE_REDIS_CACHE", "false").lower() == "true"
+
+        if not enable_redis or not redis_endpoint:
+            print("Redis cache is disabled or endpoint not configured")
+            return None
+
+        import redis
+
+        print(f"Connecting to Redis at {redis_endpoint}:{redis_port}")
+        client = redis.Redis(
+            host=redis_endpoint,
+            port=int(redis_port),
+            socket_connect_timeout=5,
+            socket_timeout=5,
+            decode_responses=True,
+        )
+        # Test connection
+        client.ping()
+        print("Redis connection successful")
+        return client
+    except Exception as e:
+        print(f"Redis connection failed: {str(e)}")
+        return None
+
+
+def create_cache_key(question: str, user_id: str) -> str:
+    """Create a cache key for the query"""
+    # Create hash of question to ensure consistent key length
+    question_hash = hashlib.sha256(question.encode()).hexdigest()[:16]
+    return f"query:{user_id}:{question_hash}"
+
+
+def get_cached_response(cache_client: object, cache_key: str) -> Optional[Dict]:
+    """Get cached response if available"""
+    if not cache_client:
+        return None
+
+    try:
+        cached_data = cache_client.get(cache_key)
+        if cached_data:
+            return json.loads(cached_data)
+    except Exception as e:
+        print(f"Cache read error: {str(e)}")
+
+    return None
+
+
+def cache_response(
+    cache_client: object, cache_key: str, response_data: Dict, ttl: int = 3600
+) -> bool:
+    """Cache the response with TTL (default 1 hour)"""
+    if not cache_client:
+        return False
+
+    try:
+        # Add cache metadata
+        cache_data = {**response_data, "cached_at": time.time(), "cache_ttl": ttl}
+        cache_client.setex(cache_key, ttl, json.dumps(cache_data))
+        return True
+    except Exception as e:
+        print(f"Cache write error: {str(e)}")
+        return False
 
 
 def transcribe_audio(audio_data: str, content_type: str) -> str:
@@ -19,21 +89,21 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
         # Initialize AWS services
         s3_client = boto3.client("s3")
         transcribe_client = boto3.client("transcribe")
-        
+
         # Create unique names
         job_name = f"transcribe-{uuid.uuid4()}"
         bucket_name = os.environ.get("MANUALS_BUCKET", "manuel-temp-audio")
         audio_key = f"temp-audio/{job_name}.wav"
-        
+
         # Decode and upload audio to S3
         audio_bytes = base64.b64decode(audio_data)
         s3_client.put_object(
             Bucket=bucket_name,
             Key=audio_key,
             Body=audio_bytes,
-            ContentType=content_type
+            ContentType=content_type,
         )
-        
+
         # Determine audio format from content type
         if "wav" in content_type.lower():
             media_format = "wav"
@@ -45,16 +115,16 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
             media_format = "flac"
         else:
             media_format = "wav"  # Default to wav
-        
+
         # Start transcription job
         audio_uri = f"s3://{bucket_name}/{audio_key}"
         transcribe_client.start_transcription_job(
             TranscriptionJobName=job_name,
             Media={"MediaFileUri": audio_uri},
             MediaFormat=media_format,
-            LanguageCode="en-US"
+            LanguageCode="en-US",
         )
-        
+
         # Poll for completion
         max_attempts = 30  # 5 minutes max
         for attempt in range(max_attempts):
@@ -62,34 +132,45 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
                 TranscriptionJobName=job_name
             )
             status = response["TranscriptionJob"]["TranscriptionJobStatus"]
-            
+
             if status == "COMPLETED":
-                transcript_uri = response["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
+                transcript_uri = response["TranscriptionJob"]["Transcript"][
+                    "TranscriptFileUri"
+                ]
                 # Get the transcript content using urllib (standard library)
                 import urllib.request
+
                 with urllib.request.urlopen(transcript_uri) as transcript_response:
-                    transcript_data = json.loads(transcript_response.read().decode('utf-8'))
-                
+                    transcript_data = json.loads(
+                        transcript_response.read().decode("utf-8")
+                    )
+
                 # Extract the transcribed text
-                transcription = transcript_data["results"]["transcripts"][0]["transcript"]
-                
+                transcription = transcript_data["results"]["transcripts"][0][
+                    "transcript"
+                ]
+
                 # Cleanup
                 try:
                     s3_client.delete_object(Bucket=bucket_name, Key=audio_key)
-                    transcribe_client.delete_transcription_job(TranscriptionJobName=job_name)
+                    transcribe_client.delete_transcription_job(
+                        TranscriptionJobName=job_name
+                    )
                 except Exception as cleanup_error:
                     print(f"Cleanup error: {cleanup_error}")
-                
+
                 return transcription
-                
+
             elif status == "FAILED":
-                raise Exception(f"Transcription failed: {response.get('FailureReason', 'Unknown error')}")
-            
+                raise Exception(
+                    f"Transcription failed: {response.get('FailureReason', 'Unknown error')}"
+                )
+
             # Wait 10 seconds before next check
             time.sleep(10)
-        
+
         raise Exception("Transcription timeout")
-        
+
     except Exception as e:
         print(f"Transcription error: {str(e)}")
         # Cleanup on error
@@ -144,7 +225,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         file_data = body_data.get("file_data")
         content_type = body_data.get("content_type")
         question = body_data.get("question")
-        
+
         # If audio data is provided, transcribe it first
         if file_data and content_type:
             print("Processing audio transcription request")
@@ -168,9 +249,34 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "body": json.dumps({"error": "Question or audio data is required"}),
             }
 
+        # Initialize cache client
+        cache_client = get_cache_client()
+        cache_key = create_cache_key(question, user_id)
+
+        # Try to get cached response first
+        cached_response = get_cached_response(cache_client, cache_key)
+        if cached_response:
+            print(f"Cache HIT for question: {question[:50]}...")
+            # Add cache hit indicator to response
+            cached_response["cache_status"] = "hit"
+            cached_response["response_time_ms"] = 5  # Fast cache response
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+                "body": json.dumps(cached_response),
+            }
+
+        print(f"Cache MISS for question: {question[:50]}...")
+
         # Initialize Bedrock clients
         bedrock_agent_runtime = boto3.client("bedrock-agent-runtime")
         bedrock_runtime = boto3.client("bedrock-runtime")
+
+        # Track query start time for performance metrics
+        query_start_time = time.time()
 
         # Step 1: Retrieve relevant context from Knowledge Base
         print(f"Retrieving context for question: {question}")
@@ -244,6 +350,29 @@ Assistant: I'll help you with that based on the provided context."""
         response_body = json.loads(response["body"].read())
         answer = response_body["content"][0]["text"]
 
+        # Calculate response time
+        query_end_time = time.time()
+        response_time_ms = round((query_end_time - query_start_time) * 1000, 2)
+
+        # Prepare response data
+        response_data = {
+            "answer": answer,
+            "question": question,
+            "sources": sources,
+            "context_found": len(context_pieces) > 0,
+            "user_id": user_id,
+            "timestamp": int(time.time()),
+            "cache_status": "miss",
+            "response_time_ms": response_time_ms,
+        }
+
+        # Cache the response for future requests
+        cache_success = cache_response(cache_client, cache_key, response_data)
+        if cache_success:
+            print(f"Response cached successfully for key: {cache_key}")
+        else:
+            print(f"Failed to cache response for key: {cache_key}")
+
         # Return successful response
         return {
             "statusCode": 200,
@@ -251,16 +380,7 @@ Assistant: I'll help you with that based on the provided context."""
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
             },
-            "body": json.dumps(
-                {
-                    "answer": answer,
-                    "question": question,
-                    "sources": sources,
-                    "context_found": len(context_pieces) > 0,
-                    "user_id": user_id,
-                    "timestamp": int(time.time()),
-                }
-            ),
+            "body": json.dumps(response_data),
         }
 
     except Exception as e:

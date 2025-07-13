@@ -82,6 +82,31 @@ Parameters:
     MaxValue: 30000
     Description: Latency threshold for alerts (milliseconds)
 
+  EnableRedisCache:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable Redis caching for improved performance
+
+  EnablePerformanceOptimization:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable performance optimization features
+
+  RedisCacheNodeType:
+    Type: String
+    Default: cache.t3.micro
+    AllowedValues:
+      [
+        cache.t3.micro,
+        cache.t3.small,
+        cache.t3.medium,
+        cache.r6g.large,
+        cache.r6g.xlarge,
+      ]
+    Description: Redis cache node type
+
   EnableS3Versioning:
     Type: String
     Default: "true"
@@ -139,6 +164,8 @@ Parameters:
 Conditions:
   EnableVersioning: !Equals [!Ref EnableS3Versioning, "true"]
   EnableTracing: !Equals [!Ref EnableXRayTracing, "true"]
+  EnableRedisCaching: !Equals [!Ref EnableRedisCache, "true"]
+  EnablePerformance: !Equals [!Ref EnablePerformanceOptimization, "true"]
 
 Globals:
   Function:
@@ -171,6 +198,19 @@ Globals:
           UserPoolArn: !GetAtt CognitoUserPool.Arn
 
 Resources:
+  # Lambda Layer for Redis Dependencies
+  RedisLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub manuel-redis-layer-${Stage}
+      Description: Redis client library for Python
+      ContentUri: layers/redis/
+      CompatibleRuntimes:
+        - python3.11
+        - python3.10
+        - python3.9
+      RetentionPolicy: Delete
+
   # Cognito User Pool for Authentication
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -492,6 +532,27 @@ Resources:
       Handler: app.lambda_handler
       Description: System health checks
       Timeout: 30
+      Layers:
+        - !Ref RedisLayer
+      VpcConfig: !If
+        - EnableRedisCaching
+        - SecurityGroupIds:
+            - !Ref RedisSecurityGroup
+          SubnetIds:
+            - !Ref RedisSubnet1
+            - !Ref RedisSubnet2
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          REDIS_ENDPOINT: !If
+            - EnableRedisCaching
+            - !GetAtt RedisCache.RedisEndpoint.Address
+            - ""
+          REDIS_PORT: !If
+            - EnableRedisCaching
+            - "6379"
+            - ""
+          ENABLE_REDIS_CACHE: !Ref EnableRedisCache
       Events:
         HealthApi:
           Type: Api
@@ -508,12 +569,32 @@ Resources:
       FunctionName: !Sub manuel-query-${Stage}
       CodeUri: src/functions/query/
       Handler: app.lambda_handler
-      Description: Process queries using Bedrock RAG with user isolation
+      Description:
+        Process queries using Bedrock RAG with user isolation and Redis caching
       Timeout: 600
+      Layers:
+        - !Ref RedisLayer
+      VpcConfig: !If
+        - EnableRedisCaching
+        - SecurityGroupIds:
+            - !Ref RedisSecurityGroup
+          SubnetIds:
+            - !Ref RedisSubnet1
+            - !Ref RedisSubnet2
+        - !Ref AWS::NoValue
       Environment:
         Variables:
           DAILY_QUOTA: 50
           MONTHLY_QUOTA: 1000
+          REDIS_ENDPOINT: !If
+            - EnableRedisCaching
+            - !GetAtt RedisCache.RedisEndpoint.Address
+            - ""
+          REDIS_PORT: !If
+            - EnableRedisCaching
+            - "6379"
+            - ""
+          ENABLE_REDIS_CACHE: !Ref EnableRedisCache
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref UsageTable
@@ -642,6 +723,209 @@ Resources:
       LogGroupName: !Sub /aws/lambda/manuel-health-${Stage}
       RetentionInDays: !Ref LogRetentionDays
 
+  # VPC for Redis Cache
+  RedisVPC:
+    Type: AWS::EC2::VPC
+    Condition: EnableRedisCaching
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub manuel-redis-vpc-${Stage}
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Private Subnet for Redis
+  RedisSubnet1:
+    Type: AWS::EC2::Subnet
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref RedisVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub manuel-redis-subnet-1-${Stage}
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Second Private Subnet for Redis (required for subnet group)
+  RedisSubnet2:
+    Type: AWS::EC2::Subnet
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref RedisVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub manuel-redis-subnet-2-${Stage}
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Security Group for Redis
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: EnableRedisCaching
+    Properties:
+      GroupDescription: Security group for Redis cache
+      VpcId: !Ref RedisVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          CidrIp: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub manuel-redis-sg-${Stage}
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Subnet Group for Redis
+  RedisSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Condition: EnableRedisCaching
+    Properties:
+      Description: Subnet group for Redis cache
+      SubnetIds:
+        - !Ref RedisSubnet1
+        - !Ref RedisSubnet2
+
+  # Redis Cache for Performance Optimization
+  RedisCache:
+    Type: AWS::ElastiCache::CacheCluster
+    Condition: EnableRedisCaching
+    Properties:
+      CacheNodeType: !Ref RedisCacheNodeType
+      Engine: redis
+      NumCacheNodes: 1
+      Port: 6379
+      VpcSecurityGroupIds:
+        - !Ref RedisSecurityGroup
+      CacheSubnetGroupName: !Ref RedisSubnetGroup
+      Tags:
+        - Key: Name
+          Value: !Sub manuel-redis-${Stage}
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # VPC Endpoint for S3 (Gateway Endpoint - Free)
+  S3VPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref RedisVPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref RedisRouteTable
+
+  # VPC Endpoint for Bedrock Runtime (Interface Endpoint)
+  BedrockRuntimeVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref RedisVPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.bedrock-runtime
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref RedisSubnet1
+        - !Ref RedisSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  # VPC Endpoint for Bedrock Agent Runtime (Interface Endpoint)
+  BedrockAgentRuntimeVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref RedisVPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.bedrock-agent-runtime
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref RedisSubnet1
+        - !Ref RedisSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  # VPC Endpoint for AWS Transcribe
+  TranscribeVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref RedisVPC
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.transcribe
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref RedisSubnet1
+        - !Ref RedisSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  # Security Group for VPC Endpoints
+  VPCEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: EnableRedisCaching
+    Properties:
+      GroupDescription: Security group for VPC endpoints
+      VpcId: !Ref RedisVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref RedisSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub manuel-vpc-endpoint-sg-${Stage}
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Route Table for VPC (needed for S3 Gateway Endpoint)
+  RedisRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: EnableRedisCaching
+    Properties:
+      VpcId: !Ref RedisVPC
+      Tags:
+        - Key: Name
+          Value: !Sub manuel-redis-route-table-${Stage}
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Associate Route Table with Subnets
+  RedisSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: EnableRedisCaching
+    Properties:
+      SubnetId: !Ref RedisSubnet1
+      RouteTableId: !Ref RedisRouteTable
+
+  RedisSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: EnableRedisCaching
+    Properties:
+      SubnetId: !Ref RedisSubnet2
+      RouteTableId: !Ref RedisRouteTable
+
 Outputs:
   ApiGatewayUrl:
     Description: API Gateway endpoint URL
@@ -684,3 +968,10 @@ Outputs:
     Value: !Ref BedrockKnowledgeBase
     Export:
       Name: !Sub "${AWS::StackName}-KnowledgeBaseId"
+
+  RedisCacheEndpoint:
+    Condition: EnableRedisCaching
+    Description: Redis cache endpoint
+    Value: !GetAtt RedisCache.RedisEndpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-RedisEndpoint"
