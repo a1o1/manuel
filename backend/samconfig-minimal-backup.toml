@@ -1,0 +1,16 @@
+# More information about the configuration file can be found here:
+# https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-config.html
+version = 0.1
+
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "manuel-dev-minimal"
+template_file = "template-minimal.yaml"
+s3_bucket = ""
+s3_prefix = "manuel-dev"
+region = "eu-west-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+parameter_overrides = "Stage=dev DailyQuotaLimit=50 MonthlyQuotaLimit=1000 EmbeddingModelId=amazon.titan-embed-text-v2:0 TextModelId=eu.anthropic.claude-sonnet-4-20250514-v1:0 UseInferenceProfile=true LambdaRuntime=python3.11 LambdaMemorySize=512 LambdaTimeout=45 QueryTimeout=120 KnowledgeBaseRetrievalResults=3 CorsAllowedOrigins=* TokenValidityHours=1 RefreshTokenValidityDays=30 UsageDataRetentionDays=32 EnableS3Versioning=true EnablePointInTimeRecovery=true LogRetentionDays=14"
+image_repositories = []
