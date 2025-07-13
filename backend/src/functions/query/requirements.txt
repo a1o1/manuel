@@ -1,1 +1,1 @@
-requests==2.31.0
+# Using urllib from standard library instead of requests

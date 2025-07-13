@@ -4,17 +4,30 @@
 
 - Voice-powered assistant for querying product manuals using AWS services
 - Backend: AWS-native (Bedrock, S3, Transcribe, Cognito, Lambda, API Gateway)
-- Frontend: React Native iOS with Expo
+- Frontend: React Native iOS with Expo + CLI interface
 - Architecture: RAG system with Bedrock Knowledge Base
 - Target Region: eu-west-1 (Dublin, Ireland)
+
+## 🎉 Major Milestone Achieved: End-to-End Voice Query System
+
+**Status: ✅ FULLY FUNCTIONAL**
+
+The complete voice query pipeline is now working end-to-end:
+- ✅ Audio recording with CLI (sox integration)
+- ✅ AWS Transcribe speech-to-text conversion
+- ✅ RAG-based Knowledge Base querying
+- ✅ Source attribution and cost tracking
+- ✅ Automatic cleanup and error handling
+
+**Test Command:** `manuel query voice`
 
 ## Development Commands
 
 ### Backend
 
 - Build backend: `sam build`
-- Deploy backend:
-  `sam deploy --parameter-overrides-file backend/parameters.json`
+- Deploy backend (minimal template):
+  `sam deploy --template-file template-minimal.yaml --resolve-s3 --parameter-overrides "Stage=dev TextModelId=eu.anthropic.claude-sonnet-4-20250514-v1:0 UseInferenceProfile=true" --no-confirm-changeset`
 - Deploy production:
   `sam deploy --parameter-overrides-file backend/parameters-production.json`
 - Deploy with Claude 4:
@@ -32,7 +45,8 @@
 ### CLI Commands
 
 - Authentication: `manuel auth login/logout/status`
-- Query manuals: `manuel query voice` or `manuel ask "question"`
+- **Text queries: `manuel ask "question"` or `manuel query ask "question"`**
+- **Voice queries: `manuel query voice`** ✅ **WORKING END-TO-END**
 - Manage manuals: `manuel manuals list/upload/download`
 - Bootstrap system: `manuel bootstrap populate/clear/status`
 - Monitor ingestion: `manuel ingestion status/job/files`
@@ -167,6 +181,7 @@
 ## Ingestion Monitoring & Deduplication
 
 ### Overview
+
 - **Real-time tracking** of AWS Bedrock Knowledge Base ingestion jobs
 - **File deduplication** prevents processing identical files multiple times
 - **Cost optimization** through smart ingestion job management
@@ -175,12 +190,14 @@
 ### Key Features
 
 **Ingestion Job Tracking:**
+
 - All ingestion jobs stored in DynamoDB with status updates
 - Job progress tracking from STARTED → IN_PROGRESS → COMPLETE/FAILED
 - Real-time status synchronization with AWS Bedrock
 - 7-day TTL for automatic cleanup
 
 **File Deduplication System:**
+
 - S3 ETag-based file content tracking (changes when file content changes)
 - Prevents duplicate ingestion of identical files
 - Tracks file metadata: ETag, size, last_modified, ingestion_status
@@ -188,6 +205,7 @@
 - Smart retry logic for failed ingestions
 
 **CLI Commands:**
+
 - `manuel ingestion status` - View all recent ingestion jobs
 - `manuel ingestion job <job-id>` - Get detailed job information
 - `manuel ingestion files` - Show deduplication system status
@@ -196,29 +214,113 @@
 ### Technical Implementation
 
 **File Tracking Storage:**
+
 - DynamoDB composite key: `file_tracker#{s3_key}` + `metadata`
 - Tracks: ETag, file size, ingestion job ID, status, timestamps
 - Automatic TTL cleanup after 30 days
 
 **Deduplication Logic:**
+
 - Compare S3 ETag with stored file tracking record
 - Skip ingestion if file unchanged and previously completed
 - Retry ingestion if previous job failed or file content changed
 - Support for multipart vs single-part upload ETag differences
 
 **Status Updates:**
+
 - Real-time job status polling from AWS Bedrock Agent API
 - Automatic DynamoDB updates when status changes
 - File tracking status synchronization with job completion
 
 ### Benefits
+
 - **Cost Savings:** Eliminates duplicate ingestion processing costs
 - **Performance:** Faster bootstrap operations skip processed files
 - **Reliability:** Failed job tracking enables smart retry logic
 - **Transparency:** Complete visibility into ingestion pipeline
 - **Efficiency:** Only new or modified files trigger ingestion jobs
 
+## Voice Query System ✅ FULLY FUNCTIONAL
+
+### Overview
+
+The voice query system provides end-to-end audio processing, enabling users to ask questions about their manuals using voice input. The system integrates AWS Transcribe for speech-to-text conversion with the existing RAG-based query pipeline.
+
+### Voice Query Workflow
+
+1. **Audio Recording:** CLI captures audio using platform-native tools (sox on macOS/Linux)
+2. **Audio Upload:** Base64-encoded audio uploaded to S3 temp storage
+3. **Transcription:** AWS Transcribe converts speech to text
+4. **Query Processing:** Transcribed text processed through Knowledge Base RAG system
+5. **Response:** Answer returned with sources and metadata
+6. **Cleanup:** Temporary audio files automatically removed
+
+### Technical Implementation
+
+**Audio Recording:**
+- Platform detection: Node.js CLI uses sox, React Native uses Expo AV
+- Configurable duration (default 30 seconds)
+- High-quality recording: 44.1kHz, 16-bit, mono
+- Real-time recording controls (start/stop/pause)
+
+**Transcription Pipeline:**
+- AWS Transcribe integration with job polling
+- Support for multiple audio formats (WAV, MP3, MP4, FLAC)
+- Real-time job status monitoring
+- Automatic cleanup of S3 temporary files and transcription jobs
+
+**Query Integration:**
+- Seamless integration with existing query function
+- Same response format as text queries
+- Full source attribution and cost tracking
+- User quota enforcement for audio processing
+
+### CLI Usage
+
+```bash
+# Start voice query (default 30s recording)
+manuel query voice
+
+# Custom recording duration
+manuel query voice --duration 10
+
+# Include source information
+manuel query voice --sources
+
+# Interactive voice chat mode
+manuel query interactive
+```
+
+### Dependencies
+
+**System Requirements:**
+- macOS/Linux: sox audio utility (`brew install sox`)
+- Node.js: Built-in audio processing
+- AWS: Transcribe, S3, Bedrock services
+
+**Audio Processing:**
+- No external audio libraries required for CLI
+- Uses platform-native audio utilities
+- Automatic permission handling and error recovery
+
+### Error Handling
+
+- **Audio Permission Errors:** Clear messaging for microphone access
+- **Recording Failures:** Automatic cleanup and retry logic
+- **Transcription Errors:** Fallback to text input with error context
+- **Network Issues:** Retry logic with exponential backoff
+- **Service Limits:** Quota enforcement with helpful messaging
+
+### Performance Optimizations
+
+- **Efficient Audio Encoding:** Base64 optimization for network transfer
+- **Parallel Processing:** Audio upload and transcription job creation
+- **Resource Cleanup:** Automatic S3 and Transcribe job cleanup
+- **Caching:** Reuse audio service instances across requests
+- **Standard Library Usage:** Replaced `requests` with `urllib` for better Lambda performance
+
 ### Troubleshooting
+
 - Check ingestion logs: `/aws/lambda/manuel-ingestion-status-dev`
 - Bootstrap logs: `/aws/lambda/manuel-bootstrap-dev`
 - File tracking stored in DynamoDB table: `manuel-usage-dev`

@@ -65,10 +65,10 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
             
             if status == "COMPLETED":
                 transcript_uri = response["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
-                # Get the transcript content
-                import requests
-                transcript_response = requests.get(transcript_uri)
-                transcript_data = transcript_response.json()
+                # Get the transcript content using urllib (standard library)
+                import urllib.request
+                with urllib.request.urlopen(transcript_uri) as transcript_response:
+                    transcript_data = json.loads(transcript_response.read().decode('utf-8'))
                 
                 # Extract the transcribed text
                 transcription = transcript_data["results"]["transcripts"][0]["transcript"]
