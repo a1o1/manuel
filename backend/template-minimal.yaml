@@ -57,6 +57,31 @@ Parameters:
     AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365]
     Description: CloudWatch logs retention period (days)
 
+  EnableXRayTracing:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Enable X-Ray distributed tracing
+
+  AlertEmail:
+    Type: String
+    Default: ""
+    Description: Email for alerts and notifications
+
+  ErrorRateThreshold:
+    Type: Number
+    Default: 5
+    MinValue: 1
+    MaxValue: 100
+    Description: Error rate threshold for alerts (percentage)
+
+  LatencyThreshold:
+    Type: Number
+    Default: 5000
+    MinValue: 100
+    MaxValue: 30000
+    Description: Latency threshold for alerts (milliseconds)
+
   EnableS3Versioning:
     Type: String
     Default: "true"
@@ -113,12 +138,14 @@ Parameters:
 
 Conditions:
   EnableVersioning: !Equals [!Ref EnableS3Versioning, "true"]
+  EnableTracing: !Equals [!Ref EnableXRayTracing, "true"]
 
 Globals:
   Function:
     Runtime: !Ref LambdaRuntime
     Timeout: !Ref LambdaTimeout
     MemorySize: !Ref LambdaMemorySize
+    Tracing: !If [EnableTracing, Active, PassThrough]
     Environment:
       Variables:
         REGION: !Ref AWS::Region

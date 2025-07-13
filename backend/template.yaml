@@ -16,11 +16,6 @@ Globals:
     Environment:
       Variables:
         REGION: !Ref AWS::Region
-        USER_POOL_ID: !Ref CognitoUserPool
-        USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
-        USAGE_TABLE_NAME: !Ref UsageTable
-        MANUALS_BUCKET: !Ref ManualsBucket
-        KNOWLEDGE_BASE_ID: !Ref BedrockKnowledgeBase
         EMBEDDING_MODEL_ID: !Ref EmbeddingModelId
         TEXT_MODEL_ID: !Ref TextModelId
         USE_INFERENCE_PROFILE: !Ref UseInferenceProfile
@@ -34,15 +29,8 @@ Globals:
         RATE_LIMIT_REQUESTS: !Ref RateLimitRequests
         IP_ALLOWLIST: !Ref IPAllowlist
         HMAC_SIGNING_KEY: !Ref HMACSigningKey
-        RATE_LIMIT_TABLE_NAME:
-          !If [EnableAdvancedSecurityMiddleware, !Ref RateLimitTable, ""]
         # Error Handling Configuration
         ENABLE_ADVANCED_ERROR_HANDLING: !Ref EnableAdvancedErrorHandling
-        DLQ_URL:
-          !If [EnableErrorHandling, !Ref ErrorHandlingDeadLetterQueue, ""]
-        ERROR_TOPIC_ARN:
-          !If [EnableErrorHandling, !Ref ErrorNotificationTopic, ""]
-        ERROR_TABLE_NAME: !If [EnableErrorHandling, !Ref ErrorTrackingTable, ""]
         MAX_RETRY_ATTEMPTS: !Ref MaxRetryAttempts
         BASE_RETRY_DELAY: !Ref BaseRetryDelay
         MAX_RETRY_DELAY: !Ref MaxRetryDelay
@@ -53,12 +41,6 @@ Globals:
         CONNECTION_TIMEOUT: !Ref ConnectionTimeout
         READ_TIMEOUT: !Ref ReadTimeout
         CACHE_MEMORY_SIZE: !Ref CacheMemorySize
-        REDIS_URL:
-          !If [
-            EnableRedisCaching,
-            !Sub "redis://${RedisCache.RedisEndpoint.Address}:${RedisCache.RedisEndpoint.Port}",
-            "",
-          ]
   Api:
     Cors:
       AllowMethods: "'GET,POST,OPTIONS'"
