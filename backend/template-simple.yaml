@@ -2,8 +2,8 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
   Manuel - Simplified Core Infrastructure for Testing
-  
-  Core resources for user isolation testing: Cognito, Lambda, API Gateway, 
+
+  Core resources for user isolation testing: Cognito, Lambda, API Gateway,
   DynamoDB, S3, and Bedrock Knowledge Base.
 
 # Global configuration
@@ -258,7 +258,7 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
-# Note: S3 notification will be added after initial deployment
+      # Note: S3 notification will be added after initial deployment
       Tags:
         - Key: Project
           Value: Manuel
@@ -352,7 +352,7 @@ Resources:
   # Bedrock Knowledge Base
   BedrockKnowledgeBase:
     Type: AWS::Bedrock::KnowledgeBase
-    DependsOn: 
+    DependsOn:
       - OpenSearchAccessPolicy
       - OpenSearchSecurityPolicy
       - OpenSearchNetworkPolicy

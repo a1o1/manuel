@@ -25,9 +25,19 @@
 
 - Run iOS app: `expo start` (in frontend directory)
 - Build CLI: `cd frontend/packages/cli-app && npm run build`
-- Install CLI globally: `cd frontend/packages/cli-app && npm link`
+- Install CLI globally: `cd frontend/packages/cli-app && npm install -g .`
 - Test CLI: `manuel --help`
 - Lint frontend: `npm run lint`
+
+### CLI Commands
+
+- Authentication: `manuel auth login/logout/status`
+- Query manuals: `manuel query voice` or `manuel ask "question"`
+- Manage manuals: `manuel manuals list/upload/download`
+- Bootstrap system: `manuel bootstrap populate/clear/status`
+- Monitor ingestion: `manuel ingestion status/job/files`
+- View usage: `manuel usage today/week/month`
+- Configuration: `manuel config get/set`
 
 ### Alternative Test CLI
 
@@ -67,11 +77,18 @@
 
 - Backend specs: `backend/specs/`
 - Lambda functions: `backend/src/functions/`
+  - `bootstrap/` - Smart bootstrap with deduplication
+  - `ingestion-status/` - Ingestion job monitoring
+  - `process-manual-simple/` - Automatic S3 → Knowledge Base sync
 - Shared utilities: `backend/src/shared/`
+  - `file_tracker.py` - File deduplication system
 - Parameter files: `backend/parameters*.json`
 - Frontend components: `frontend/src/components/`
+- Frontend CLI: `frontend/packages/cli-app/src/commands/`
+  - `ingestion.ts` - Ingestion monitoring commands
+  - `bootstrap.ts` - Bootstrap system commands
 - Frontend mock services: `frontend/packages/ios-app/src/services/mock/`
-- AWS templates: `backend/template.yaml`
+- AWS templates: `backend/template.yaml` + `backend/template-minimal.yaml`
 - Pipeline infrastructure: `backend/pipeline-template.yaml`
 - Improvement plan: `backend/BACKEND_IMPROVEMENT_PLAN.md`
 - User isolation docs: `backend/METADATA_FILTERING_IMPLEMENTATION.md`
@@ -92,6 +109,8 @@
 - Custom Metrics: Business KPIs (quota usage, token consumption, response times)
 - Alerting: SNS notifications for errors, latency, and quota issues
 - X-Ray Tracing: Distributed request tracing (configurable via parameters)
+- Ingestion Monitoring: Real-time tracking of Knowledge Base ingestion jobs
+- File Deduplication: S3 ETag-based tracking to prevent duplicate processing
 
 ## Testing Requirements
 
@@ -101,6 +120,8 @@
 - Check authentication flows thoroughly
 - Test user data isolation and metadata filtering
 - Verify frontend mock services and user switching
+- Test ingestion monitoring and deduplication systems
+- Verify bootstrap process skips already-ingested files
 - Monitor CloudWatch dashboards after deployments
 - Verify structured logging is working correctly
 
@@ -142,3 +163,63 @@
 - Daily cost thresholds: Configurable per environment
 - Request cost thresholds: Alert on expensive individual requests
 - Cost optimization strategies: Model selection, token management, caching
+
+## Ingestion Monitoring & Deduplication
+
+### Overview
+- **Real-time tracking** of AWS Bedrock Knowledge Base ingestion jobs
+- **File deduplication** prevents processing identical files multiple times
+- **Cost optimization** through smart ingestion job management
+- **Complete transparency** into file processing status
+
+### Key Features
+
+**Ingestion Job Tracking:**
+- All ingestion jobs stored in DynamoDB with status updates
+- Job progress tracking from STARTED → IN_PROGRESS → COMPLETE/FAILED
+- Real-time status synchronization with AWS Bedrock
+- 7-day TTL for automatic cleanup
+
+**File Deduplication System:**
+- S3 ETag-based file content tracking (changes when file content changes)
+- Prevents duplicate ingestion of identical files
+- Tracks file metadata: ETag, size, last_modified, ingestion_status
+- 30-day file tracking retention
+- Smart retry logic for failed ingestions
+
+**CLI Commands:**
+- `manuel ingestion status` - View all recent ingestion jobs
+- `manuel ingestion job <job-id>` - Get detailed job information
+- `manuel ingestion files` - Show deduplication system status
+- `manuel bootstrap populate` - Smart bootstrap with deduplication
+
+### Technical Implementation
+
+**File Tracking Storage:**
+- DynamoDB composite key: `file_tracker#{s3_key}` + `metadata`
+- Tracks: ETag, file size, ingestion job ID, status, timestamps
+- Automatic TTL cleanup after 30 days
+
+**Deduplication Logic:**
+- Compare S3 ETag with stored file tracking record
+- Skip ingestion if file unchanged and previously completed
+- Retry ingestion if previous job failed or file content changed
+- Support for multipart vs single-part upload ETag differences
+
+**Status Updates:**
+- Real-time job status polling from AWS Bedrock Agent API
+- Automatic DynamoDB updates when status changes
+- File tracking status synchronization with job completion
+
+### Benefits
+- **Cost Savings:** Eliminates duplicate ingestion processing costs
+- **Performance:** Faster bootstrap operations skip processed files
+- **Reliability:** Failed job tracking enables smart retry logic
+- **Transparency:** Complete visibility into ingestion pipeline
+- **Efficiency:** Only new or modified files trigger ingestion jobs
+
+### Troubleshooting
+- Check ingestion logs: `/aws/lambda/manuel-ingestion-status-dev`
+- Bootstrap logs: `/aws/lambda/manuel-bootstrap-dev`
+- File tracking stored in DynamoDB table: `manuel-usage-dev`
+- Typical ingestion time: 5-10 minutes for multi-MB PDFs

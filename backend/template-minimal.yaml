@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
   Manuel - Minimal Core Infrastructure
-  
+
   Essential resources for initial testing: Cognito and Health endpoint only.
 
 Parameters:
@@ -204,14 +204,36 @@ Resources:
         Status: !If [EnableVersioning, Enabled, Suspended]
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
-        BlockPublicPolicy: true
+        BlockPublicPolicy: false
         IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+        RestrictPublicBuckets: false
       Tags:
         - Key: Project
           Value: Manuel
         - Key: Environment
           Value: !Ref Stage
+
+  # S3 Bucket Policy to allow AWS Transcribe access
+  # ManualsBucketPolicy:
+  #   Type: AWS::S3::BucketPolicy
+  #   Properties:
+  #     Bucket: !Ref ManualsBucket
+  #     PolicyDocument:
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: transcribe.amazonaws.com
+  #           Action:
+  #             - s3:GetObject
+  #           Resource: !Sub "${ManualsBucket.Arn}/temp-audio/*"
+  #         - Effect: Allow
+  #           Principal:
+  #             AWS: !GetAtt QueryFunctionRole.Arn
+  #           Action:
+  #             - s3:PutObject
+  #             - s3:GetObject
+  #             - s3:DeleteObject
+  #           Resource: !Sub "${ManualsBucket.Arn}/*"
 
   # DynamoDB Table for User Usage Tracking
   UsageTable:
@@ -363,7 +385,7 @@ Resources:
   # Bedrock Knowledge Base
   BedrockKnowledgeBase:
     Type: AWS::Bedrock::KnowledgeBase
-    DependsOn: 
+    DependsOn:
       - OpenSearchAccessPolicy
       - OpenSearchSecurityPolicy
       - OpenSearchNetworkPolicy
@@ -460,7 +482,7 @@ Resources:
       CodeUri: src/functions/query/
       Handler: app.lambda_handler
       Description: Process queries using Bedrock RAG with user isolation
-      Timeout: 120
+      Timeout: 600
       Environment:
         Variables:
           DAILY_QUOTA: 50
@@ -473,13 +495,118 @@ Resources:
               Action:
                 - bedrock:InvokeModel
                 - bedrock:Retrieve
+                - transcribe:StartTranscriptionJob
+                - transcribe:GetTranscriptionJob
+                - transcribe:DeleteTranscriptionJob
               Resource: "*"
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:DeleteObject
+              Resource:
+                - !Sub "${ManualsBucket.Arn}/*"
       Events:
         QueryApi:
           Type: Api
           Properties:
             Path: /api/query
             Method: post
+
+  # Bootstrap Function for populating sample manuals
+  BootstrapFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-bootstrap-${Stage}
+      CodeUri: src/functions/bootstrap/
+      Handler: app.lambda_handler
+      Description: Bootstrap system with sample manuals
+      Timeout: 300
+      Environment:
+        Variables:
+          MANUALS_BUCKET: !Ref ManualsBucket
+          KNOWLEDGE_BASE_ID: !Ref BedrockKnowledgeBase
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - S3WritePolicy:
+            BucketName: !Ref ManualsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:StartIngestionJob
+                - bedrock:GetIngestionJob
+                - bedrock:ListDataSources
+              Resource: "*"
+      Events:
+        BootstrapApi:
+          Type: Api
+          Properties:
+            Path: /api/bootstrap
+            Method: post
+
+  # Process Manual Function for automatic Knowledge Base ingestion
+  ProcessManualFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-process-manual-${Stage}
+      CodeUri: src/functions/process-manual-simple/
+      Handler: app.lambda_handler
+      Description: Process uploaded manuals and sync with Knowledge Base
+      Timeout: 300
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref BedrockKnowledgeBase
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:StartIngestionJob
+                - bedrock:GetIngestionJob
+                - bedrock:ListDataSources
+              Resource: "*"
+
+  # Lambda permission for S3 to invoke ProcessManualFunction
+  ProcessManualFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ProcessManualFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt ManualsBucket.Arn
+
+  # Ingestion Status Function
+  IngestionStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-ingestion-status-${Stage}
+      CodeUri: src/functions/ingestion-status/
+      Handler: app.lambda_handler
+      Description: Check Knowledge Base ingestion job status
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref BedrockKnowledgeBase
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:GetIngestionJob
+                - bedrock:ListDataSources
+              Resource: "*"
+      Events:
+        IngestionStatusApi:
+          Type: Api
+          Properties:
+            Path: /api/ingestion/status
+            Method: get
 
   # CloudWatch Log Group
   HealthLogGroup:

@@ -3,12 +3,101 @@ Manuel - Query Function (Minimal Version)
 Simple RAG query processing without complex dependencies
 """
 
+import base64
 import json
 import os
 import time
+import uuid
 from typing import Any, Dict
 
 import boto3
+
+
+def transcribe_audio(audio_data: str, content_type: str) -> str:
+    """Transcribe audio using AWS Transcribe"""
+    try:
+        # Initialize AWS services
+        s3_client = boto3.client("s3")
+        transcribe_client = boto3.client("transcribe")
+        
+        # Create unique names
+        job_name = f"transcribe-{uuid.uuid4()}"
+        bucket_name = os.environ.get("MANUALS_BUCKET", "manuel-temp-audio")
+        audio_key = f"temp-audio/{job_name}.wav"
+        
+        # Decode and upload audio to S3
+        audio_bytes = base64.b64decode(audio_data)
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=audio_key,
+            Body=audio_bytes,
+            ContentType=content_type
+        )
+        
+        # Determine audio format from content type
+        if "wav" in content_type.lower():
+            media_format = "wav"
+        elif "mp3" in content_type.lower():
+            media_format = "mp3"
+        elif "mp4" in content_type.lower() or "m4a" in content_type.lower():
+            media_format = "mp4"
+        elif "flac" in content_type.lower():
+            media_format = "flac"
+        else:
+            media_format = "wav"  # Default to wav
+        
+        # Start transcription job
+        audio_uri = f"s3://{bucket_name}/{audio_key}"
+        transcribe_client.start_transcription_job(
+            TranscriptionJobName=job_name,
+            Media={"MediaFileUri": audio_uri},
+            MediaFormat=media_format,
+            LanguageCode="en-US"
+        )
+        
+        # Poll for completion
+        max_attempts = 30  # 5 minutes max
+        for attempt in range(max_attempts):
+            response = transcribe_client.get_transcription_job(
+                TranscriptionJobName=job_name
+            )
+            status = response["TranscriptionJob"]["TranscriptionJobStatus"]
+            
+            if status == "COMPLETED":
+                transcript_uri = response["TranscriptionJob"]["Transcript"]["TranscriptFileUri"]
+                # Get the transcript content
+                import requests
+                transcript_response = requests.get(transcript_uri)
+                transcript_data = transcript_response.json()
+                
+                # Extract the transcribed text
+                transcription = transcript_data["results"]["transcripts"][0]["transcript"]
+                
+                # Cleanup
+                try:
+                    s3_client.delete_object(Bucket=bucket_name, Key=audio_key)
+                    transcribe_client.delete_transcription_job(TranscriptionJobName=job_name)
+                except Exception as cleanup_error:
+                    print(f"Cleanup error: {cleanup_error}")
+                
+                return transcription
+                
+            elif status == "FAILED":
+                raise Exception(f"Transcription failed: {response.get('FailureReason', 'Unknown error')}")
+            
+            # Wait 10 seconds before next check
+            time.sleep(10)
+        
+        raise Exception("Transcription timeout")
+        
+    except Exception as e:
+        print(f"Transcription error: {str(e)}")
+        # Cleanup on error
+        try:
+            s3_client.delete_object(Bucket=bucket_name, Key=audio_key)
+        except:
+            pass
+        return ""
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -51,15 +140,32 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             body_data = body
 
+        # Check if this is an audio request or text request
+        file_data = body_data.get("file_data")
+        content_type = body_data.get("content_type")
         question = body_data.get("question")
-        if not question:
+        
+        # If audio data is provided, transcribe it first
+        if file_data and content_type:
+            print("Processing audio transcription request")
+            question = transcribe_audio(file_data, content_type)
+            if not question:
+                return {
+                    "statusCode": 400,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                    "body": json.dumps({"error": "Failed to transcribe audio"}),
+                }
+        elif not question:
             return {
                 "statusCode": 400,
                 "headers": {
                     "Content-Type": "application/json",
                     "Access-Control-Allow-Origin": "*",
                 },
-                "body": json.dumps({"error": "Question is required"}),
+                "body": json.dumps({"error": "Question or audio data is required"}),
             }
 
         # Initialize Bedrock clients

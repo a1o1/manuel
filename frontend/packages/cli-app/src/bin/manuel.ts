@@ -9,6 +9,8 @@ import { QueryCommand } from '../commands/query';
 import { ManualsCommand } from '../commands/manuals';
 import { UsageCommand } from '../commands/usage';
 import { ConfigCommand } from '../commands/config';
+import { BootstrapCommand } from '../commands/bootstrap';
+import { IngestionCommand } from '../commands/ingestion';
 
 const program = new Command();
 
@@ -92,6 +94,16 @@ async function main() {
 
     ConfigCommand.register(configCmd);
 
+    // Bootstrap commands
+    const bootstrapCmd = program
+      .command('bootstrap')
+      .description('Bootstrap system with sample data');
+
+    BootstrapCommand.register(bootstrapCmd);
+
+    // Ingestion monitoring commands
+    IngestionCommand.register(program);
+
     // Quick commands (shortcuts)
     program
       .command('ask <question>')
@@ -151,6 +163,8 @@ Examples:
   $ manuel download https://...          Download from URL
   $ manuel manuals list                  List all manuals
   $ manuel usage today                   View today's usage
+  $ manuel bootstrap populate           Process existing manuals
+  $ manuel ingestion status             Check ingestion jobs
   $ manuel interactive                   Start interactive mode
 
 For more help on a specific command:
