@@ -5,6 +5,7 @@ import ora from 'ora';
 import { table } from 'table';
 import { queryService } from '@manuel/shared';
 import { getAudioService } from '@manuel/shared';
+import type { AudioRecording } from '@manuel/shared/src/platform/audio/base';
 import { CLIError, handleError } from '../utils/error';
 import { formatDuration, formatRelativeTime } from '../utils/formatting';
 import { requireAuth } from '../utils/auth';
@@ -137,13 +138,14 @@ export class QueryCommand {
     try {
       // Set up recording stop handler
       let recordingStopped = false;
+      let recordingResult: AudioRecording | undefined;
+
       const stopRecording = async () => {
         if (!recordingStopped) {
           recordingStopped = true;
           spinner.text = 'Stopping recording...';
-          const recording = await this.audioService.stopRecording();
-          spinner.succeed(`Recorded ${formatDuration(recording.duration)}`);
-          return recording;
+          recordingResult = await this.audioService.stopRecording();
+          spinner.succeed(`Recorded ${formatDuration(recordingResult.duration)}`);
         }
       };
 
@@ -159,22 +161,23 @@ export class QueryCommand {
       process.on('SIGINT', stopRecording);
 
       // Auto-stop after duration
-      setTimeout(stopRecording, maxDuration * 1000);
+      setTimeout(async () => {
+        await stopRecording();
+      }, maxDuration * 1000);
 
       // Wait for recording to finish
       while (!recordingStopped) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      const recording = await stopRecording();
-      if (!recording) {
+      if (!recordingResult) {
         throw new CLIError('Failed to record audio');
       }
 
       // Convert to base64 and send query
       spinner.start('Transcribing and processing...');
 
-      const audioBase64 = await this.audioService.convertToBase64(recording.uri);
+      const audioBase64 = await this.audioService.convertToBase64(recordingResult.uri);
       const audioFormat = this.audioService.getAudioFormat();
 
       const response = await queryService.voiceQuery(

@@ -116,13 +116,13 @@ class QueryCommand {
         try {
             // Set up recording stop handler
             let recordingStopped = false;
+            let recordingResult;
             const stopRecording = async () => {
                 if (!recordingStopped) {
                     recordingStopped = true;
                     spinner.text = 'Stopping recording...';
-                    const recording = await this.audioService.stopRecording();
-                    spinner.succeed(`Recorded ${(0, formatting_1.formatDuration)(recording.duration)}`);
-                    return recording;
+                    recordingResult = await this.audioService.stopRecording();
+                    spinner.succeed(`Recorded ${(0, formatting_1.formatDuration)(recordingResult.duration)}`);
                 }
             };
             // Start recording
@@ -135,18 +135,19 @@ class QueryCommand {
             // Handle Ctrl+C
             process.on('SIGINT', stopRecording);
             // Auto-stop after duration
-            setTimeout(stopRecording, maxDuration * 1000);
+            setTimeout(async () => {
+                await stopRecording();
+            }, maxDuration * 1000);
             // Wait for recording to finish
             while (!recordingStopped) {
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
-            const recording = await stopRecording();
-            if (!recording) {
+            if (!recordingResult) {
                 throw new error_1.CLIError('Failed to record audio');
             }
             // Convert to base64 and send query
             spinner.start('Transcribing and processing...');
-            const audioBase64 = await this.audioService.convertToBase64(recording.uri);
+            const audioBase64 = await this.audioService.convertToBase64(recordingResult.uri);
             const audioFormat = this.audioService.getAudioFormat();
             const response = await shared_1.queryService.voiceQuery(audioBase64, `audio/${audioFormat}`, options.sources !== false);
             spinner.succeed(chalk_1.default.green('Voice query processed!'));
