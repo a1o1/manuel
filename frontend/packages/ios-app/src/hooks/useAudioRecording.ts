@@ -1,7 +1,13 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
+import { logger } from '../utils/logger';
+// Ensure crypto polyfills are available
+import '../utils/crypto-polyfill';
 
 export interface AudioRecordingResult {
   audioBlob: Blob | null;
+  audioUri: string | null;
   duration: number;
   size: number;
 }
@@ -27,29 +33,35 @@ export function useAudioRecording(): UseAudioRecordingReturn {
   const [duration, setDuration] = useState(0);
   const [hasPermission, setHasPermission] = useState(false);
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
+  const recordingRef = useRef<Audio.Recording | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const pausedTimeRef = useRef<number>(0);
 
+  useEffect(() => {
+    // Set audio mode for recording
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+      shouldDuckAndroid: true,
+      playThroughEarpieceAndroid: false,
+    });
+  }, []);
+
   const requestPermission = useCallback(async (): Promise<boolean> => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        }
-      });
-
-      // Stop the test stream immediately
-      stream.getTracks().forEach(track => track.stop());
-      setHasPermission(true);
-      return true;
+      const permission = await Audio.requestPermissionsAsync();
+      const granted = permission.status === 'granted';
+      setHasPermission(granted);
+      
+      if (!granted) {
+        logger.error('Audio recording permission denied');
+      }
+      
+      return granted;
     } catch (error) {
-      console.error('Microphone permission denied:', error);
+      logger.error('Failed to request audio permission:', error);
       setHasPermission(false);
       return false;
     }
@@ -78,110 +90,145 @@ export function useAudioRecording(): UseAudioRecordingReturn {
         }
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        }
-      });
+      // Create new recording instance
+      const recording = new Audio.Recording();
+      recordingRef.current = recording;
 
-      streamRef.current = stream;
-      audioChunksRef.current = [];
-      pausedTimeRef.current = 0;
+      // Configure recording options
+      const recordingOptions = Audio.RecordingOptionsPresets.HIGH_QUALITY;
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-
-      mediaRecorderRef.current = mediaRecorder;
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      mediaRecorder.start(100); // Collect data every 100ms
+      // Prepare the recording
+      await recording.prepareToRecordAsync(recordingOptions);
+      
+      // Start recording
+      await recording.startAsync();
+      
       setState('recording');
+      pausedTimeRef.current = 0;
       startTimer();
 
+      logger.log('Audio recording started');
+
     } catch (error) {
-      console.error('Failed to start recording:', error);
+      logger.error('Failed to start recording:', error);
       setState('idle');
+      recordingRef.current = null;
       throw error;
     }
   }, [hasPermission, requestPermission, startTimer]);
 
   const stopRecording = useCallback(async (): Promise<AudioRecordingResult | null> => {
-    return new Promise((resolve) => {
-      if (!mediaRecorderRef.current || state === 'idle') {
-        resolve(null);
-        return;
+    try {
+      if (!recordingRef.current || state === 'idle') {
+        return null;
       }
 
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, {
-          type: 'audio/webm;codecs=opus'
+      // Stop the recording
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      
+      if (!uri) {
+        throw new Error('No recording URI available');
+      }
+
+      // Get file info
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      const fileSize = fileInfo.exists ? fileInfo.size || 0 : 0;
+
+      // Convert file to blob for API compatibility
+      let audioBlob: Blob | null = null;
+      
+      try {
+        // Read file as base64, then convert to blob
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
         });
-
-        const result: AudioRecordingResult = {
-          audioBlob,
-          duration,
-          size: audioBlob.size,
-        };
-
-        // Cleanup
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach(track => track.stop());
-          streamRef.current = null;
+        
+        // Convert base64 to blob
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
+        
+        audioBlob = new Blob([bytes], { type: 'audio/mp4' });
+        logger.log('Audio file converted to blob, size:', audioBlob.size);
+      } catch (blobError) {
+        logger.error('Failed to convert audio to blob:', blobError);
+      }
 
-        mediaRecorderRef.current = null;
-        audioChunksRef.current = [];
-        setState('stopped');
-        stopTimer();
-
-        resolve(result);
+      const result: AudioRecordingResult = {
+        audioBlob,
+        audioUri: uri,
+        duration,
+        size: fileSize,
       };
 
-      mediaRecorderRef.current.stop();
-    });
-  }, [state, duration, stopTimer]);
-
-  const pauseRecording = useCallback(() => {
-    if (mediaRecorderRef.current && state === 'recording') {
-      mediaRecorderRef.current.pause();
-      setState('paused');
+      // Cleanup
+      recordingRef.current = null;
+      setState('stopped');
       stopTimer();
-      pausedTimeRef.current = duration;
+
+      logger.log('Audio recording stopped, duration:', duration, 'size:', fileSize);
+      return result;
+
+    } catch (error) {
+      logger.error('Failed to stop recording:', error);
+      setState('idle');
+      recordingRef.current = null;
+      stopTimer();
+      throw error;
     }
   }, [state, duration, stopTimer]);
 
-  const resumeRecording = useCallback(() => {
-    if (mediaRecorderRef.current && state === 'paused') {
-      mediaRecorderRef.current.resume();
-      setState('recording');
-      startTimer();
+  const pauseRecording = useCallback(async () => {
+    try {
+      if (recordingRef.current && state === 'recording') {
+        await recordingRef.current.pauseAsync();
+        setState('paused');
+        stopTimer();
+        pausedTimeRef.current = duration;
+        logger.log('Audio recording paused');
+      }
+    } catch (error) {
+      logger.error('Failed to pause recording:', error);
+    }
+  }, [state, duration, stopTimer]);
+
+  const resumeRecording = useCallback(async () => {
+    try {
+      if (recordingRef.current && state === 'paused') {
+        await recordingRef.current.startAsync();
+        setState('recording');
+        startTimer();
+        logger.log('Audio recording resumed');
+      }
+    } catch (error) {
+      logger.error('Failed to resume recording:', error);
     }
   }, [state, startTimer]);
 
-  const cancelRecording = useCallback(() => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
+  const cancelRecording = useCallback(async () => {
+    try {
+      if (recordingRef.current) {
+        await recordingRef.current.stopAndUnloadAsync();
+        
+        // Try to delete the file
+        const uri = recordingRef.current.getURI();
+        if (uri) {
+          await FileSystem.deleteAsync(uri, { idempotent: true });
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to cancel recording:', error);
+    } finally {
+      recordingRef.current = null;
+      setState('idle');
+      setDuration(0);
+      pausedTimeRef.current = 0;
+      stopTimer();
+      logger.log('Audio recording cancelled');
     }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-
-    mediaRecorderRef.current = null;
-    audioChunksRef.current = [];
-    setState('idle');
-    setDuration(0);
-    pausedTimeRef.current = 0;
-    stopTimer();
   }, [stopTimer]);
 
   const isRecording = state === 'recording';

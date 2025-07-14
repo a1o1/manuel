@@ -77,9 +77,9 @@ export function VoiceQueryScreen() {
     try {
       const recordingResult = await stopRecording();
 
-      if (recordingResult && recordingResult.audioBlob) {
+      if (recordingResult && (recordingResult.audioBlob || recordingResult.audioUri)) {
         // Process the audio with our query service
-        const queryResult = await queryService.voiceQuery(recordingResult.audioBlob, {
+        const queryResult = await queryService.voiceQuery(recordingResult, {
           includeSources: true
         });
 
@@ -176,7 +176,7 @@ export function VoiceQueryScreen() {
 
               <View style={styles.controlButtons}>
                 {isRecording && (
-                  <TouchableOpacity style={styles.controlButton} onPress={pauseRecording}>
+                  <TouchableOpacity style={styles.controlButton} onPress={() => pauseRecording()}>
                     <Ionicons name="pause-outline" size={20} color="#007AFF" />
                     <Text style={styles.controlButtonText}>Pause</Text>
                   </TouchableOpacity>

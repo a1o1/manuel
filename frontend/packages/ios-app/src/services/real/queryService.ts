@@ -80,9 +80,26 @@ export class RealQueryService implements QueryService {
     }
   }
 
-  async voiceQuery(audioBlob: Blob, options?: any) {
+  async voiceQuery(audioInput: Blob | { audioBlob: Blob | null; audioUri: string | null }, options?: any) {
     try {
-      const contentType = audioBlob.type || 'audio/wav';
+      // Handle both Blob and AudioRecordingResult inputs
+      let audioBlob: Blob;
+      let contentType: string;
+
+      if (audioInput instanceof Blob) {
+        // Direct blob input (for web compatibility)
+        audioBlob = audioInput;
+        contentType = audioBlob.type || 'audio/wav';
+      } else {
+        // AudioRecordingResult from React Native
+        if (audioInput.audioBlob) {
+          audioBlob = audioInput.audioBlob;
+          contentType = audioBlob.type || 'audio/mp4';
+        } else {
+          throw new Error('No audio data available from recording');
+        }
+      }
+
       const response = await this.api.voiceQuery(audioBlob, contentType);
 
       if (response.error) {

@@ -16,7 +16,7 @@ export interface UsageService {
 
 export interface QueryService {
   textQuery(query: string, options?: any): Promise<any>;
-  voiceQuery(audioBlob: Blob, options?: any): Promise<any>;
+  voiceQuery(audioBlob: Blob | { audioBlob: Blob | null; audioUri: string | null }, options?: any): Promise<any>;
 }
 
 export interface ManualsService {
