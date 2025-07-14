@@ -9,7 +9,7 @@ class SafeLogger {
       if (obj === null || obj === undefined) {
         return String(obj);
       }
-      
+
       if (typeof obj === 'string' || typeof obj === 'number' || typeof obj === 'boolean') {
         return String(obj);
       }
@@ -38,7 +38,7 @@ class SafeLogger {
 
   log(...args: any[]) {
     if (this.isDev) {
-      const safeArgs = args.map(arg => 
+      const safeArgs = args.map(arg =>
         typeof arg === 'object' ? this.safeStringify(arg) : arg
       );
       console.log(...safeArgs);
@@ -47,7 +47,7 @@ class SafeLogger {
 
   error(...args: any[]) {
     if (this.isDev) {
-      const safeArgs = args.map(arg => 
+      const safeArgs = args.map(arg =>
         typeof arg === 'object' ? this.safeStringify(arg) : arg
       );
       console.error(...safeArgs);
@@ -56,7 +56,7 @@ class SafeLogger {
 
   warn(...args: any[]) {
     if (this.isDev) {
-      const safeArgs = args.map(arg => 
+      const safeArgs = args.map(arg =>
         typeof arg === 'object' ? this.safeStringify(arg) : arg
       );
       console.warn(...safeArgs);

@@ -194,18 +194,36 @@ class ManualsCommand {
         }
         const spinner = (0, ora_1.default)('Downloading from URL...').start();
         try {
+            console.log(chalk_1.default.gray(`\nAttempting to download from: ${url}`));
+            if (options.name) {
+                console.log(chalk_1.default.gray(`Custom filename: ${options.name}`));
+            }
             const result = await shared_1.manualService.downloadManual({
                 url,
                 filename: options.name,
             });
             spinner.succeed(chalk_1.default.green('Manual downloaded and uploaded successfully!'));
-            console.log(chalk_1.default.gray(`Name: ${result.file_name}`));
-            console.log(chalk_1.default.gray(`Key: ${result.key}`));
-            console.log(chalk_1.default.gray(`Size: ${(0, formatting_1.formatFileSize)(result.size_bytes || 0)}`));
-            console.log(chalk_1.default.gray(`Download time: ${result.download_time_ms}ms`));
-            if (result.security_warnings && result.security_warnings.length > 0) {
+            // Handle the actual backend response format with type assertion
+            const response = result;
+            const fileName = response.file_name || response.filename || options.name || 'Unknown Manual';
+            const key = response.key || response.manual_id || response.s3_key || 'Unknown';
+            const size = response.size_bytes || response.size || 0;
+            const downloadTime = response.download_time_ms || 'Unknown';
+            console.log(chalk_1.default.gray(`Name: ${fileName}`));
+            console.log(chalk_1.default.gray(`ID: ${key}`));
+            if (size > 0) {
+                console.log(chalk_1.default.gray(`Size: ${(0, formatting_1.formatFileSize)(size)}`));
+            }
+            if (downloadTime !== 'Unknown') {
+                console.log(chalk_1.default.gray(`Download time: ${downloadTime}ms`));
+            }
+            // Display the success message from backend if available
+            if (response.message) {
+                console.log(chalk_1.default.green(`\n${response.message}`));
+            }
+            if (response.security_warnings && response.security_warnings.length > 0) {
                 console.log(chalk_1.default.yellow('\n⚠️ Security warnings:'));
-                result.security_warnings.forEach(warning => {
+                response.security_warnings.forEach((warning) => {
                     console.log(chalk_1.default.yellow(`  • ${warning}`));
                 });
             }
@@ -213,7 +231,32 @@ class ManualsCommand {
         }
         catch (error) {
             spinner.fail('Download failed');
-            throw new error_1.CLIError(`Download failed: ${error}`);
+            // Log detailed error information for debugging
+            console.error(chalk_1.default.red('\nFull error object:'), error);
+            if (error?.response) {
+                console.error(chalk_1.default.red('\nError response details:'));
+                console.error(chalk_1.default.gray(`Status: ${error.response.status}`));
+                console.error(chalk_1.default.gray(`Status Text: ${error.response.statusText}`));
+                if (error.response.data) {
+                    console.error(chalk_1.default.gray(`Response: ${JSON.stringify(error.response.data, null, 2)}`));
+                }
+            }
+            else {
+                console.error(chalk_1.default.yellow('\nNo response property in error'));
+            }
+            // Extract the most meaningful error message
+            let errorMessage = 'Unknown error';
+            if (error?.response?.data?.error) {
+                errorMessage = error.response.data.error;
+                // Check if there are additional details
+                if (error.response.data.details) {
+                    errorMessage += ` - ${error.response.data.details}`;
+                }
+            }
+            else if (error?.message) {
+                errorMessage = error.message;
+            }
+            throw new error_1.CLIError(`Download failed: ${errorMessage}`);
         }
     }
     async delete(key, options = {}) {

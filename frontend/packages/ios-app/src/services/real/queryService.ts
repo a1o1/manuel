@@ -36,7 +36,7 @@ export class RealQueryService implements QueryService {
       // Extract filename from S3 URI: s3://bucket/manuals/user/file.pdf -> file.pdf
       const parts = s3Uri.split('/');
       const filename = parts[parts.length - 1];
-      
+
       // Remove file extension and decode URI components
       const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
       return decodeURIComponent(nameWithoutExt).replace(/[-_]/g, ' ');
@@ -55,7 +55,7 @@ export class RealQueryService implements QueryService {
 
       // Transform backend response to match expected format
       const { data } = response;
-      
+
       // Transform sources from backend format to UI format
       const transformedSources = data.sources && options?.includeSources !== false
         ? data.sources.map((source: any) => ({
@@ -91,7 +91,7 @@ export class RealQueryService implements QueryService {
 
       // Transform backend response to match expected format
       const { data } = response;
-      
+
       // Transform sources from backend format to UI format
       const transformedSources = data.sources && options?.includeSources !== false
         ? data.sources.map((source: any) => ({

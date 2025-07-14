@@ -207,8 +207,18 @@ class NodeFileAdapter extends base_1.FileAdapter {
     // CLI-specific helper methods
     async selectFileWithGlob(pattern) {
         try {
-            const { glob } = await Promise.resolve().then(() => __importStar(require('glob')));
-            const files = await glob(pattern);
+            const globModule = await Promise.resolve().then(() => __importStar(require('glob')));
+            // Handle both default export and named export
+            const globFunc = globModule.glob || globModule.default;
+            // Use promise-based API for glob v7
+            const files = await new Promise((resolve, reject) => {
+                globFunc(pattern, (err, matches) => {
+                    if (err)
+                        reject(err);
+                    else
+                        resolve(matches);
+                });
+            });
             const selections = [];
             for (const filePath of files) {
                 try {

@@ -201,8 +201,18 @@ export class NodeFileAdapter extends FileAdapter {
   // CLI-specific helper methods
   async selectFileWithGlob(pattern: string): Promise<FileSelection[]> {
     try {
-      const { glob } = await import('glob');
-      const files = await glob(pattern);
+      const globModule = await import('glob');
+
+      // Handle both default export and named export
+      const globFunc = globModule.glob || globModule.default;
+
+      // Use promise-based API for glob v7
+      const files = await new Promise<string[]>((resolve, reject) => {
+        globFunc(pattern, (err: Error | null, matches: string[]) => {
+          if (err) reject(err);
+          else resolve(matches);
+        });
+      });
 
       const selections: FileSelection[] = [];
 

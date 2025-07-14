@@ -120,8 +120,20 @@ class ApiService {
     try {
       const response: AxiosResponse<T> = await this.client.get(url, config);
       return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
+    } catch (error: any) {
+      // Create an error that preserves the original response data
+      const errorMessage = handleApiError(error);
+      const enhancedError = new Error(errorMessage);
+
+      // Preserve the original error structure for debugging
+      if (error.response) {
+        (enhancedError as any).response = error.response;
+      }
+      if (error.code) {
+        (enhancedError as any).code = error.code;
+      }
+
+      throw enhancedError;
     }
   }
 
@@ -133,8 +145,25 @@ class ApiService {
     try {
       const response: AxiosResponse<T> = await this.client.post(url, data, config);
       return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
+    } catch (error: any) {
+      // Debug logging
+      console.error('[API] POST request failed:', url);
+      console.error('[API] Error status:', error?.response?.status);
+      console.error('[API] Error data:', error?.response?.data);
+
+      // Create an error that preserves the original response data
+      const errorMessage = handleApiError(error);
+      const enhancedError = new Error(errorMessage);
+
+      // Preserve the original error structure for debugging
+      if (error.response) {
+        (enhancedError as any).response = error.response;
+      }
+      if (error.code) {
+        (enhancedError as any).code = error.code;
+      }
+
+      throw enhancedError;
     }
   }
 
@@ -146,8 +175,20 @@ class ApiService {
     try {
       const response: AxiosResponse<T> = await this.client.put(url, data, config);
       return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
+    } catch (error: any) {
+      // Create an error that preserves the original response data
+      const errorMessage = handleApiError(error);
+      const enhancedError = new Error(errorMessage);
+
+      // Preserve the original error structure for debugging
+      if (error.response) {
+        (enhancedError as any).response = error.response;
+      }
+      if (error.code) {
+        (enhancedError as any).code = error.code;
+      }
+
+      throw enhancedError;
     }
   }
 
@@ -155,8 +196,20 @@ class ApiService {
     try {
       const response: AxiosResponse<T> = await this.client.delete(url, config);
       return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
+    } catch (error: any) {
+      // Create an error that preserves the original response data
+      const errorMessage = handleApiError(error);
+      const enhancedError = new Error(errorMessage);
+
+      // Preserve the original error structure for debugging
+      if (error.response) {
+        (enhancedError as any).response = error.response;
+      }
+      if (error.code) {
+        (enhancedError as any).code = error.code;
+      }
+
+      throw enhancedError;
     }
   }
 
@@ -179,8 +232,20 @@ class ApiService {
         },
       });
       return response.data;
-    } catch (error) {
-      throw new Error(handleApiError(error));
+    } catch (error: any) {
+      // Create an error that preserves the original response data
+      const errorMessage = handleApiError(error);
+      const enhancedError = new Error(errorMessage);
+
+      // Preserve the original error structure for debugging
+      if (error.response) {
+        (enhancedError as any).response = error.response;
+      }
+      if (error.code) {
+        (enhancedError as any).code = error.code;
+      }
+
+      throw enhancedError;
     }
   }
 

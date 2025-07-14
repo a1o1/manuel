@@ -19,11 +19,11 @@ export class BaseApi {
       }
 
       const tokens = JSON.parse(authData);
-      
+
       // Check if token is still valid (with 5 minute buffer)
       const now = Date.now();
       const buffer = 5 * 60 * 1000; // 5 minutes
-      
+
       if (tokens.expiresAt <= now + buffer) {
         logger.log('Auth token has expired');
         return null;

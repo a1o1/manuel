@@ -8,9 +8,9 @@ export type { User, Manual, UsageData, QueryResponse } from '@manuel/shared/dist
 export { API_ENDPOINTS, ERROR_MESSAGES } from '@manuel/shared/dist/constants';
 
 // Utils - only browser-compatible utilities
-export { 
-  formatDate, 
-  formatBytes, 
+export {
+  formatDate,
+  formatBytes,
   formatDuration,
   getErrorMessage,
   isTokenExpired,

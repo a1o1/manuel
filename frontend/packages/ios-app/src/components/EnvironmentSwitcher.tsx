@@ -59,9 +59,25 @@ export function EnvironmentSwitcher() {
               <Text style={styles.featureDescription}>
                 {isMockMode()
                   ? 'Mock: Simulated data, no network calls'
-                  : 'Production: Real API, enhanced errors, rate limits, retries'
+                  : 'Production: Real AWS Cognito auth, API calls, enhanced security'
                 }
               </Text>
+
+              <View style={styles.featureGrid}>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureLabel}>Authentication:</Text>
+                  <Text style={[styles.featureValue, ENV_CONFIG.FEATURES.MOCK_AUTH ? styles.mockValue : styles.prodValue]}>
+                    {ENV_CONFIG.FEATURES.MOCK_AUTH ? 'Mock' : 'AWS Cognito'}
+                  </Text>
+                </View>
+                <View style={styles.featureItem}>
+                  <Text style={styles.featureLabel}>API Calls:</Text>
+                  <Text style={[styles.featureValue, isMockMode() ? styles.mockValue : styles.prodValue]}>
+                    {isMockMode() ? 'Simulated' : 'Real Backend'}
+                  </Text>
+                </View>
+              </View>
+
               <TouchableOpacity style={styles.switchButton} onPress={handleSwitchMode}>
                 <Text style={styles.switchButtonText}>
                   Switch to {isMockMode() ? 'Production' : 'Mock'}
@@ -214,5 +230,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
     paddingHorizontal: 16,
+  },
+  featureGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 16,
+  },
+  featureItem: {
+    alignItems: 'center',
+  },
+  featureLabel: {
+    fontSize: 11,
+    color: '#8E8E93',
+    marginBottom: 4,
+  },
+  featureValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  mockValue: {
+    backgroundColor: '#FFE5B4',
+    color: '#8B4513',
+  },
+  prodValue: {
+    backgroundColor: '#E8F5E8',
+    color: '#006400',
   },
 });

@@ -105,7 +105,17 @@ class ApiService {
             return response.data;
         }
         catch (error) {
-            throw new Error((0, utils_1.handleApiError)(error));
+            // Create an error that preserves the original response data
+            const errorMessage = (0, utils_1.handleApiError)(error);
+            const enhancedError = new Error(errorMessage);
+            // Preserve the original error structure for debugging
+            if (error.response) {
+                enhancedError.response = error.response;
+            }
+            if (error.code) {
+                enhancedError.code = error.code;
+            }
+            throw enhancedError;
         }
     }
     async post(url, data, config) {
@@ -114,7 +124,21 @@ class ApiService {
             return response.data;
         }
         catch (error) {
-            throw new Error((0, utils_1.handleApiError)(error));
+            // Debug logging
+            console.error('[API] POST request failed:', url);
+            console.error('[API] Error status:', error?.response?.status);
+            console.error('[API] Error data:', error?.response?.data);
+            // Create an error that preserves the original response data
+            const errorMessage = (0, utils_1.handleApiError)(error);
+            const enhancedError = new Error(errorMessage);
+            // Preserve the original error structure for debugging
+            if (error.response) {
+                enhancedError.response = error.response;
+            }
+            if (error.code) {
+                enhancedError.code = error.code;
+            }
+            throw enhancedError;
         }
     }
     async put(url, data, config) {
@@ -123,7 +147,17 @@ class ApiService {
             return response.data;
         }
         catch (error) {
-            throw new Error((0, utils_1.handleApiError)(error));
+            // Create an error that preserves the original response data
+            const errorMessage = (0, utils_1.handleApiError)(error);
+            const enhancedError = new Error(errorMessage);
+            // Preserve the original error structure for debugging
+            if (error.response) {
+                enhancedError.response = error.response;
+            }
+            if (error.code) {
+                enhancedError.code = error.code;
+            }
+            throw enhancedError;
         }
     }
     async delete(url, config) {
@@ -132,7 +166,17 @@ class ApiService {
             return response.data;
         }
         catch (error) {
-            throw new Error((0, utils_1.handleApiError)(error));
+            // Create an error that preserves the original response data
+            const errorMessage = (0, utils_1.handleApiError)(error);
+            const enhancedError = new Error(errorMessage);
+            // Preserve the original error structure for debugging
+            if (error.response) {
+                enhancedError.response = error.response;
+            }
+            if (error.code) {
+                enhancedError.code = error.code;
+            }
+            throw enhancedError;
         }
     }
     // File upload with progress
@@ -152,7 +196,17 @@ class ApiService {
             return response.data;
         }
         catch (error) {
-            throw new Error((0, utils_1.handleApiError)(error));
+            // Create an error that preserves the original response data
+            const errorMessage = (0, utils_1.handleApiError)(error);
+            const enhancedError = new Error(errorMessage);
+            // Preserve the original error structure for debugging
+            if (error.response) {
+                enhancedError.response = error.response;
+            }
+            if (error.code) {
+                enhancedError.code = error.code;
+            }
+            throw enhancedError;
         }
     }
     // Set authentication token

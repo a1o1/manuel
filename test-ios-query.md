@@ -2,17 +2,21 @@
 
 ## Summary
 
-Successfully implemented real backend integration for the iOS app's ask/query functionality:
+Successfully implemented real backend integration for the iOS app's ask/query
+functionality:
 
 ### ✅ Implementation Completed
 
-1. **Real Query Service** - Replaced stub implementation with full backend integration
+1. **Real Query Service** - Replaced stub implementation with full backend
+   integration
+
    - File: `/frontend/packages/ios-app/src/services/real/queryService.ts`
    - Supports both text and voice queries
    - Matches expected interface and response format
    - Includes proper error handling
 
 2. **Configuration Updated** - Enabled real query service
+
    - File: `/frontend/packages/ios-app/src/config/environment.ts`
    - Set `MOCK_QUERIES: false` to use real backend
    - Updated production mode configuration
@@ -25,11 +29,13 @@ Successfully implemented real backend integration for the iOS app's ask/query fu
 ### 📱 iOS App Ask Function Now Wired to Backend
 
 **Query Screens Ready:**
+
 - ✅ **QueryScreen** - Text-based queries with real backend integration
 - ✅ **VoiceQueryScreen** - Voice queries with AWS Transcribe integration
 - ✅ **HomeScreen** - Quick action buttons for query functionality
 
 **API Integration:**
+
 - ✅ **Backend Endpoint**: `/api/query` (POST)
 - ✅ **Authentication**: AWS Cognito JWT tokens
 - ✅ **Text Queries**: Direct question submission
@@ -37,6 +43,7 @@ Successfully implemented real backend integration for the iOS app's ask/query fu
 - ✅ **Response Format**: Answer, sources, cost, timing, cache status
 
 **Backend Verified Working:**
+
 - ✅ CLI test successful: `yarn cli ask "How do I test the query function?"`
 - ✅ Backend returns proper responses with source attribution
 - ✅ Processing time: ~7.7 seconds for complex queries
@@ -47,6 +54,7 @@ Successfully implemented real backend integration for the iOS app's ask/query fu
 **To test the iOS app ask functionality:**
 
 1. **Start iOS App**:
+
    ```bash
    yarn ios:web  # For web testing
    # or
@@ -54,10 +62,12 @@ Successfully implemented real backend integration for the iOS app's ask/query fu
    ```
 
 2. **Navigate to Query Screen**:
+
    - Tap "Ask a Question" on HomeScreen
    - Or use bottom tab navigation to "Query" tab
 
 3. **Test Text Query**:
+
    - Enter question in text field
    - Toggle "Include Sources" if desired
    - Tap "Ask Manuel" button
@@ -80,4 +90,5 @@ Successfully implemented real backend integration for the iOS app's ask/query fu
 
 ### 🚀 Status: Ready for Testing
 
-The iOS app ask function is now fully wired to the backend and ready for end-to-end testing with real manual queries and AWS services.
+The iOS app ask function is now fully wired to the backend and ready for
+end-to-end testing with real manual queries and AWS services.

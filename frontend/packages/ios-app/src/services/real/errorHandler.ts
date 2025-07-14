@@ -42,7 +42,7 @@ export const handleApiError = (error: any, operation: string = 'API call') => {
     if (error.message.includes('Rate limit exceeded')) {
       throw new Error('Rate limit exceeded. Please wait before making another request.');
     }
-    
+
     if (error.message.includes('Invalid input detected')) {
       throw new Error('Invalid input detected. Please check your request and try again.');
     }

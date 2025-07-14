@@ -14,7 +14,15 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.manuel.ios"
+      "bundleIdentifier": "com.manuel.ios",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Manuel needs access to your microphone to record voice queries about your product manuals.",
+        "NSSpeechRecognitionUsageDescription": "Manuel uses speech recognition to convert your voice queries to text.",
+        "NSDocumentsFolderUsageDescription": "Manuel needs access to documents to upload and manage your product manuals.",
+        "NSPhotoLibraryUsageDescription": "Manuel needs access to your photo library to upload manual images.",
+        "NSCameraUsageDescription": "Manuel needs camera access to scan QR codes and capture manual pages."
+      },
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -25,6 +33,20 @@
     "web": {
       "bundler": "metro"
     },
-    "platforms": ["ios", "android", "web"]
+    "platforms": ["ios", "android", "web"],
+    "plugins": [
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow Manuel to access your microphone for voice queries."
+        }
+      ]
+    ]
   }
 }

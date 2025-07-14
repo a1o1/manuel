@@ -17,7 +17,14 @@ class ManualService {
     // Download manual from URL
     async downloadManual(request) {
         const response = await api_1.apiService.post('/api/manuals/download', request);
-        return response.data;
+        console.log('[ManualService] downloadManual response:', response);
+        // The backend returns data directly, not wrapped in ApiResponse
+        if (response.data) {
+            return response.data;
+        }
+        else {
+            return response;
+        }
     }
     // Upload manual from URL (alias for downloadManual for clarity)
     async uploadFromUrl(url, filename) {
