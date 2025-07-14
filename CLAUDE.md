@@ -8,9 +8,11 @@
 - Architecture: RAG system with Bedrock Knowledge Base
 - Target Region: eu-west-1 (Dublin, Ireland)
 
-## 🎉 Major Milestone Achieved: End-to-End Voice Query System
+## 🎉 Major Milestones Achieved
 
-**Status: ✅ FULLY FUNCTIONAL**
+### ✅ End-to-End Voice Query System
+
+**Status: FULLY FUNCTIONAL**
 
 The complete voice query pipeline is now working end-to-end:
 
@@ -21,6 +23,36 @@ The complete voice query pipeline is now working end-to-end:
 - ✅ Automatic cleanup and error handling
 
 **Test Command:** `manuel query voice`
+
+### ✅ Human-Friendly Manual Names (v1.1.0)
+
+**Status: FULLY FUNCTIONAL**
+
+Replaced cryptic UUID-based manual names with user-friendly display names:
+
+- ✅ **Custom Names**: Users can provide meaningful names during upload
+- ✅ **Auto-extraction**: Automatic filename extraction from URLs
+- ✅ **Smart Fallbacks**: Generates readable names when extraction fails
+- ✅ **S3 Metadata Storage**: Uses existing infrastructure with zero overhead
+- ✅ **Backward Compatible**: Old manuals continue to work
+- ✅ **Both Clients**: Works seamlessly in CLI and iOS app
+
+**Examples:**
+
+- Custom: `"Elektron Digitone 2 User Manual"`
+- Auto-extracted: `"PowerToys-UserGuide.pdf"`
+- Fallback: `"Manual-1752519812.pdf"`
+
+### ✅ iOS App Performance Improvements (v1.1.1)
+
+**Status: FULLY FUNCTIONAL**
+
+Enhanced iOS app performance and usability:
+
+- ✅ **FlatList Implementation**: Efficient rendering for large manual lists
+- ✅ **Smooth Scrolling**: Handles any number of manuals seamlessly
+- ✅ **Memory Optimization**: Reduced memory usage with virtualization
+- ✅ **Dependency Cleanup**: Resolved startup errors and conflicts
 
 ## Development Commands
 
@@ -49,7 +81,12 @@ The complete voice query pipeline is now working end-to-end:
 - Authentication: `npm run cli auth login/logout/status`
 - **Text queries: `npm run cli ask "question"`**
 - **Voice queries: `npm run cli query voice`** ✅ **WORKING END-TO-END**
-- Manage manuals: `npm run cli manuals list/upload/download`
+- **Manage manuals: `npm run cli manuals list/upload/download`** ✅
+  **HUMAN-FRIENDLY NAMES**
+  - Custom names: `npm run cli manuals download "url" --name "My Manual"`
+  - Auto-extraction: `npm run cli manuals download "url"` (extracts from
+    filename)
+  - List with names: `npm run cli manuals list` (shows readable names)
 - Bootstrap system: `npm run cli bootstrap populate/clear/status`
 - Monitor ingestion: `npm run cli ingestion status/job/files`
 - View usage: `npm run cli usage today/week/month`
@@ -92,13 +129,17 @@ The complete voice query pipeline is now working end-to-end:
   - `bootstrap/` - Smart bootstrap with deduplication
   - `ingestion-status/` - Ingestion job monitoring
   - `process-manual-simple/` - Automatic S3 → Knowledge Base sync
+  - `manuals/app.py` - Enhanced with human-friendly name support
 - Shared utilities: `backend/src/shared/`
   - `file_tracker.py` - File deduplication system
 - Parameter files: `backend/parameters*.json`
 - Frontend components: `frontend/src/components/`
+- Frontend iOS screens: `frontend/packages/ios-app/src/screens/main/`
+  - `ManualsScreen.tsx` - Enhanced with FlatList for performance
 - Frontend CLI: `frontend/packages/cli-app/src/commands/`
   - `ingestion.ts` - Ingestion monitoring commands
   - `bootstrap.ts` - Bootstrap system commands
+  - `manuals.ts` - Enhanced manual management with display names
 - Frontend mock services: `frontend/packages/ios-app/src/services/mock/`
 - AWS templates: `backend/template.yaml` + `backend/template-minimal.yaml`
 - Pipeline infrastructure: `backend/pipeline-template.yaml`

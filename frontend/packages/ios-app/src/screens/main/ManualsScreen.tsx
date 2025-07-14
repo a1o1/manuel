@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -232,13 +232,22 @@ export function ManualsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
+      <FlatList
+        style={styles.flatList}
+        data={manuals}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => renderManual(item)}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
-      >
-        {manuals.length === 0 ? (
+        contentContainerStyle={styles.flatListContent}
+        showsVerticalScrollIndicator={true}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={100}
+        initialNumToRender={10}
+        windowSize={10}
+        ListEmptyComponent={() => (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
               <Ionicons name="library-outline" size={48} color="#8E8E93" />
@@ -253,24 +262,21 @@ export function ManualsScreen() {
               <Text style={styles.uploadButtonText}>Add Manual from URL</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.manualsContainer}>
-            {manuals.map(renderManual)}
-          </View>
         )}
-
-        <View style={styles.tipSection}>
-          <View style={styles.tipCard}>
-            <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Supported Formats</Text>
-              <Text style={styles.tipText}>
-                PDF, DOC, DOCX files up to 10MB. Processing typically takes 1-2 minutes.
-              </Text>
+        ListFooterComponent={() => (
+          <View style={styles.tipSection}>
+            <View style={styles.tipCard}>
+              <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
+              <View style={styles.tipContent}>
+                <Text style={styles.tipTitle}>Supported Formats</Text>
+                <Text style={styles.tipText}>
+                  PDF, DOC, DOCX files up to 10MB. Processing typically takes 1-2 minutes.
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
+        )}
+      />
 
       <UrlUploadModal
         visible={showUrlUpload}
@@ -326,11 +332,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scrollView: {
+  flatList: {
     flex: 1,
   },
-  manualsContainer: {
+  flatListContent: {
     padding: 16,
+    flexGrow: 1,
   },
   manualCard: {
     backgroundColor: '#FFFFFF',

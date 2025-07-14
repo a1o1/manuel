@@ -91,11 +91,27 @@ def handle_list_manuals(s3_client, bucket_name: str, user_id: str) -> Dict[str, 
         for obj in response.get("Contents", []):
             key = obj["Key"]
             if key.endswith(".pdf"):
-                manual_name = key.split("/")[-1]
+                # Get object metadata to retrieve display name
+                try:
+                    metadata_response = s3_client.head_object(
+                        Bucket=bucket_name, Key=key
+                    )
+                    display_name = metadata_response.get("Metadata", {}).get(
+                        "display_name"
+                    )
+
+                    # Fallback to filename from key if no display name in metadata
+                    if not display_name:
+                        display_name = key.split("/")[-1]
+
+                except Exception as e:
+                    print(f"Error getting metadata for {key}: {e}")
+                    display_name = key.split("/")[-1]
+
                 manuals.append(
                     {
                         "id": key,
-                        "name": manual_name,
+                        "name": display_name,
                         "upload_date": obj["LastModified"].isoformat(),
                         "size": obj["Size"],
                     }
@@ -147,7 +163,19 @@ def handle_download_manual(
                 "body": json.dumps({"error": "URL is required"}),
             }
 
-        # Generate unique filename
+        # Get display name from request or extract from URL
+        custom_filename = body_data.get("filename")
+        if custom_filename:
+            display_name = custom_filename
+        else:
+            # Extract filename from URL
+            url_path = url.split("/")[-1]
+            if url_path and "." in url_path:
+                display_name = url_path.split("?")[0]  # Remove query parameters
+            else:
+                display_name = f"Manual-{int(time.time())}.pdf"
+
+        # Generate unique filename for S3 storage
         manual_id = str(uuid.uuid4())
         file_extension = ".pdf"  # Assume PDF for now
         s3_key = f"manuals/{user_id}/{manual_id}{file_extension}"
@@ -183,6 +211,7 @@ def handle_download_manual(
             Metadata={
                 "user_id": user_id,
                 "original_url": url,
+                "display_name": display_name,
                 "upload_timestamp": str(int(time.time())),
             },
         )
@@ -200,6 +229,7 @@ def handle_download_manual(
                     "s3_key": s3_key,
                     "user_id": user_id,
                     "url": url,
+                    "file_name": display_name,
                 }
             ),
         }
