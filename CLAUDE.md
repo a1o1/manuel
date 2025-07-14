@@ -60,14 +60,21 @@ Enhanced iOS app performance and usability:
 
 Complete iOS app integration with AWS backend services:
 
-- ✅ **Real Query Service**: Replaced mock services with production backend integration
-- ✅ **JWT Authentication**: Fixed React Native atob/btoa polyfills for Cognito JWT parsing
-- ✅ **Source Attribution**: Transform backend response format to UI-expected format
-- ✅ **Token Management**: Proper JWT token storage, retrieval, and expiration handling
-- ✅ **Error Handling**: Enhanced error messages with safe logging for React Native
-- ✅ **React Native Fixes**: Resolved PrettyFormatPluginError and dependency conflicts
+- ✅ **Real Query Service**: Replaced mock services with production backend
+  integration
+- ✅ **JWT Authentication**: Fixed React Native atob/btoa polyfills for Cognito
+  JWT parsing
+- ✅ **Source Attribution**: Transform backend response format to UI-expected
+  format
+- ✅ **Token Management**: Proper JWT token storage, retrieval, and expiration
+  handling
+- ✅ **Error Handling**: Enhanced error messages with safe logging for React
+  Native
+- ✅ **React Native Fixes**: Resolved PrettyFormatPluginError and dependency
+  conflicts
 
 **Key Features:**
+
 - Text and voice queries work end-to-end from iOS interface
 - Manual source references display with extracted readable names
 - Real-time cost tracking and performance metrics
@@ -75,12 +82,15 @@ Complete iOS app integration with AWS backend services:
 - Production-ready error handling and user feedback
 
 **Technical Implementation:**
-- Source transformation: Backend `{content, metadata}` → UI `{manual_name, chunk_text, page_number}`
+
+- Source transformation: Backend `{content, metadata}` → UI
+  `{manual_name, chunk_text, page_number}`
 - Manual name extraction from S3 URIs with fallback handling
 - Safe logger implementation to prevent React Native logging crashes
 - Crypto polyfills for JWT parsing in React Native environment
 
-**Test Method:** iOS app → Query tab → "Ask Manuel" → Real backend responses with sources
+**Test Method:** iOS app → Query tab → "Ask Manuel" → Real backend responses
+with sources
 
 ## Development Commands
 
