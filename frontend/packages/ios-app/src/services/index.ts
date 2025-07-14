@@ -36,7 +36,7 @@ export const createAuthService = (): AuthService => {
   if (ENV_CONFIG.FEATURES.MOCK_AUTH) {
     return new MockAuthService();
   }
-  
+
   // Use web services for web platform
   if (Platform.OS === 'web') {
     const webServices = getWebServices();
@@ -44,7 +44,7 @@ export const createAuthService = (): AuthService => {
       return new webServices.WebAuthService();
     }
   }
-  
+
   return new RealAuthService();
 };
 
@@ -52,7 +52,7 @@ export const createUsageService = (): UsageService => {
   if (ENV_CONFIG.FEATURES.MOCK_USAGE) {
     return new MockUsageService();
   }
-  
+
   // Use web services for web platform
   if (Platform.OS === 'web') {
     const webServices = getWebServices();
@@ -60,7 +60,7 @@ export const createUsageService = (): UsageService => {
       return new webServices.WebUsageService();
     }
   }
-  
+
   return new RealUsageService();
 };
 
@@ -68,7 +68,7 @@ export const createQueryService = (): QueryService => {
   if (ENV_CONFIG.FEATURES.MOCK_QUERIES) {
     return new MockQueryService();
   }
-  
+
   // Use web services for web platform
   if (Platform.OS === 'web') {
     const webServices = getWebServices();
@@ -76,7 +76,7 @@ export const createQueryService = (): QueryService => {
       return new webServices.WebQueryService();
     }
   }
-  
+
   return new RealQueryService();
 };
 
@@ -84,7 +84,7 @@ export const createManualsService = (): ManualsService => {
   if (ENV_CONFIG.FEATURES.MOCK_MANUALS) {
     return new MockManualsService();
   }
-  
+
   // Use web services for web platform
   if (Platform.OS === 'web') {
     const webServices = getWebServices();
@@ -92,7 +92,7 @@ export const createManualsService = (): ManualsService => {
       return new webServices.WebManualsService();
     }
   }
-  
+
   return new RealManualsService();
 };
 

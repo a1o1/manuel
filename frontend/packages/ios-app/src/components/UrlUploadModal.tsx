@@ -36,9 +36,28 @@ export function UrlUploadModal({ visible, onClose, onSuccess }: UrlUploadModalPr
 
   const validateUrl = (urlString: string): boolean => {
     try {
-      const parsedUrl = new URL(urlString);
-      return parsedUrl.protocol === 'https:';
-    } catch {
+      // Debug logging to understand what's happening
+      console.log('Validating URL:', urlString);
+
+      // Check for basic HTTPS URL pattern first
+      const httpsPattern = /^https:\/\/.+\..+/i;
+      if (!httpsPattern.test(urlString)) {
+        console.log('URL failed regex test');
+        return false;
+      }
+
+      // Try URL constructor (may not work in all React Native environments)
+      try {
+        const parsedUrl = new URL(urlString);
+        console.log('URL constructor worked, protocol:', parsedUrl.protocol);
+        return parsedUrl.protocol === 'https:';
+      } catch (urlError) {
+        console.log('URL constructor failed, falling back to regex validation');
+        // Fallback to regex validation if URL constructor fails
+        return httpsPattern.test(urlString);
+      }
+    } catch (error) {
+      console.log('Validation error:', error);
       return false;
     }
   };
@@ -58,7 +77,7 @@ export function UrlUploadModal({ visible, onClose, onSuccess }: UrlUploadModalPr
 
     try {
       console.log('Starting URL upload:', url.trim(), 'filename:', filename.trim());
-      
+
       const result = await manualsService.uploadFromUrl(
         url.trim(),
         filename.trim() || undefined
@@ -66,9 +85,13 @@ export function UrlUploadModal({ visible, onClose, onSuccess }: UrlUploadModalPr
 
       console.log('Upload result:', result);
 
+      // Handle different response formats from backend
+      const fileName = result.file_name || result.filename || result.manual_id || 'manual';
+      const message = result.message || 'Manual uploaded successfully';
+
       Alert.alert(
         'Success!',
-        `Manual "${result.file_name || result.filename || 'manual'}" has been uploaded successfully.`,
+        `${message}. Manual "${fileName}" is being processed.`,
         [
           {
             text: 'OK',
@@ -81,6 +104,13 @@ export function UrlUploadModal({ visible, onClose, onSuccess }: UrlUploadModalPr
       );
     } catch (error: any) {
       console.error('Upload error:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        response: error?.response,
+        status: error?.status
+      });
+
       let errorMessage = 'Failed to upload manual from URL';
 
       if (error?.response?.data?.error) {

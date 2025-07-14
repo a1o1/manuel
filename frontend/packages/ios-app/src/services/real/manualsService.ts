@@ -1,20 +1,38 @@
 // Real manuals service using direct API calls for React Native
 import { ManualsService } from '../interfaces';
+import { ENV_CONFIG, getApiUrl } from '../../config/environment';
 import * as FileSystem from 'expo-file-system';
-
-const API_BASE_URL = 'https://83bcch9z1c.execute-api.eu-west-1.amazonaws.com/Prod';
+import { RealAuthService } from './authService';
 
 export class RealManualsService implements ManualsService {
-  private async getAuthHeaders() {
-    // For now, return empty headers - will implement proper auth later
-    throw new Error('Authentication not implemented - use mock mode');
+  private authService: RealAuthService;
+
+  constructor() {
+    this.authService = new RealAuthService();
   }
 
-  async listManuals() {
+  private async getAuthHeaders() {
+    try {
+      const token = await this.authService.getAuthToken();
+      if (!token) {
+        throw new Error('No authentication token available. Please sign in.');
+      }
+
+      return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
+    } catch (error) {
+      console.error('Failed to get auth headers:', error);
+      throw new Error('Authentication failed. Please sign in again.');
+    }
+  }
+
+  async getManuals() {
     try {
       const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${API_BASE_URL}/manuals`, {
+
+      const response = await fetch(getApiUrl('/api/manuals'), {
         method: 'GET',
         headers,
       });
@@ -26,15 +44,15 @@ export class RealManualsService implements ManualsService {
       const data = await response.json();
       return data.manuals || [];
     } catch (error: any) {
-      console.error('List manuals error:', error);
+      console.error('Get manuals error:', error);
       throw new Error(error.message || 'Failed to fetch manuals');
     }
   }
 
-  async uploadManual(file: any, metadata: any) {
+  async uploadManual(file: any, metadata?: any) {
     try {
       const headers = await this.getAuthHeaders();
-      
+
       // First, get the file info and read as base64
       const fileInfo = await FileSystem.getInfoAsync(file.uri);
       if (!fileInfo.exists) {
@@ -50,14 +68,14 @@ export class RealManualsService implements ManualsService {
         fileContent: fileContent,
         contentType: file.type || 'application/pdf',
         metadata: {
-          title: metadata.title || file.name,
-          description: metadata.description || '',
-          category: metadata.category || 'General',
+          title: metadata?.title || file.name,
+          description: metadata?.description || '',
+          category: metadata?.category || 'General',
           ...metadata,
         },
       };
 
-      const response = await fetch(`${API_BASE_URL}/manuals/upload`, {
+      const response = await fetch(getApiUrl('/api/manuals/upload'), {
         method: 'POST',
         headers,
         body: JSON.stringify(uploadData),
@@ -79,8 +97,8 @@ export class RealManualsService implements ManualsService {
   async deleteManual(manualId: string) {
     try {
       const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${API_BASE_URL}/manuals/${manualId}`, {
+
+      const response = await fetch(getApiUrl(`/api/manuals/${manualId}`), {
         method: 'DELETE',
         headers,
       });
@@ -98,11 +116,11 @@ export class RealManualsService implements ManualsService {
     }
   }
 
-  async downloadManual(manualId: string) {
+  async getManualDetail(manualId: string) {
     try {
       const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${API_BASE_URL}/manuals/${manualId}/download`, {
+
+      const response = await fetch(getApiUrl(`/api/manuals/${manualId}`), {
         method: 'GET',
         headers,
       });
@@ -113,16 +131,78 @@ export class RealManualsService implements ManualsService {
       }
 
       const result = await response.json();
-      
-      // Result should contain a presigned URL for download
-      if (result.downloadUrl) {
-        return result.downloadUrl;
-      } else {
-        throw new Error('Download URL not provided');
-      }
+      return result;
     } catch (error: any) {
-      console.error('Download manual error:', error);
-      throw new Error(error.message || 'Failed to download manual');
+      console.error('Get manual detail error:', error);
+      throw new Error(error.message || 'Failed to get manual details');
+    }
+  }
+
+  async uploadFromUrl(url: string, customName?: string) {
+    try {
+      const headers = await this.getAuthHeaders();
+
+      const uploadData = {
+        url: url,
+        filename: customName,
+      };
+
+      console.log('Uploading from URL:', uploadData);
+
+      const response = await fetch(getApiUrl('/api/manuals/download'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(uploadData),
+      });
+
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', response.headers);
+
+      if (!response.ok) {
+        let errorData = {};
+        let responseText = '';
+        try {
+          responseText = await response.text();
+          console.log('Raw error response:', responseText);
+
+          // Try to parse as JSON
+          try {
+            const parsedBody = JSON.parse(responseText);
+            // The body might be wrapped in a "body" field from API Gateway
+            if (parsedBody.body && typeof parsedBody.body === 'string') {
+              errorData = JSON.parse(parsedBody.body);
+            } else {
+              errorData = parsedBody;
+            }
+          } catch (innerParseError) {
+            console.error('Failed to parse nested JSON:', innerParseError);
+            errorData = { message: responseText };
+          }
+        } catch (parseError) {
+          console.error('Failed to read response text:', parseError);
+          errorData = { message: 'Failed to read error response' };
+        }
+
+        console.error('Upload from URL failed - Full details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          responseText,
+          url: url,
+          filename: customName
+        });
+
+        // Extract the most relevant error message
+        const errorMessage = errorData.error || errorData.message || errorData.details || responseText || `HTTP ${response.status}: ${response.statusText}`;
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      console.log('Upload from URL success:', result);
+      return result;
+    } catch (error: any) {
+      console.error('Upload from URL error:', error);
+      throw new Error(error.message || 'Failed to upload from URL');
     }
   }
 }

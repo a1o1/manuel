@@ -229,6 +229,11 @@ export class ManualsCommand {
     const spinner = ora('Downloading from URL...').start();
 
     try {
+      console.log(chalk.gray(`\nAttempting to download from: ${url}`));
+      if (options.name) {
+        console.log(chalk.gray(`Custom filename: ${options.name}`));
+      }
+
       const result = await manualService.downloadManual({
         url,
         filename: options.name,
@@ -236,23 +241,66 @@ export class ManualsCommand {
 
       spinner.succeed(chalk.green('Manual downloaded and uploaded successfully!'));
 
-      console.log(chalk.gray(`Name: ${result.file_name}`));
-      console.log(chalk.gray(`Key: ${result.key}`));
-      console.log(chalk.gray(`Size: ${formatFileSize(result.size_bytes || 0)}`));
-      console.log(chalk.gray(`Download time: ${result.download_time_ms}ms`));
+      // Handle the actual backend response format with type assertion
+      const response = result as any;
+      const fileName = response.file_name || response.filename || options.name || 'Unknown Manual';
+      const key = response.key || response.manual_id || response.s3_key || 'Unknown';
+      const size = response.size_bytes || response.size || 0;
+      const downloadTime = response.download_time_ms || 'Unknown';
 
-      if (result.security_warnings && result.security_warnings.length > 0) {
+      console.log(chalk.gray(`Name: ${fileName}`));
+      console.log(chalk.gray(`ID: ${key}`));
+      if (size > 0) {
+        console.log(chalk.gray(`Size: ${formatFileSize(size)}`));
+      }
+      if (downloadTime !== 'Unknown') {
+        console.log(chalk.gray(`Download time: ${downloadTime}ms`));
+      }
+
+      // Display the success message from backend if available
+      if (response.message) {
+        console.log(chalk.green(`\n${response.message}`));
+      }
+
+      if (response.security_warnings && response.security_warnings.length > 0) {
         console.log(chalk.yellow('\n⚠️ Security warnings:'));
-        result.security_warnings.forEach(warning => {
+        response.security_warnings.forEach((warning: string) => {
           console.log(chalk.yellow(`  • ${warning}`));
         });
       }
 
       console.log(chalk.yellow('\n📚 Manual is being processed and will be available for queries shortly.'));
 
-    } catch (error) {
+    } catch (error: any) {
       spinner.fail('Download failed');
-      throw new CLIError(`Download failed: ${error}`);
+
+      // Log detailed error information for debugging
+      console.error(chalk.red('\nFull error object:'), error);
+
+      if (error?.response) {
+        console.error(chalk.red('\nError response details:'));
+        console.error(chalk.gray(`Status: ${error.response.status}`));
+        console.error(chalk.gray(`Status Text: ${error.response.statusText}`));
+        if (error.response.data) {
+          console.error(chalk.gray(`Response: ${JSON.stringify(error.response.data, null, 2)}`));
+        }
+      } else {
+        console.error(chalk.yellow('\nNo response property in error'));
+      }
+
+      // Extract the most meaningful error message
+      let errorMessage = 'Unknown error';
+      if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+        // Check if there are additional details
+        if (error.response.data.details) {
+          errorMessage += ` - ${error.response.data.details}`;
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      throw new CLIError(`Download failed: ${errorMessage}`);
     }
   }
 

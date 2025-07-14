@@ -30,7 +30,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "headers": {
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                    "Access-Control-Allow-Headers": (
+                        "Content-Type,X-Amz-Date,Authorization,X-Api-Key,"
+                        "X-Amz-Security-Token"
+                    ),
                 },
                 "body": "",
             }
@@ -149,9 +152,26 @@ def handle_download_manual(
         file_extension = ".pdf"  # Assume PDF for now
         s3_key = f"manuals/{user_id}/{manual_id}{file_extension}"
 
-        # Download the file from URL
+        # Download the file from URL with browser-like headers
         print(f"Downloading from URL: {url}")
-        with urllib.request.urlopen(url) as response:
+
+        # Create a request with headers to bypass bot detection
+        request = urllib.request.Request(url)
+        request.add_header(
+            "User-Agent",
+            (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/91.0.4472.124 Safari/537.36"
+            ),
+        )
+        request.add_header("Accept", "application/pdf,application/octet-stream,*/*")
+        request.add_header("Accept-Language", "en-US,en;q=0.9")
+        request.add_header("Accept-Encoding", "gzip, deflate, br")
+        request.add_header("Connection", "keep-alive")
+        request.add_header("Upgrade-Insecure-Requests", "1")
+
+        with urllib.request.urlopen(request) as response:
             file_data = response.read()
 
         # Upload to S3

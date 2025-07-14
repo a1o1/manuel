@@ -5,17 +5,25 @@ export const ENV_CONFIG = {
 
   // API endpoints for production
   API_BASE_URL: 'https://83bcch9z1c.execute-api.eu-west-1.amazonaws.com/Prod',
-  
+
+  // AWS Cognito configuration
+  COGNITO: {
+    USER_POOL_ID: 'eu-west-1_DQt2MDcmp',
+    CLIENT_ID: '3ai5dri6105vaut9bie6ku5omb',
+    REGION: 'eu-west-1',
+    COGNITO_DOMAIN: 'https://cognito-idp.eu-west-1.amazonaws.com',
+  },
+
   // CORS proxy for development (to bypass CORS issues)
   USE_CORS_PROXY: false,
   CORS_PROXY_URL: 'https://cors-anywhere.herokuapp.com/',
 
   // Feature flags
   FEATURES: {
-    MOCK_AUTH: true,       // Use mock authentication for now
+    MOCK_AUTH: false,      // Use real authentication in production
     MOCK_USAGE: true,      // Keep usage as mock for now
     MOCK_QUERIES: true,    // Keep queries as mock for now
-    MOCK_MANUALS: true,    // Use mock manuals for now
+    MOCK_MANUALS: false,   // Use real manuals service in production
     ENABLE_VOICE_RECORDING: true,
     ENABLE_FILE_UPLOAD: true,
     ENABLE_ENHANCED_ERROR_HANDLING: true,
@@ -58,7 +66,7 @@ export const getApiUrl = (endpoint: string) => {
 // Easy toggle for switching modes
 export const switchToProduction = () => {
   ENV_CONFIG.MODE = 'production';
-  ENV_CONFIG.FEATURES.MOCK_AUTH = false;
+  ENV_CONFIG.FEATURES.MOCK_AUTH = false;    // Real auth in production
   ENV_CONFIG.FEATURES.MOCK_USAGE = false;
   ENV_CONFIG.FEATURES.MOCK_QUERIES = false;
   ENV_CONFIG.FEATURES.MOCK_MANUALS = false;
@@ -68,7 +76,7 @@ export const switchToProduction = () => {
 
 export const switchToMock = () => {
   ENV_CONFIG.MODE = 'mock';
-  ENV_CONFIG.FEATURES.MOCK_AUTH = true;
+  ENV_CONFIG.FEATURES.MOCK_AUTH = true;     // Mock auth in development
   ENV_CONFIG.FEATURES.MOCK_USAGE = true;
   ENV_CONFIG.FEATURES.MOCK_QUERIES = true;
   ENV_CONFIG.FEATURES.MOCK_MANUALS = true;

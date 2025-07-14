@@ -31,7 +31,7 @@ export function ManualsScreen() {
       console.log('Loading manuals...');
       const response = await manualsService.getManuals();
       console.log('Manuals response:', response);
-      
+
       // Handle the CLI format: { manuals: Manual[], count: number }
       let manualsArray = [];
       if (response && typeof response === 'object') {
@@ -41,13 +41,13 @@ export function ManualsScreen() {
           manualsArray = response;
         }
       }
-      
+
       console.log('Extracted manuals array:', manualsArray);
-      
+
       // Transform backend data to UI format
       const transformedManuals = manualsArray.map(transformManual);
       console.log('Transformed manuals:', transformedManuals);
-      
+
       setManuals(transformedManuals);
     } catch (error) {
       console.error('Error loading manuals:', error);
@@ -66,8 +66,8 @@ export function ManualsScreen() {
       uploadDate: manual.last_modified || manual.upload_date || manual.created_at || 'Unknown',
       pages: manual.pages || 0,
       size: manual.size_formatted || manual.size || '0 bytes',
-      status: manual.processing_status === 'COMPLETED' ? 'processed' : 
-              manual.processing_status === 'IN_PROGRESS' ? 'processing' : 
+      status: manual.processing_status === 'COMPLETED' ? 'processed' :
+              manual.processing_status === 'IN_PROGRESS' ? 'processing' :
               manual.processing_status === 'FAILED' ? 'failed' : 'processed'
     };
     console.log('Transformed to:', transformed);
@@ -272,7 +272,7 @@ export function ManualsScreen() {
         </View>
       </ScrollView>
 
-      <UrlUploadModal 
+      <UrlUploadModal
         visible={showUrlUpload}
         onClose={() => setShowUrlUpload(false)}
         onSuccess={handleUrlUploadSuccess}
