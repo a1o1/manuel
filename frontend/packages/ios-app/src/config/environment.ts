@@ -1,17 +1,21 @@
 // Environment configuration
 export const ENV_CONFIG = {
   // Set to 'mock' for development, 'production' for real backend
-  MODE: 'mock' as 'mock' | 'production',
+  MODE: 'production' as 'mock' | 'production',
 
   // API endpoints for production
-  API_BASE_URL: 'https://your-api-gateway-url.com/dev',
+  API_BASE_URL: 'https://83bcch9z1c.execute-api.eu-west-1.amazonaws.com/Prod',
+  
+  // CORS proxy for development (to bypass CORS issues)
+  USE_CORS_PROXY: false,
+  CORS_PROXY_URL: 'https://cors-anywhere.herokuapp.com/',
 
   // Feature flags
   FEATURES: {
-    MOCK_AUTH: true,
-    MOCK_USAGE: true,
-    MOCK_QUERIES: true,
-    MOCK_MANUALS: true,
+    MOCK_AUTH: true,       // Use mock authentication for now
+    MOCK_USAGE: true,      // Keep usage as mock for now
+    MOCK_QUERIES: true,    // Keep queries as mock for now
+    MOCK_MANUALS: true,    // Use mock manuals for now
     ENABLE_VOICE_RECORDING: true,
     ENABLE_FILE_UPLOAD: true,
     ENABLE_ENHANCED_ERROR_HANDLING: true,
@@ -43,8 +47,13 @@ export const ENV_CONFIG = {
 // Helper functions
 export const isProduction = () => ENV_CONFIG.MODE === 'production';
 export const isMockMode = () => ENV_CONFIG.MODE === 'mock';
-export const getApiUrl = (endpoint: string) =>
-  `${ENV_CONFIG.API_BASE_URL}${endpoint}`;
+export const getApiUrl = (endpoint: string) => {
+  // Use CORS proxy in development to bypass CORS issues
+  if (ENV_CONFIG.USE_CORS_PROXY && typeof window !== 'undefined') {
+    return `${ENV_CONFIG.CORS_PROXY_URL}${ENV_CONFIG.API_BASE_URL}${endpoint}`;
+  }
+  return `${ENV_CONFIG.API_BASE_URL}${endpoint}`;
+};
 
 // Easy toggle for switching modes
 export const switchToProduction = () => {

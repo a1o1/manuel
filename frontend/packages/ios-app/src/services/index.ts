@@ -1,5 +1,6 @@
 // Service factory - switches between mock and real implementations
 import { ENV_CONFIG } from '../config/environment';
+import { Platform } from 'react-native';
 
 // Import real services
 import { RealAuthService } from './real/authService';
@@ -13,39 +14,37 @@ import { MockUsageService } from './mock/usageService';
 import { MockQueryService } from './mock/queryService';
 import { MockManualsService } from './mock/manualsService';
 
-// Service interfaces (contracts)
-export interface AuthService {
-  login(email: string, password: string): Promise<{ user: any; token: string }>;
-  signup(email: string, password: string, name: string): Promise<{ user: any; token: string }>;
-  confirmSignup(email: string, code: string): Promise<void>;
-  resendConfirmationCode(email: string): Promise<void>;
-  logout(): Promise<void>;
-  getCurrentUser(): Promise<any>;
-  forgotPassword(email: string): Promise<void>;
-}
+// Import web services (lazy loaded)
+const getWebServices = () => {
+  if (Platform.OS === 'web') {
+    return {
+      WebAuthService: require('./web/authService').WebAuthService,
+      WebUsageService: require('./web/usageService').WebUsageService,
+      WebQueryService: require('./web/queryService').WebQueryService,
+      WebManualsService: require('./web/manualsService').WebManualsService,
+    };
+  }
+  return null;
+};
 
-export interface UsageService {
-  getUsage(): Promise<any>;
-  refreshUsage(): Promise<any>;
-}
-
-export interface QueryService {
-  textQuery(query: string, options?: any): Promise<any>;
-  voiceQuery(audioBlob: Blob, options?: any): Promise<any>;
-}
-
-export interface ManualsService {
-  getManuals(): Promise<any[]>;
-  uploadManual(file: File): Promise<any>;
-  deleteManual(id: string): Promise<void>;
-  getManualDetail(id: string): Promise<any>;
-}
+// Re-export interfaces
+export * from './interfaces';
+import type { AuthService, UsageService, QueryService, ManualsService } from './interfaces';
 
 // Service factory functions
 export const createAuthService = (): AuthService => {
   if (ENV_CONFIG.FEATURES.MOCK_AUTH) {
     return new MockAuthService();
   }
+  
+  // Use web services for web platform
+  if (Platform.OS === 'web') {
+    const webServices = getWebServices();
+    if (webServices) {
+      return new webServices.WebAuthService();
+    }
+  }
+  
   return new RealAuthService();
 };
 
@@ -53,6 +52,15 @@ export const createUsageService = (): UsageService => {
   if (ENV_CONFIG.FEATURES.MOCK_USAGE) {
     return new MockUsageService();
   }
+  
+  // Use web services for web platform
+  if (Platform.OS === 'web') {
+    const webServices = getWebServices();
+    if (webServices) {
+      return new webServices.WebUsageService();
+    }
+  }
+  
   return new RealUsageService();
 };
 
@@ -60,6 +68,15 @@ export const createQueryService = (): QueryService => {
   if (ENV_CONFIG.FEATURES.MOCK_QUERIES) {
     return new MockQueryService();
   }
+  
+  // Use web services for web platform
+  if (Platform.OS === 'web') {
+    const webServices = getWebServices();
+    if (webServices) {
+      return new webServices.WebQueryService();
+    }
+  }
+  
   return new RealQueryService();
 };
 
@@ -67,6 +84,15 @@ export const createManualsService = (): ManualsService => {
   if (ENV_CONFIG.FEATURES.MOCK_MANUALS) {
     return new MockManualsService();
   }
+  
+  // Use web services for web platform
+  if (Platform.OS === 'web') {
+    const webServices = getWebServices();
+    if (webServices) {
+      return new webServices.WebManualsService();
+    }
+  }
+  
   return new RealManualsService();
 };
 

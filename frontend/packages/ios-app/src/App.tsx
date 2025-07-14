@@ -6,6 +6,7 @@ import { useColorScheme } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { AppProvider } from './contexts/AppContext';
 import { RootNavigator } from './navigation/RootNavigator';
+import { EnvironmentSwitcher } from './components/EnvironmentSwitcher';
 
 export default function App() {
   const colorScheme = useColorScheme();
@@ -15,6 +16,7 @@ export default function App() {
       <AppProvider>
         <NavigationContainer>
           <RootNavigator />
+          <EnvironmentSwitcher />
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         </NavigationContainer>
         <Toast />

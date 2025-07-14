@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { manualsService } from '../../services';
+import { UrlUploadModal } from '../../components/UrlUploadModal';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -23,16 +24,54 @@ export function ManualsScreen() {
   const [manuals, setManuals] = useState<Manual[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showUrlUpload, setShowUrlUpload] = useState(false);
 
   const loadManuals = async () => {
     try {
-      const manualsData = await manualsService.getManuals();
-      setManuals(manualsData);
+      console.log('Loading manuals...');
+      const response = await manualsService.getManuals();
+      console.log('Manuals response:', response);
+      
+      // Handle the CLI format: { manuals: Manual[], count: number }
+      let manualsArray = [];
+      if (response && typeof response === 'object') {
+        if (Array.isArray(response.manuals)) {
+          manualsArray = response.manuals;
+        } else if (Array.isArray(response)) {
+          manualsArray = response;
+        }
+      }
+      
+      console.log('Extracted manuals array:', manualsArray);
+      
+      // Transform backend data to UI format
+      const transformedManuals = manualsArray.map(transformManual);
+      console.log('Transformed manuals:', transformedManuals);
+      
+      setManuals(transformedManuals);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load manuals');
+      console.error('Error loading manuals:', error);
+      Alert.alert('Error', `Failed to load manuals: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Transform backend manual format to UI format
+  const transformManual = (manual: any): Manual => {
+    console.log('Transforming manual:', manual);
+    const transformed = {
+      id: manual.key || manual.id || manual.file_key || 'unknown-id',
+      name: manual.filename || manual.name || manual.original_filename || 'Unknown Manual',
+      uploadDate: manual.last_modified || manual.upload_date || manual.created_at || 'Unknown',
+      pages: manual.pages || 0,
+      size: manual.size_formatted || manual.size || '0 bytes',
+      status: manual.processing_status === 'COMPLETED' ? 'processed' : 
+              manual.processing_status === 'IN_PROGRESS' ? 'processing' : 
+              manual.processing_status === 'FAILED' ? 'failed' : 'processed'
+    };
+    console.log('Transformed to:', transformed);
+    return transformed;
   };
 
   const handleRefresh = async () => {
@@ -46,15 +85,8 @@ export function ManualsScreen() {
   }, []);
 
   const handleUpload = () => {
-    Alert.alert(
-      'Upload Manual',
-      'Choose upload method:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'From Files', onPress: () => simulateFileUpload() },
-        { text: 'From URL', onPress: () => simulateUrlUpload() },
-      ]
-    );
+    // Directly open URL upload modal for now (file upload can be added later)
+    setShowUrlUpload(true);
   };
 
   const simulateFileUpload = async () => {
@@ -73,16 +105,12 @@ export function ManualsScreen() {
     }
   };
 
-  const simulateUrlUpload = () => {
-    Alert.alert(
-      'URL Upload',
-      'Enter manual URL:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Upload', onPress: () => simulateFileUpload() },
-      ],
-      { type: 'plain-text' }
-    );
+  const handleUrlUpload = () => {
+    setShowUrlUpload(true);
+  };
+
+  const handleUrlUploadSuccess = () => {
+    loadManuals(); // Refresh the manuals list
   };
 
   const handleManualPress = (manual: Manual) => {
@@ -200,7 +228,7 @@ export function ManualsScreen() {
           </Text>
         </View>
         <TouchableOpacity style={styles.addButton} onPress={handleUpload}>
-          <Ionicons name="add" size={24} color="#007AFF" />
+          <Ionicons name="link" size={24} color="#007AFF" />
         </TouchableOpacity>
       </View>
 
@@ -220,9 +248,9 @@ export function ManualsScreen() {
               Upload your first manual to get started with Manuel
             </Text>
 
-            <TouchableOpacity style={styles.uploadButton} onPress={handleUpload}>
-              <Ionicons name="add-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.uploadButtonText}>Upload Manual</Text>
+            <TouchableOpacity style={styles.uploadButton} onPress={() => setShowUrlUpload(true)}>
+              <Ionicons name="link-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.uploadButtonText}>Add Manual from URL</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -243,6 +271,12 @@ export function ManualsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <UrlUploadModal 
+        visible={showUrlUpload}
+        onClose={() => setShowUrlUpload(false)}
+        onSuccess={handleUrlUploadSuccess}
+      />
     </SafeAreaView>
   );
 }

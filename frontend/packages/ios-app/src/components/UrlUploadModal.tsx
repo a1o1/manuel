@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { manualsService } from '@manuel/shared';
+import { manualsService } from '../services';
 
 interface UrlUploadModalProps {
   visible: boolean;
@@ -57,14 +57,18 @@ export function UrlUploadModal({ visible, onClose, onSuccess }: UrlUploadModalPr
     setIsLoading(true);
 
     try {
+      console.log('Starting URL upload:', url.trim(), 'filename:', filename.trim());
+      
       const result = await manualsService.uploadFromUrl(
         url.trim(),
         filename.trim() || undefined
       );
 
+      console.log('Upload result:', result);
+
       Alert.alert(
         'Success!',
-        `Manual "${result.file_name}" has been uploaded successfully.`,
+        `Manual "${result.file_name || result.filename || 'manual'}" has been uploaded successfully.`,
         [
           {
             text: 'OK',
@@ -76,6 +80,7 @@ export function UrlUploadModal({ visible, onClose, onSuccess }: UrlUploadModalPr
         ]
       );
     } catch (error: any) {
+      console.error('Upload error:', error);
       let errorMessage = 'Failed to upload manual from URL';
 
       if (error?.response?.data?.error) {
@@ -84,6 +89,7 @@ export function UrlUploadModal({ visible, onClose, onSuccess }: UrlUploadModalPr
         errorMessage = error.message;
       }
 
+      console.error('Final error message:', errorMessage);
       Alert.alert('Upload Failed', errorMessage);
     } finally {
       setIsLoading(false);

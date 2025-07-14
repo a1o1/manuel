@@ -1,129 +1,128 @@
-import { ManualsService } from '../index';
-import { manualsService as sharedManualsService } from '@manuel/shared';
-import { handleApiError } from './errorHandler';
+// Real manuals service using direct API calls for React Native
+import { ManualsService } from '../interfaces';
+import * as FileSystem from 'expo-file-system';
+
+const API_BASE_URL = 'https://83bcch9z1c.execute-api.eu-west-1.amazonaws.com/Prod';
 
 export class RealManualsService implements ManualsService {
-  async getManuals() {
-    try {
-      const response = await sharedManualsService.listManuals();
+  private async getAuthHeaders() {
+    // For now, return empty headers - will implement proper auth later
+    throw new Error('Authentication not implemented - use mock mode');
+  }
 
-      // Transform response to match iOS app interface
-      return response.manuals?.map((manual: any) => ({
-        id: manual.id || manual.manual_id,
-        name: manual.name || manual.manual_name || manual.file_name,
-        uploadDate: manual.upload_date || manual.created_at || new Date().toISOString().split('T')[0],
-        pages: manual.pages || manual.page_count || 0,
-        size: this.formatFileSize(manual.size || manual.file_size || 0),
-        status: this.mapStatus(manual.status),
-      })) || [];
-    } catch (error) {
-      throw handleApiError(error, 'get manuals');
+  async listManuals() {
+    try {
+      const headers = await this.getAuthHeaders();
+      
+      const response = await fetch(`${API_BASE_URL}/manuals`, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.manuals || [];
+    } catch (error: any) {
+      console.error('List manuals error:', error);
+      throw new Error(error.message || 'Failed to fetch manuals');
     }
   }
 
-  async uploadManual(file: File) {
+  async uploadManual(file: any, metadata: any) {
     try {
-      // For React Native, we'll need to handle file differently
-      // But for now, let's create a FormData object
-      const formData = new FormData();
-      formData.append('file', file);
+      const headers = await this.getAuthHeaders();
+      
+      // First, get the file info and read as base64
+      const fileInfo = await FileSystem.getInfoAsync(file.uri);
+      if (!fileInfo.exists) {
+        throw new Error('File not found');
+      }
 
-      const response = await sharedManualsService.uploadManual(formData);
+      const fileContent = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
 
-      // Transform response to match iOS app interface
-      return {
-        id: response.manual_id || response.id,
-        name: response.file_name || response.name || file.name,
-        uploadDate: response.upload_date || new Date().toISOString().split('T')[0],
-        pages: response.pages || 0,
-        size: this.formatFileSize(file.size),
-        status: this.mapStatus(response.status) as 'processing' | 'processed' | 'failed',
+      const uploadData = {
+        fileName: file.name || 'manual.pdf',
+        fileContent: fileContent,
+        contentType: file.type || 'application/pdf',
+        metadata: {
+          title: metadata.title || file.name,
+          description: metadata.description || '',
+          category: metadata.category || 'General',
+          ...metadata,
+        },
       };
-    } catch (error) {
-      throw handleApiError(error, 'upload manual');
+
+      const response = await fetch(`${API_BASE_URL}/manuals/upload`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(uploadData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error: any) {
+      console.error('Upload manual error:', error);
+      throw new Error(error.message || 'Failed to upload manual');
     }
   }
 
-  async deleteManual(id: string) {
+  async deleteManual(manualId: string) {
     try {
-      await sharedManualsService.deleteManual(id);
-    } catch (error) {
-      throw handleApiError(error, 'delete manual');
+      const headers = await this.getAuthHeaders();
+      
+      const response = await fetch(`${API_BASE_URL}/manuals/${manualId}`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error: any) {
+      console.error('Delete manual error:', error);
+      throw new Error(error.message || 'Failed to delete manual');
     }
   }
 
-  async getManualDetail(id: string) {
+  async downloadManual(manualId: string) {
     try {
-      const response = await sharedManualsService.getManualDetail(id);
+      const headers = await this.getAuthHeaders();
+      
+      const response = await fetch(`${API_BASE_URL}/manuals/${manualId}/download`, {
+        method: 'GET',
+        headers,
+      });
 
-      // Transform response to match iOS app interface
-      return {
-        id: response.id || response.manual_id,
-        name: response.name || response.manual_name || response.file_name,
-        uploadDate: response.upload_date || response.created_at || new Date().toISOString().split('T')[0],
-        pages: response.pages || response.page_count || 0,
-        size: this.formatFileSize(response.size || response.file_size || 0),
-        status: this.mapStatus(response.status),
-        chunks: response.chunks || response.chunk_count || 0,
-        lastQueried: response.last_queried || response.last_accessed,
-        queryCount: response.query_count || response.access_count || 0,
-      };
-    } catch (error) {
-      throw handleApiError(error, 'get manual detail');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Result should contain a presigned URL for download
+      if (result.downloadUrl) {
+        return result.downloadUrl;
+      } else {
+        throw new Error('Download URL not provided');
+      }
+    } catch (error: any) {
+      console.error('Download manual error:', error);
+      throw new Error(error.message || 'Failed to download manual');
     }
-  }
-
-  // Additional method for URL-based upload
-  async uploadManualFromUrl(url: string, fileName?: string) {
-    try {
-      const response = await sharedManualsService.downloadManual(url, fileName);
-
-      return {
-        id: response.manual_id || response.id,
-        name: response.file_name || response.name || fileName || 'Downloaded Manual',
-        uploadDate: response.upload_date || new Date().toISOString().split('T')[0],
-        pages: response.pages || 0,
-        size: this.formatFileSize(response.size || 0),
-        status: this.mapStatus(response.status) as 'processing' | 'processed' | 'failed',
-      };
-    } catch (error) {
-      throw handleApiError(error, 'download manual from URL');
-    }
-  }
-
-  // Get ingestion status
-  async getIngestionStatus() {
-    try {
-      const response = await sharedManualsService.getIngestionStatus();
-      return response;
-    } catch (error) {
-      throw handleApiError(error, 'get ingestion status');
-    }
-  }
-
-  private formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 B';
-
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-  }
-
-  private mapStatus(status: string): 'processing' | 'processed' | 'failed' {
-    if (!status) return 'processing';
-
-    const statusLower = status.toLowerCase();
-
-    if (statusLower.includes('complete') || statusLower.includes('success') || statusLower === 'processed') {
-      return 'processed';
-    }
-
-    if (statusLower.includes('fail') || statusLower.includes('error')) {
-      return 'failed';
-    }
-
-    return 'processing';
   }
 }
