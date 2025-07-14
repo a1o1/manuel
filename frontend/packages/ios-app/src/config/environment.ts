@@ -22,7 +22,7 @@ export const ENV_CONFIG = {
   FEATURES: {
     MOCK_AUTH: false,      // Use real authentication in production
     MOCK_USAGE: true,      // Keep usage as mock for now
-    MOCK_QUERIES: true,    // Keep queries as mock for now
+    MOCK_QUERIES: false,   // Use real query service to connect to backend
     MOCK_MANUALS: false,   // Use real manuals service in production
     ENABLE_VOICE_RECORDING: true,
     ENABLE_FILE_UPLOAD: true,
@@ -46,9 +46,9 @@ export const ENV_CONFIG = {
 
   // Development settings
   DEV: {
-    LOG_API_CALLS: true,
+    LOG_API_CALLS: false,  // Disabled to prevent logging errors in React Native
     SHOW_DEV_INDICATORS: true,
-    LOG_ERRORS: true,
+    LOG_ERRORS: false,     // Disabled to prevent logging errors in React Native
   }
 };
 
@@ -67,9 +67,9 @@ export const getApiUrl = (endpoint: string) => {
 export const switchToProduction = () => {
   ENV_CONFIG.MODE = 'production';
   ENV_CONFIG.FEATURES.MOCK_AUTH = false;    // Real auth in production
-  ENV_CONFIG.FEATURES.MOCK_USAGE = false;
-  ENV_CONFIG.FEATURES.MOCK_QUERIES = false;
-  ENV_CONFIG.FEATURES.MOCK_MANUALS = false;
+  ENV_CONFIG.FEATURES.MOCK_USAGE = false;   // Real usage in production
+  ENV_CONFIG.FEATURES.MOCK_QUERIES = false; // Real queries in production
+  ENV_CONFIG.FEATURES.MOCK_MANUALS = false; // Real manuals in production
   ENV_CONFIG.FEATURES.ENABLE_ENHANCED_ERROR_HANDLING = true;
   ENV_CONFIG.FEATURES.ENABLE_AUTOMATIC_RETRY = true;
 };
