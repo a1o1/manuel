@@ -75,22 +75,33 @@ export function VoiceQueryScreen() {
   const handleStopRecording = async () => {
     setIsProcessing(true);
     try {
+      console.log('Stopping recording...');
       const recordingResult = await stopRecording();
+      console.log('Recording result:', recordingResult);
 
       if (recordingResult && (recordingResult.audioBlob || recordingResult.audioUri)) {
+        console.log('Processing audio with query service...');
+        console.log('Audio blob size:', recordingResult.audioBlob?.size);
+        console.log('Audio URI:', recordingResult.audioUri);
+        
         // Process the audio with our query service
         const queryResult = await queryService.voiceQuery(recordingResult, {
           includeSources: true
         });
-
+        
+        console.log('Query result received:', queryResult);
         setResult(queryResult);
+      } else {
+        console.log('No audio data available from recording');
+        Alert.alert('Recording Error', 'No audio data was captured. Please try recording again.');
       }
     } catch (error) {
+      console.error('Voice query error:', error);
       if (isEnhancedErrorHandlingEnabled() && error instanceof Error) {
         const manuelError = error as ManuelError;
         showErrorToUser(manuelError, 'Voice Query Failed');
       } else {
-        Alert.alert('Processing Error', 'Failed to process your voice query. Please try again.');
+        Alert.alert('Processing Error', `Failed to process your voice query: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } finally {
       setIsProcessing(false);

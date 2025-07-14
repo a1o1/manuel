@@ -54,11 +54,11 @@ export function useAudioRecording(): UseAudioRecordingReturn {
       const permission = await Audio.requestPermissionsAsync();
       const granted = permission.status === 'granted';
       setHasPermission(granted);
-      
+
       if (!granted) {
         logger.error('Audio recording permission denied');
       }
-      
+
       return granted;
     } catch (error) {
       logger.error('Failed to request audio permission:', error);
@@ -99,10 +99,10 @@ export function useAudioRecording(): UseAudioRecordingReturn {
 
       // Prepare the recording
       await recording.prepareToRecordAsync(recordingOptions);
-      
+
       // Start recording
       await recording.startAsync();
-      
+
       setState('recording');
       pausedTimeRef.current = 0;
       startTimer();
@@ -126,7 +126,7 @@ export function useAudioRecording(): UseAudioRecordingReturn {
       // Stop the recording
       await recordingRef.current.stopAndUnloadAsync();
       const uri = recordingRef.current.getURI();
-      
+
       if (!uri) {
         throw new Error('No recording URI available');
       }
@@ -137,20 +137,20 @@ export function useAudioRecording(): UseAudioRecordingReturn {
 
       // Convert file to blob for API compatibility
       let audioBlob: Blob | null = null;
-      
+
       try {
         // Read file as base64, then convert to blob
         const base64 = await FileSystem.readAsStringAsync(uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
-        
+
         // Convert base64 to blob
         const binaryString = atob(base64);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
         }
-        
+
         audioBlob = new Blob([bytes], { type: 'audio/mp4' });
         logger.log('Audio file converted to blob, size:', audioBlob.size);
       } catch (blobError) {
@@ -212,7 +212,7 @@ export function useAudioRecording(): UseAudioRecordingReturn {
     try {
       if (recordingRef.current) {
         await recordingRef.current.stopAndUnloadAsync();
-        
+
         // Try to delete the file
         const uri = recordingRef.current.getURI();
         if (uri) {

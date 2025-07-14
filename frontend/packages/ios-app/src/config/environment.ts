@@ -46,9 +46,9 @@ export const ENV_CONFIG = {
 
   // Development settings
   DEV: {
-    LOG_API_CALLS: false,  // Disabled to prevent logging errors in React Native
+    LOG_API_CALLS: true,   // Temporarily enabled for debugging voice queries
     SHOW_DEV_INDICATORS: true,
-    LOG_ERRORS: false,     // Disabled to prevent logging errors in React Native
+    LOG_ERRORS: true,      // Temporarily enabled for debugging voice queries
   }
 };
 
