@@ -12,6 +12,20 @@ Parameters:
     AllowedValues: [dev, staging, prod]
     Description: Deployment stage
 
+  DailyQuotaLimit:
+    Type: Number
+    Default: 50
+    MinValue: 1
+    MaxValue: 1000
+    Description: Daily quota limit for requests
+
+  MonthlyQuotaLimit:
+    Type: Number
+    Default: 1000
+    MinValue: 10
+    MaxValue: 10000
+    Description: Monthly quota limit for requests
+
   LambdaRuntime:
     Type: String
     Default: python3.11
@@ -249,6 +263,19 @@ Resources:
       LayerName: !Sub manuel-security-layer-${Stage}
       Description: Security middleware and validation libraries
       ContentUri: layers/security/
+      CompatibleRuntimes:
+        - python3.11
+        - python3.10
+        - python3.9
+      RetentionPolicy: Delete
+
+  # Lambda Layer for PDF Processing Dependencies
+  PDFProcessingLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub manuel-pdf-processing-layer-${Stage}
+      Description: PDF processing libraries (pdf2image, Pillow)
+      ContentUri: layers/pdf-processing/
       CompatibleRuntimes:
         - python3.11
         - python3.10
@@ -777,6 +804,40 @@ Resources:
           Properties:
             Path: /api/ingestion/status
             Method: get
+
+  # PDF Page Extraction Function
+  PDFPageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-pdf-page-${Stage}
+      CodeUri: src/functions/pdf-page/
+      Handler: app.lambda_handler
+      Description: Extract and highlight specific PDF pages
+      Timeout: 60
+      MemorySize: 1024
+      Layers:
+        - !Ref PDFProcessingLayer
+      Environment:
+        Variables:
+          MANUALS_BUCKET: !Ref ManualsBucket
+          DAILY_QUOTA: !Ref DailyQuotaLimit
+          MONTHLY_QUOTA: !Ref MonthlyQuotaLimit
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource:
+                - !Sub "arn:aws:s3:::${ManualsBucket}/*"
+      Events:
+        PDFPageApi:
+          Type: Api
+          Properties:
+            Path: /api/pdf-page
+            Method: post
 
   # CloudWatch Log Group
   HealthLogGroup:

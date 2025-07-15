@@ -440,11 +440,44 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     s3_location = location.get("s3Location", {})
                     source_uri = s3_location.get("uri", "")
                     if source_uri:
-                        # Create proper source object structure
+                        # Extract manual name and page number from S3 URI and metadata
+                        manual_name = "Unknown Manual"
+                        page_number = None
+                        
+                        # Parse S3 URI to extract manual name
+                        if "/manuals/" in source_uri:
+                            try:
+                                # Extract filename from S3 path
+                                filename = source_uri.split("/")[-1]
+                                if filename.endswith(".pdf"):
+                                    manual_name = filename[:-4]  # Remove .pdf extension
+                                    
+                                # Look for page number in URI fragment
+                                if "#page=" in source_uri:
+                                    page_part = source_uri.split("#page=")[-1]
+                                    page_number = int(page_part.split("&")[0])
+                                    
+                            except (ValueError, IndexError):
+                                pass
+                        
+                        # Extract page number from Bedrock Knowledge Base metadata
+                        metadata = result.get("metadata", {})
+                        if metadata.get("x-amz-bedrock-kb-document-page-number"):
+                            try:
+                                page_number = int(float(metadata["x-amz-bedrock-kb-document-page-number"]))
+                            except (ValueError, TypeError):
+                                pass
+                        
+                        # Create frontend-compatible source object
                         source_obj = {
-                            "content": content,
-                            "metadata": {"source": source_uri, "score": score},
+                            "manual_name": manual_name,
+                            "page_number": page_number,
+                            "chunk_text": content,
+                            "score": score,
+                            "pdf_url": None,  # Will be populated by frontend
+                            "pdf_id": None,   # Will be populated by frontend
                         }
+                        
                         sources.append(source_obj)
 
         context = "\n\n".join(context_pieces)

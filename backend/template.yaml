@@ -769,6 +769,47 @@ Resources:
             Path: /api/query
             Method: post
 
+  PDFPageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-pdf-page-${Stage}
+      CodeUri: src/functions/pdf-page/
+      Handler: app.lambda_handler
+      Description: Extract and highlight specific PDF pages
+      Timeout: 60
+      MemorySize: 1024
+      Environment:
+        Variables:
+          MANUALS_BUCKET: !Ref ManualsBucket
+          DAILY_QUOTA: !Ref DailyQuotaLimit
+          MONTHLY_QUOTA: !Ref MonthlyQuotaLimit
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - S3WritePolicy:
+            BucketName: !Ref ManualsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+        - !If
+          - EnableAdvancedSecurityMiddleware
+          - DynamoDBCrudPolicy:
+              TableName: !Ref RateLimitTable
+          - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+                - s3:PutObject
+              Resource:
+                - !Sub "${ManualsBucket}/*"
+                - !Sub "${ManualsBucket}/processed-pages/*"
+      Events:
+        PDFPageApi:
+          Type: Api
+          Properties:
+            Path: /api/pdf-page
+            Method: post
+
   ManualsFunction:
     Type: AWS::Serverless::Function
     Properties:

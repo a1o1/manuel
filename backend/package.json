@@ -1,6 +1,6 @@
 {
   "name": "manuel-backend",
-  "version": "1.0.2",
+  "version": "1.2.0",
   "description": "Enterprise-grade AWS serverless backend for Manuel voice assistant",
   "main": "template.yaml",
   "scripts": {

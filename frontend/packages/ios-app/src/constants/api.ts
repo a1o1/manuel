@@ -17,6 +17,9 @@ export const API_ENDPOINTS = {
   QUERY: {
     ASK: '/api/query',
   },
+  PDF: {
+    PAGE: '/api/pdf-page',
+  },
   USAGE: {
     GET: '/api/usage',
   },

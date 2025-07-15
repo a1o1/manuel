@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { queryService, manualsService } from '../../services';
-import { showErrorToUser, ManuelError } from '../../services/real/errorHandler';
 import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
 import { RateLimitIndicator } from '../../components/RateLimitIndicator';
 import { EnhancedSourceCard } from '../../components/EnhancedSourceCard';
@@ -90,14 +89,57 @@ export function QueryScreen() {
 
     try {
       const response = await queryService.textQuery(query.trim(), { includeSources });
-      setResult(response);
+
+      // Debug logging to see the actual response structure
+      console.log('📋 Query response:', {
+        answer: response.answer ? 'Present' : 'Missing',
+        sources: response.sources ? `${response.sources.length} sources` : 'No sources',
+        sourcesPreview: response.sources?.slice(0, 2).map(s => ({
+          type: typeof s,
+          keys: s ? Object.keys(s) : 'null',
+          manual_name: s?.manual_name,
+          page_number: s?.page_number,
+          chunk_text: s?.chunk_text ? `${s.chunk_text.length} chars` : 'no content'
+        }))
+      });
+
+      // Sanitize the response to prevent rendering errors
+      const sanitizedResponse = {
+        answer: String(response?.answer || 'No answer provided'),
+        cost: typeof response?.cost === 'number' ? response.cost : 0,
+        responseTime: typeof response?.responseTime === 'number' ? response.responseTime : 0,
+        sources: Array.isArray(response?.sources) ? response.sources
+          .filter(source => source && typeof source === 'object')
+          .map(source => ({
+            manual_name: String(source.manual_name || 'Unknown Manual'),
+            page_number: typeof source.page_number === 'number' ? source.page_number : undefined,
+            chunk_text: String(source.chunk_text || 'No content available'),
+            score: typeof source.score === 'number' ? source.score : undefined,
+            pdf_url: source.pdf_url || undefined,
+            pdf_id: source.pdf_id || undefined,
+          })) : []
+      };
+
+      setResult(sanitizedResponse);
     } catch (error) {
-      if (isEnhancedErrorHandlingEnabled() && error instanceof Error) {
-        const manuelError = error as ManuelError;
-        showErrorToUser(manuelError, 'Query Failed');
-      } else {
-        Alert.alert('Error', 'Failed to get answer. Please try again.');
+      console.error('Query error:', error);
+
+      // Handle different error types
+      let errorMessage = 'Failed to get answer. Please try again.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('Rate limit exceeded')) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.';
+        } else if (error.message.includes('Authentication failed')) {
+          errorMessage = 'Authentication failed. Please log in again.';
+        } else if (error.message.includes('Network')) {
+          errorMessage = 'Network connection failed. Please check your internet connection.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
       }
+
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +168,7 @@ export function QueryScreen() {
                 style={styles.textInput}
                 value={query}
                 onChangeText={setQuery}
-                placeholder="How do I reset my WiFi password?"
+                placeholder="How do I do micro-timing on the Analog Rytm?"
                 placeholderTextColor="#8E8E93"
                 multiline
                 maxLength={500}
@@ -183,40 +225,74 @@ export function QueryScreen() {
             <RateLimitIndicator compact />
           </View>
 
-          {result && (
-            <View style={styles.resultSection}>
-              <View style={styles.resultHeader}>
-                <Text style={styles.resultTitle}>Answer</Text>
-                <TouchableOpacity onPress={clearResults}>
-                  <Text style={styles.clearButton}>Clear</Text>
-                </TouchableOpacity>
-              </View>
+          {result && (() => {
+            try {
+              return (
+                <View style={styles.resultSection}>
+                  <View style={styles.resultHeader}>
+                    <Text style={styles.resultTitle}>Answer</Text>
+                    <TouchableOpacity onPress={clearResults}>
+                      <Text style={styles.clearButton}>Clear</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              <View style={styles.answerCard}>
-                <Text style={styles.answerText}>{result.answer}</Text>
-              </View>
+                  <View style={styles.answerCard}>
+                    <Text style={styles.answerText}>{String(result.answer || 'No answer provided')}</Text>
+                  </View>
 
-              <View style={styles.metaInfo}>
-                <Text style={styles.metaText}>
-                  Response time: {result.responseTime}ms • Cost: ${result.cost.toFixed(4)}
-                </Text>
-              </View>
+                  <View style={styles.metaInfo}>
+                    <Text style={styles.metaText}>
+                      Response time: {result.responseTime || 0}ms • Cost: ${(result.cost || 0).toFixed(4)}
+                    </Text>
+                  </View>
 
-              {result.sources && result.sources.length > 0 && (
-                <View style={styles.sourcesSection}>
-                  <Text style={styles.sourcesTitle}>Sources</Text>
-                  {result.sources.map((source, index) => (
-                    <EnhancedSourceCard
-                      key={index}
-                      source={source}
-                      index={index}
-                      onGetPDFUrl={getPDFUrl}
-                    />
-                  ))}
+                  {result.sources && Array.isArray(result.sources) && result.sources.length > 0 && (
+                    <View style={styles.sourcesSection}>
+                      <Text style={styles.sourcesTitle}>Sources</Text>
+                      {result.sources
+                        .filter(source => source && typeof source === 'object')
+                        .map((source, index) => {
+                          try {
+                            // Ensure all text values are strings before rendering
+                            const safeSource = {
+                              manual_name: String(source.manual_name || 'Unknown Manual'),
+                              page_number: typeof source.page_number === 'number' ? source.page_number : undefined,
+                              chunk_text: String(source.chunk_text || 'No content available'),
+                              score: typeof source.score === 'number' ? source.score : undefined,
+                              pdf_url: source.pdf_url || undefined,
+                              pdf_id: source.pdf_id || undefined,
+                            };
+
+                            return (
+                              <EnhancedSourceCard
+                                key={`source-${index}`}
+                                source={safeSource}
+                                index={index}
+                                onGetPDFUrl={getPDFUrl}
+                              />
+                            );
+                          } catch (error) {
+                            console.error(`Error rendering source ${index}:`, error);
+                            return (
+                              <View key={`error-${index}`} style={styles.errorCard}>
+                                <Text style={styles.errorText}>Error loading source {index + 1}</Text>
+                              </View>
+                            );
+                          }
+                        })}
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-          )}
+              );
+            } catch (error) {
+              console.error('Error rendering result section:', error);
+              return (
+                <View style={styles.errorCard}>
+                  <Text style={styles.errorText}>Error displaying results</Text>
+                </View>
+              );
+            }
+          })()}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -390,5 +466,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000000',
     marginBottom: 12,
+  },
+  errorCard: {
+    backgroundColor: '#FFE5E5',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#FFB3B3',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#CC0000',
+    textAlign: 'center',
   },
 });

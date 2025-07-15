@@ -7,6 +7,7 @@ import { RealAuthService } from './real/authService';
 import { RealUsageService } from './real/usageService';
 import { RealQueryService } from './real/queryService';
 import { RealManualsService } from './real/manualsService';
+import { RealPDFService } from './real/pdfService';
 
 // Import mock services
 import { MockAuthService } from './mock/authService';
@@ -101,3 +102,4 @@ export const authService = createAuthService();
 export const usageService = createUsageService();
 export const queryService = createQueryService();
 export const manualsService = createManualsService();
+export const pdfService = new RealPDFService();

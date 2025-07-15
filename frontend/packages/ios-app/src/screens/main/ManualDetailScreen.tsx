@@ -49,11 +49,17 @@ export function ManualDetailScreen() {
     }
   };
 
-  const handleViewPDF = async () => {
+  const handleViewPDF = async (pageNumber?: number) => {
     if (!manual) return;
 
     // For now, use a demo PDF URL since the backend doesn't provide PDF URLs yet
-    const pdfUrl = manual.pdfUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+    let pdfUrl = manual.pdfUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+    // Add page navigation if page number is provided
+    if (pageNumber) {
+      const separator = pdfUrl.includes('#') ? '&' : '#';
+      pdfUrl = `${pdfUrl}${separator}page=${pageNumber}`;
+    }
 
     try {
       const canOpen = await Linking.canOpenURL(pdfUrl);

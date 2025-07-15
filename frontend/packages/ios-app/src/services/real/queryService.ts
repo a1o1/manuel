@@ -53,27 +53,29 @@ export class RealQueryService implements QueryService {
         throw new Error(response.error);
       }
 
-      // Transform backend response to match expected format
-      const { data } = response;
+      // BaseApi wraps the response in a 'data' property, but the backend returns data directly
+      console.log('Raw API response:', response);
+      const backendData = response.data || response;
+      console.log('Backend data:', backendData);
 
       // Transform sources from backend format to UI format
-      const transformedSources = data.sources && options?.includeSources !== false
-        ? data.sources.map((source: any) => ({
-            manual_name: this.extractManualName(source.metadata?.source || ''),
-            page_number: source.metadata?.page_number || null,
-            chunk_text: source.content || '',
-            score: source.metadata?.score || 0,
+      const transformedSources = backendData.sources && options?.includeSources !== false
+        ? backendData.sources.map((source: any) => ({
+            manual_name: source.manual_name || 'Unknown Manual',
+            page_number: source.page_number || null,
+            chunk_text: source.chunk_text || '',
+            score: source.score || 0,
           }))
-        : undefined;
+        : [];
 
       return {
-        answer: data.answer || data.response,
+        answer: backendData.answer || '',
         sources: transformedSources,
-        cost: data.costs?.total_cost || 0,
-        responseTime: data.processing_time_ms || 0,
-        timestamp: data.timestamp,
-        cacheStatus: data.cache_status,
-        contextFound: data.context_found,
+        cost: backendData.costs?.total_cost || 0,
+        responseTime: backendData.response_time_ms || 0,
+        timestamp: backendData.timestamp,
+        cacheStatus: backendData.cache_status,
+        contextFound: backendData.context_found,
       };
     } catch (error) {
       throw handleApiError(error, 'query');
@@ -133,28 +135,30 @@ export class RealQueryService implements QueryService {
         throw new Error(response.error);
       }
 
-      // Transform backend response to match expected format
-      const { data } = response;
+      // BaseApi wraps the response in a 'data' property, but the backend returns data directly
+      console.log('Raw API voice response:', response);
+      const backendData = response.data || response;
+      console.log('Backend voice data:', backendData);
 
       // Transform sources from backend format to UI format
-      const transformedSources = data.sources && options?.includeSources !== false
-        ? data.sources.map((source: any) => ({
-            manual_name: this.extractManualName(source.metadata?.source || ''),
-            page_number: source.metadata?.page_number || null,
-            chunk_text: source.content || '',
-            score: source.metadata?.score || 0,
+      const transformedSources = backendData.sources && options?.includeSources !== false
+        ? backendData.sources.map((source: any) => ({
+            manual_name: source.manual_name || 'Unknown Manual',
+            page_number: source.page_number || null,
+            chunk_text: source.chunk_text || '',
+            score: source.score || 0,
           }))
-        : undefined;
+        : [];
 
       return {
-        transcription: data.question, // Backend returns transcribed question
-        answer: data.answer || data.response,
+        transcription: backendData.question || '', // Backend returns transcribed question
+        answer: backendData.answer || '',
         sources: transformedSources,
-        cost: data.costs?.total_cost || 0,
-        responseTime: data.processing_time_ms || 0,
-        timestamp: data.timestamp,
-        cacheStatus: data.cache_status,
-        contextFound: data.context_found,
+        cost: backendData.costs?.total_cost || 0,
+        responseTime: backendData.response_time_ms || 0,
+        timestamp: backendData.timestamp,
+        cacheStatus: backendData.cache_status,
+        contextFound: backendData.context_found,
       };
     } catch (error) {
       throw handleApiError(error, 'voice query');

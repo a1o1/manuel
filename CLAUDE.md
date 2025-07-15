@@ -45,6 +45,38 @@ PDF access:
 2. **From Query Results**: Ask question → View sources → Open PDF directly from
    source cards
 
+### ✅ PDF Page Extraction & Highlighting (v1.2.0)
+
+**Status: FULLY FUNCTIONAL**
+
+Complete PDF page extraction with text search and highlighting capabilities:
+
+**Key Features:**
+
+- ✅ **Real PDF Page Extraction**: Using PyMuPDF for reliable PDF processing
+- ✅ **Text Search & Highlighting**: Find and highlight text on specific pages
+- ✅ **High-Quality Rendering**: 2x scale (144 DPI equivalent) for crisp images
+- ✅ **Intelligent Caching**: MD5-based cache keys for processed pages
+- ✅ **S3 Signed URLs**: Secure temporary access to extracted pages
+- ✅ **Lambda Layer**: Properly packaged Linux-compatible dependencies
+
+**Technical Implementation:**
+
+- **PyMuPDF Integration**: Replaced pdf2image with PyMuPDF for self-contained
+  PDF processing
+- **Lambda Layer**: Created dedicated layer with PyMuPDF and Pillow for Linux
+  x86_64
+- **Text Search**: Real text position finding with coordinate scaling
+- **Cache Strategy**: Processed pages cached in S3 with 1-hour expiry
+- **Error Handling**: Graceful fallbacks for missing dependencies
+
+**User Experience:**
+
+- Tap "View Page X (Highlighted)" on any source card
+- Instant page extraction with highlighted search terms
+- Cached results for immediate retrieval
+- Support for large PDFs (tested with 13MB+ files)
+
 ### ✅ End-to-End Voice Query System
 
 **Status: FULLY FUNCTIONAL (CLI + iOS App)**
@@ -244,8 +276,13 @@ with sources
   - `ingestion-status/` - Ingestion job monitoring
   - `process-manual-simple/` - Automatic S3 → Knowledge Base sync
   - `manuals/app.py` - Enhanced with human-friendly name support
+  - `pdf-page/` - PDF page extraction with PyMuPDF and text highlighting
 - Shared utilities: `backend/src/shared/`
   - `file_tracker.py` - File deduplication system
+- Lambda layers: `backend/layers/`
+  - `redis/` - Redis client for caching
+  - `security/` - Security middleware and validation
+  - `pdf-processing/` - PyMuPDF and Pillow for PDF operations
 - Parameter files: `backend/parameters*.json`
 - Frontend components: `frontend/src/components/`
 - Frontend iOS screens: `frontend/packages/ios-app/src/screens/main/`

@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAudioRecording } from '../../hooks/useAudioRecording';
 import { queryService, manualsService } from '../../services';
-import { showErrorToUser, ManuelError } from '../../services/real/errorHandler';
 import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
 import { EnhancedSourceCard } from '../../components/EnhancedSourceCard';
 
@@ -156,12 +155,23 @@ export function VoiceQueryScreen() {
       }
     } catch (error) {
       console.error('Voice query error:', error);
-      if (isEnhancedErrorHandlingEnabled() && error instanceof Error) {
-        const manuelError = error as ManuelError;
-        showErrorToUser(manuelError, 'Voice Query Failed');
-      } else {
-        Alert.alert('Processing Error', `Failed to process your voice query: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      // Handle different error types
+      let errorMessage = 'Failed to process your voice query.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('Rate limit exceeded')) {
+          errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.';
+        } else if (error.message.includes('Authentication failed')) {
+          errorMessage = 'Authentication failed. Please log in again.';
+        } else if (error.message.includes('Network')) {
+          errorMessage = 'Network connection failed. Please check your internet connection.';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
       }
+
+      Alert.alert('Processing Error', errorMessage);
     } finally {
       setIsProcessing(false);
     }
