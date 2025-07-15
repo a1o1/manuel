@@ -79,9 +79,8 @@ export function VoiceQueryScreen() {
       const recordingResult = await stopRecording();
       console.log('Recording result:', recordingResult);
 
-      if (recordingResult && (recordingResult.audioBlob || recordingResult.audioUri)) {
+      if (recordingResult && recordingResult.audioUri) {
         console.log('Processing audio with query service...');
-        console.log('Audio blob size:', recordingResult.audioBlob?.size);
         console.log('Audio URI:', recordingResult.audioUri);
 
         // Process the audio with our query service

@@ -8,50 +8,17 @@ class QueryApi extends BaseApi {
     return this.post(API_ENDPOINTS.QUERY.ASK, { question });
   }
 
-  async voiceQuery(audioBlob: Blob, contentType: string, includeSources = true) {
-    console.log('Converting blob to base64 for API, blob size:', audioBlob.size);
+  async voiceQuery(audioBase64: string, contentType: string, includeSources = true) {
+    console.log('Sending audio data to API, base64 length:', audioBase64.length);
+    console.log('Content type:', contentType);
+    console.log('First 100 chars of base64:', audioBase64.substring(0, 100));
 
-    // Convert blob to base64 for API - React Native compatible approach
-    try {
-      // Try React Native method first
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
-      const base64 = btoa(binaryString);
-
-      console.log('Successfully converted blob to base64, length:', base64.length);
-      console.log('First 100 chars of base64:', base64.substring(0, 100));
-      console.log('Base64 is valid:', /^[A-Za-z0-9+/]*={0,2}$/.test(base64));
-
-      return this.post(API_ENDPOINTS.QUERY.ASK, {
-        question: '', // Will be filled by transcription
-        file_data: base64,
-        content_type: contentType,
-        include_sources: includeSources,
-      });
-    } catch (error) {
-      console.error('Failed to convert blob to base64:', error);
-
-      // Fallback to FileReader for web compatibility
-      console.log('Falling back to FileReader approach');
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          const base64 = result.split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = () => reject(new Error('Failed to read audio blob'));
-        reader.readAsDataURL(audioBlob);
-      });
-
-      return this.post(API_ENDPOINTS.QUERY.ASK, {
-        question: '', // Will be filled by transcription
-        file_data: base64,
-        content_type: contentType,
-        include_sources: includeSources,
-      });
-    }
+    return this.post(API_ENDPOINTS.QUERY.ASK, {
+      question: '', // Will be filled by transcription
+      file_data: audioBase64,
+      content_type: contentType,
+      include_sources: includeSources,
+    });
   }
 }
 
@@ -107,59 +74,37 @@ export class RealQueryService implements QueryService {
     }
   }
 
-  async voiceQuery(audioInput: Blob | { audioBlob: Blob | null; audioUri: string | null }, options?: any) {
+  async voiceQuery(audioInput: { audioUri: string | null }, options?: any) {
     try {
-      console.log('voiceQuery called with input:', audioInput);
+      console.log('voiceQuery called with audioUri:', audioInput.audioUri);
 
-      // Handle both Blob and AudioRecordingResult inputs
-      let audioBlob: Blob;
+      // Get base64 data from audio URI
+      let base64Data: string;
       let contentType: string;
 
-      if (audioInput instanceof Blob) {
-        // Direct blob input (for web compatibility)
-        audioBlob = audioInput;
-        contentType = audioBlob.type || 'audio/wav';
-        console.log('Using direct blob input, size:', audioBlob.size, 'type:', contentType);
-      } else {
-        // AudioRecordingResult from React Native
-        console.log('AudioRecordingResult - audioBlob:', !!audioInput.audioBlob, 'audioUri:', audioInput.audioUri);
-        if (audioInput.audioBlob) {
-          audioBlob = audioInput.audioBlob;
-          contentType = audioBlob.type || 'audio/wav';
-          console.log('Using audioBlob from result, size:', audioBlob.size, 'type:', contentType);
-        } else if (audioInput.audioUri) {
-          // Fallback: try to convert audioUri to blob
-          console.log('No audioBlob available, attempting to convert audioUri to blob');
-          try {
-            const { FileSystem } = await import('expo-file-system');
-            const base64 = await FileSystem.readAsStringAsync(audioInput.audioUri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
+      if (audioInput.audioUri) {
+        // Use the URI directly to get base64 data
+        console.log('Converting audioUri to base64 directly');
+        try {
+          const { FileSystem } = await import('expo-file-system');
+          base64Data = await FileSystem.readAsStringAsync(audioInput.audioUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          contentType = 'audio/wav';
 
-            // Convert base64 to blob
-            const binaryString = atob(base64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-
-            audioBlob = new Blob([bytes], { type: 'audio/wav' });
-            contentType = 'audio/wav';
-            console.log('Successfully converted audioUri to blob, size:', audioBlob.size);
-            console.log('Base64 length:', base64.length);
-            console.log('First 50 chars of base64:', base64.substring(0, 50));
-          } catch (conversionError) {
-            console.error('Failed to convert audioUri to blob:', conversionError);
-            throw new Error('Failed to process audio file for upload');
-          }
-        } else {
-          console.error('No audio blob or URI available in recording result');
-          throw new Error('No audio data available from recording');
+          console.log('Successfully converted audioUri to base64, length:', base64Data.length);
+          console.log('First 50 chars of base64:', base64Data.substring(0, 50));
+        } catch (conversionError) {
+          console.error('Failed to convert audioUri to base64:', conversionError);
+          throw new Error('Failed to process audio file for upload');
         }
+      } else {
+        console.error('No audio URI available in recording result');
+        throw new Error('No audio data available from recording');
       }
 
-      console.log('Calling API voiceQuery with blob size:', audioBlob.size);
-      const response = await this.api.voiceQuery(audioBlob, contentType, options?.includeSources !== false);
+      console.log('Calling API with base64 data, length:', base64Data.length);
+      const response = await this.api.voiceQuery(base64Data, contentType, options?.includeSources !== false);
       console.log('API response received:', response);
 
       if (response.error) {

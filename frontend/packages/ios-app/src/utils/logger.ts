@@ -16,18 +16,33 @@ class SafeLogger {
 
       // Handle objects that might not have hasOwnProperty
       if (typeof obj === 'object') {
-        // Create a clean object for serialization
-        const cleanObj = Object.fromEntries(
-          Object.entries(obj).filter(([key, value]) => {
-            try {
-              JSON.stringify(value);
-              return true;
-            } catch {
-              return false;
+        // Use a safer approach that doesn't rely on hasOwnProperty
+        try {
+          // First try simple JSON stringify
+          return JSON.stringify(obj, null, 2);
+        } catch (jsonError) {
+          // If that fails, create a simple object representation
+          try {
+            const safeObj: any = {};
+
+            // Use Object.keys to avoid hasOwnProperty issues
+            const keys = Object.keys(obj || {});
+            for (const key of keys) {
+              try {
+                const value = obj[key];
+                if (value !== undefined && typeof value !== 'function') {
+                  safeObj[key] = typeof value === 'object' ? '[Object]' : String(value);
+                }
+              } catch {
+                safeObj[key] = '[Inaccessible]';
+              }
             }
-          })
-        );
-        return JSON.stringify(cleanObj, null, 2);
+
+            return JSON.stringify(safeObj, null, 2);
+          } catch {
+            return `[Object: ${obj.constructor?.name || 'Unknown'}]`;
+          }
+        }
       }
 
       return String(obj);

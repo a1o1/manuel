@@ -46,7 +46,7 @@ export const ENV_CONFIG = {
 
   // Development settings
   DEV: {
-    LOG_API_CALLS: false,   // Disabled after switching to WAV format
+    LOG_API_CALLS: true,    // Re-enable for debugging transcription issues
     SHOW_DEV_INDICATORS: true,
     LOG_ERRORS: true,       // Keep error logging enabled
   }

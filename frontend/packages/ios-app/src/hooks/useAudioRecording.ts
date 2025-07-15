@@ -6,7 +6,6 @@ import { logger } from '../utils/logger';
 import '../utils/crypto-polyfill';
 
 export interface AudioRecordingResult {
-  audioBlob: Blob | null;
   audioUri: string | null;
   duration: number;
   size: number;
@@ -161,34 +160,7 @@ export function useAudioRecording(): UseAudioRecordingReturn {
       logger.log('File exists:', fileInfo.exists);
       logger.log('File size:', fileSize);
 
-      // Convert file to blob for API compatibility
-      let audioBlob: Blob | null = null;
-
-      try {
-        // Read file as base64, then convert to blob
-        const base64 = await FileSystem.readAsStringAsync(uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        logger.log('Base64 length:', base64.length);
-        logger.log('Base64 sample (first 100 chars):', base64.substring(0, 100));
-
-        // Convert base64 to blob
-        const binaryString = atob(base64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        // Use wav content type to match recording format
-        audioBlob = new Blob([bytes], { type: 'audio/wav' });
-        logger.log('Audio file converted to blob, size:', audioBlob.size);
-      } catch (blobError) {
-        logger.error('Failed to convert audio to blob:', blobError);
-      }
-
       const result: AudioRecordingResult = {
-        audioBlob,
         audioUri: uri,
         duration,
         size: fileSize,
