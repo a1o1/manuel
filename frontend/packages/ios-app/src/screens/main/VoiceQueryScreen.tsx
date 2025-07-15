@@ -83,12 +83,12 @@ export function VoiceQueryScreen() {
         console.log('Processing audio with query service...');
         console.log('Audio blob size:', recordingResult.audioBlob?.size);
         console.log('Audio URI:', recordingResult.audioUri);
-        
+
         // Process the audio with our query service
         const queryResult = await queryService.voiceQuery(recordingResult, {
           includeSources: true
         });
-        
+
         console.log('Query result received:', queryResult);
         setResult(queryResult);
       } else {

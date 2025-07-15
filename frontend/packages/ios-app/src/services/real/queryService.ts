@@ -8,9 +8,9 @@ class QueryApi extends BaseApi {
     return this.post(API_ENDPOINTS.QUERY.ASK, { question });
   }
 
-  async voiceQuery(audioBlob: Blob, contentType: string) {
+  async voiceQuery(audioBlob: Blob, contentType: string, includeSources = true) {
     console.log('Converting blob to base64 for API, blob size:', audioBlob.size);
-    
+
     // Convert blob to base64 for API - React Native compatible approach
     try {
       // Try React Native method first
@@ -18,16 +18,18 @@ class QueryApi extends BaseApi {
       const uint8Array = new Uint8Array(arrayBuffer);
       const binaryString = Array.from(uint8Array, byte => String.fromCharCode(byte)).join('');
       const base64 = btoa(binaryString);
-      
+
       console.log('Successfully converted blob to base64, length:', base64.length);
-      
+
       return this.post(API_ENDPOINTS.QUERY.ASK, {
+        question: '', // Will be filled by transcription
         file_data: base64,
         content_type: contentType,
+        include_sources: includeSources,
       });
     } catch (error) {
       console.error('Failed to convert blob to base64:', error);
-      
+
       // Fallback to FileReader for web compatibility
       console.log('Falling back to FileReader approach');
       const reader = new FileReader();
@@ -42,8 +44,10 @@ class QueryApi extends BaseApi {
       });
 
       return this.post(API_ENDPOINTS.QUERY.ASK, {
+        question: '', // Will be filled by transcription
         file_data: base64,
         content_type: contentType,
+        include_sources: includeSources,
       });
     }
   }
@@ -104,7 +108,7 @@ export class RealQueryService implements QueryService {
   async voiceQuery(audioInput: Blob | { audioBlob: Blob | null; audioUri: string | null }, options?: any) {
     try {
       console.log('voiceQuery called with input:', audioInput);
-      
+
       // Handle both Blob and AudioRecordingResult inputs
       let audioBlob: Blob;
       let contentType: string;
@@ -129,14 +133,14 @@ export class RealQueryService implements QueryService {
             const base64 = await FileSystem.readAsStringAsync(audioInput.audioUri, {
               encoding: FileSystem.EncodingType.Base64,
             });
-            
+
             // Convert base64 to blob
             const binaryString = atob(base64);
             const bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
               bytes[i] = binaryString.charCodeAt(i);
             }
-            
+
             audioBlob = new Blob([bytes], { type: 'audio/mp4' });
             contentType = 'audio/mp4';
             console.log('Successfully converted audioUri to blob, size:', audioBlob.size);
@@ -151,7 +155,7 @@ export class RealQueryService implements QueryService {
       }
 
       console.log('Calling API voiceQuery with blob size:', audioBlob.size);
-      const response = await this.api.voiceQuery(audioBlob, contentType);
+      const response = await this.api.voiceQuery(audioBlob, contentType, options?.includeSources !== false);
       console.log('API response received:', response);
 
       if (response.error) {
