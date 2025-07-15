@@ -95,7 +95,28 @@ export function useAudioRecording(): UseAudioRecordingReturn {
       recordingRef.current = recording;
 
       // Configure recording options
-      const recordingOptions = Audio.RecordingOptionsPresets.HIGH_QUALITY;
+      // Use a specific recording format that AWS Transcribe supports
+      const recordingOptions = {
+        android: {
+          extension: '.m4a',
+          outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_MPEG_4,
+          audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC,
+          sampleRate: 44100,
+          numberOfChannels: 1,
+          bitRate: 128000,
+        },
+        ios: {
+          extension: '.m4a',
+          outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_MPEG4AAC,
+          audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_HIGH,
+          sampleRate: 44100,
+          numberOfChannels: 1,
+          bitRate: 128000,
+          linearPCMBitDepth: 16,
+          linearPCMIsBigEndian: false,
+          linearPCMIsFloat: false,
+        },
+      };
 
       // Prepare the recording
       await recording.prepareToRecordAsync(recordingOptions);
@@ -135,6 +156,10 @@ export function useAudioRecording(): UseAudioRecordingReturn {
       const fileInfo = await FileSystem.getInfoAsync(uri);
       const fileSize = fileInfo.exists ? fileInfo.size || 0 : 0;
 
+      logger.log('Recording URI:', uri);
+      logger.log('File exists:', fileInfo.exists);
+      logger.log('File size:', fileSize);
+
       // Convert file to blob for API compatibility
       let audioBlob: Blob | null = null;
 
@@ -151,6 +176,7 @@ export function useAudioRecording(): UseAudioRecordingReturn {
           bytes[i] = binaryString.charCodeAt(i);
         }
 
+        // Use mp4 content type as expected by backend for m4a files
         audioBlob = new Blob([bytes], { type: 'audio/mp4' });
         logger.log('Audio file converted to blob, size:', audioBlob.size);
       } catch (blobError) {

@@ -20,6 +20,8 @@ class QueryApi extends BaseApi {
       const base64 = btoa(binaryString);
 
       console.log('Successfully converted blob to base64, length:', base64.length);
+      console.log('First 100 chars of base64:', base64.substring(0, 100));
+      console.log('Base64 is valid:', /^[A-Za-z0-9+/]*={0,2}$/.test(base64));
 
       return this.post(API_ENDPOINTS.QUERY.ASK, {
         question: '', // Will be filled by transcription
@@ -123,7 +125,7 @@ export class RealQueryService implements QueryService {
         console.log('AudioRecordingResult - audioBlob:', !!audioInput.audioBlob, 'audioUri:', audioInput.audioUri);
         if (audioInput.audioBlob) {
           audioBlob = audioInput.audioBlob;
-          contentType = audioBlob.type || 'audio/mp4';
+          contentType = 'audio/mp4'; // Backend expects mp4 for m4a files
           console.log('Using audioBlob from result, size:', audioBlob.size, 'type:', contentType);
         } else if (audioInput.audioUri) {
           // Fallback: try to convert audioUri to blob
@@ -142,8 +144,10 @@ export class RealQueryService implements QueryService {
             }
 
             audioBlob = new Blob([bytes], { type: 'audio/mp4' });
-            contentType = 'audio/mp4';
+            contentType = 'audio/mp4'; // Backend expects mp4 for m4a files
             console.log('Successfully converted audioUri to blob, size:', audioBlob.size);
+            console.log('Base64 length:', base64.length);
+            console.log('First 50 chars of base64:', base64.substring(0, 50));
           } catch (conversionError) {
             console.error('Failed to convert audioUri to blob:', conversionError);
             throw new Error('Failed to process audio file for upload');
