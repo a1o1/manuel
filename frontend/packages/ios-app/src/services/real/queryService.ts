@@ -125,7 +125,7 @@ export class RealQueryService implements QueryService {
         console.log('AudioRecordingResult - audioBlob:', !!audioInput.audioBlob, 'audioUri:', audioInput.audioUri);
         if (audioInput.audioBlob) {
           audioBlob = audioInput.audioBlob;
-          contentType = 'audio/mp4'; // Backend expects mp4 for m4a files
+          contentType = audioBlob.type || 'audio/wav';
           console.log('Using audioBlob from result, size:', audioBlob.size, 'type:', contentType);
         } else if (audioInput.audioUri) {
           // Fallback: try to convert audioUri to blob
@@ -143,8 +143,8 @@ export class RealQueryService implements QueryService {
               bytes[i] = binaryString.charCodeAt(i);
             }
 
-            audioBlob = new Blob([bytes], { type: 'audio/mp4' });
-            contentType = 'audio/mp4'; // Backend expects mp4 for m4a files
+            audioBlob = new Blob([bytes], { type: 'audio/wav' });
+            contentType = 'audio/wav';
             console.log('Successfully converted audioUri to blob, size:', audioBlob.size);
             console.log('Base64 length:', base64.length);
             console.log('First 50 chars of base64:', base64.substring(0, 50));

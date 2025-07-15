@@ -96,20 +96,21 @@ export function useAudioRecording(): UseAudioRecordingReturn {
 
       // Configure recording options
       // Use a specific recording format that AWS Transcribe supports
+      // AWS Transcribe supports: mp3, mp4, wav, flac, ogg, amr, webm
       const recordingOptions = {
         android: {
-          extension: '.m4a',
-          outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_MPEG_4,
-          audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_AAC,
-          sampleRate: 44100,
+          extension: '.wav',
+          outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_DEFAULT,
+          audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_DEFAULT,
+          sampleRate: 16000, // AWS Transcribe recommended sample rate
           numberOfChannels: 1,
           bitRate: 128000,
         },
         ios: {
-          extension: '.m4a',
-          outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_MPEG4AAC,
-          audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_HIGH,
-          sampleRate: 44100,
+          extension: '.wav',
+          outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_LINEARPCM,
+          audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MAX,
+          sampleRate: 16000, // AWS Transcribe recommended sample rate
           numberOfChannels: 1,
           bitRate: 128000,
           linearPCMBitDepth: 16,
@@ -169,6 +170,9 @@ export function useAudioRecording(): UseAudioRecordingReturn {
           encoding: FileSystem.EncodingType.Base64,
         });
 
+        logger.log('Base64 length:', base64.length);
+        logger.log('Base64 sample (first 100 chars):', base64.substring(0, 100));
+
         // Convert base64 to blob
         const binaryString = atob(base64);
         const bytes = new Uint8Array(binaryString.length);
@@ -176,8 +180,8 @@ export function useAudioRecording(): UseAudioRecordingReturn {
           bytes[i] = binaryString.charCodeAt(i);
         }
 
-        // Use mp4 content type as expected by backend for m4a files
-        audioBlob = new Blob([bytes], { type: 'audio/mp4' });
+        // Use wav content type to match recording format
+        audioBlob = new Blob([bytes], { type: 'audio/wav' });
         logger.log('Audio file converted to blob, size:', audioBlob.size);
       } catch (blobError) {
         logger.error('Failed to convert audio to blob:', blobError);
