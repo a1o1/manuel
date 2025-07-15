@@ -46,9 +46,9 @@ export const ENV_CONFIG = {
 
   // Development settings
   DEV: {
-    LOG_API_CALLS: true,   // Temporarily enabled for debugging voice queries
+    LOG_API_CALLS: false,   // Disabled now that voice query API format is fixed
     SHOW_DEV_INDICATORS: true,
-    LOG_ERRORS: true,      // Temporarily enabled for debugging voice queries
+    LOG_ERRORS: true,       // Keep error logging enabled
   }
 };
 
