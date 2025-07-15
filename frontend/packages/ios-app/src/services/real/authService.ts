@@ -83,19 +83,26 @@ export class RealAuthService implements AuthService {
 
   private async refreshTokens(refreshToken: string): Promise<CognitoTokens> {
     return new Promise((resolve, reject) => {
-      const currentUser = this.userPool.getCurrentUser();
+      // First try to get the current user
+      let currentUser = this.userPool.getCurrentUser();
+
+      // If no current user, try to reconstruct from stored tokens
       if (!currentUser) {
-        reject(new Error('No current user found'));
+        console.warn('No current user found, attempting to refresh tokens without user session');
+        // This is a fallback - we can't refresh without a user session
+        reject(new Error('No current user session available for token refresh'));
         return;
       }
 
       currentUser.getSession((err: any, session: CognitoUserSession) => {
         if (err) {
+          console.error('Failed to get session for token refresh:', err);
           reject(err);
           return;
         }
 
         if (!session.isValid()) {
+          console.error('Session is not valid for token refresh');
           reject(new Error('Session is not valid'));
           return;
         }
@@ -126,12 +133,15 @@ export class RealAuthService implements AuthService {
 
     // Try to refresh tokens
     try {
+      console.log('Attempting to refresh expired tokens...');
       const refreshed = await this.refreshTokens(stored.refreshToken);
       await this.storeTokens(refreshed);
+      console.log('Token refresh successful');
       return refreshed;
     } catch (error) {
-      console.error('Token refresh failed:', error);
-      await this.clearStoredTokens();
+      console.warn('Token refresh failed, user will need to login again:', error.message);
+      // Don't clear stored tokens immediately on app startup - just return null
+      // The user can still attempt to login manually
       return null;
     }
   }

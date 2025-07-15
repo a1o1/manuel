@@ -2,6 +2,7 @@ import { QueryService } from '../interfaces';
 import { BaseApi } from '../api/baseApi';
 import { API_ENDPOINTS } from '../../constants/api';
 import { handleApiError } from './errorHandler';
+import * as FileSystem from 'expo-file-system';
 
 class QueryApi extends BaseApi {
   async textQuery(question: string) {
@@ -86,7 +87,6 @@ export class RealQueryService implements QueryService {
         // Use the URI directly to get base64 data
         console.log('Converting audioUri to base64 directly');
         try {
-          const { FileSystem } = await import('expo-file-system');
           base64Data = await FileSystem.readAsStringAsync(audioInput.audioUri, {
             encoding: FileSystem.EncodingType.Base64,
           });
