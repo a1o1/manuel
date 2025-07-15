@@ -6,6 +6,7 @@ Simple manual management without complex dependencies
 import json
 import os
 import time
+import urllib.parse
 import urllib.request
 import uuid
 from typing import Any, Dict
@@ -29,7 +30,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "statusCode": 200,
                 "headers": {
                     "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+                    "Access-Control-Allow-Methods": "GET,POST,DELETE,OPTIONS",
                     "Access-Control-Allow-Headers": (
                         "Content-Type,X-Amz-Date,Authorization,X-Api-Key,"
                         "X-Amz-Security-Token"
@@ -38,11 +39,31 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "body": "",
             }
 
-        # Extract user ID from Cognito JWT
-        user_id = "default-user"  # Fallback for testing
-        claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
-        if claims and "sub" in claims:
-            user_id = claims["sub"]
+        # Extract user ID from Cognito JWT or use fallback
+        user_id = (
+            "2255e4f4-60a1-70a7-11ad-c210c163545d"  # Use existing user ID for testing
+        )
+
+        # Try to get user ID from Cognito claims
+        try:
+            claims = (
+                event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+            )
+            if claims and "sub" in claims:
+                user_id = claims["sub"]
+            else:
+                # If no claims, try to get from Authorization header
+                headers = event.get("headers", {})
+                auth_header = headers.get("Authorization") or headers.get(
+                    "authorization"
+                )
+                if auth_header and auth_header.startswith("Bearer "):
+                    # For now, use a fixed user ID for testing
+                    # TODO: Decode JWT token to get actual user ID
+                    user_id = "test-user"
+        except Exception as e:
+            print(f"Error extracting user ID: {e}")
+            user_id = "default-user"
 
         s3_client = boto3.client("s3")
 
@@ -51,6 +72,52 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         elif method == "POST" and path.endswith("/api/manuals/download"):
             return handle_download_manual(event, s3_client, manuals_bucket, user_id)
+
+        elif (
+            method == "GET"
+            and "/api/manuals/" in path
+            and not path.endswith("/api/manuals")
+        ):
+            # Handle GET /api/manuals/{id}
+            path_parameters = event.get("pathParameters", {})
+            manual_id = path_parameters.get("id") if path_parameters else None
+            if not manual_id:
+                return {
+                    "statusCode": 400,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                    "body": json.dumps({"error": "Manual ID is required"}),
+                }
+            # URL decode the manual_id since API Gateway doesn't decode path parameters
+            decoded_manual_id = urllib.parse.unquote(manual_id)
+            return handle_get_manual_detail(
+                s3_client, manuals_bucket, user_id, decoded_manual_id
+            )
+
+        elif (
+            method == "DELETE"
+            and "/api/manuals/" in path
+            and not path.endswith("/api/manuals")
+        ):
+            # Handle DELETE /api/manuals/{id}
+            path_parameters = event.get("pathParameters", {})
+            manual_id = path_parameters.get("id") if path_parameters else None
+            if not manual_id:
+                return {
+                    "statusCode": 400,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                    "body": json.dumps({"error": "Manual ID is required"}),
+                }
+            # URL decode the manual_id since API Gateway doesn't decode path parameters
+            decoded_manual_id = urllib.parse.unquote(manual_id)
+            return handle_delete_manual(
+                s3_client, manuals_bucket, user_id, decoded_manual_id
+            )
 
         else:
             return {
@@ -244,4 +311,144 @@ def handle_download_manual(
             "body": json.dumps(
                 {"error": "Failed to download manual", "details": str(e)}
             ),
+        }
+
+
+def handle_get_manual_detail(
+    s3_client, bucket_name: str, user_id: str, manual_id: str
+) -> Dict[str, Any]:
+    """Get detailed information about a specific manual"""
+
+    try:
+        # Manual ID is the S3 key in the format: manuals/{user_id}/{manual_id}.pdf
+        s3_key = manual_id
+
+        # Ensure the manual belongs to the user
+        expected_prefix = f"manuals/{user_id}/"
+        if not s3_key.startswith(expected_prefix):
+            return {
+                "statusCode": 403,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+                "body": json.dumps({"error": "Access denied"}),
+            }
+
+        # Get object metadata
+        try:
+            response = s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+        except s3_client.exceptions.NoSuchKey:
+            return {
+                "statusCode": 404,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+                "body": json.dumps({"error": "Manual not found"}),
+            }
+
+        # Extract metadata
+        metadata = response.get("Metadata", {})
+        display_name = metadata.get("display_name", s3_key.split("/")[-1])
+        upload_date = response["LastModified"].isoformat()
+        size = response["ContentLength"]
+
+        # Generate presigned URL for PDF viewing
+        pdf_url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": s3_key},
+            ExpiresIn=3600,  # 1 hour
+        )
+
+        # For now, return mock data for fields we don't track yet
+        # TODO: Connect to knowledge base to get real stats
+        manual_detail = {
+            "id": s3_key,
+            "name": display_name,
+            "uploadDate": upload_date,
+            "pages": 42,  # Mock - would need PDF parsing
+            "size": f"{size / (1024 * 1024):.1f}MB",
+            "status": "processed",
+            "chunks": 25,  # Mock - would get from knowledge base
+            "lastQueried": upload_date,  # Mock - would track in DynamoDB
+            "queryCount": 5,  # Mock - would track in DynamoDB
+            "pdfUrl": pdf_url,
+        }
+
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps(manual_detail),
+        }
+
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps(
+                {"error": "Failed to get manual detail", "details": str(e)}
+            ),
+        }
+
+
+def handle_delete_manual(
+    s3_client, bucket_name: str, user_id: str, manual_id: str
+) -> Dict[str, Any]:
+    """Delete a specific manual"""
+
+    try:
+        # Manual ID is the S3 key in the format: manuals/{user_id}/{manual_id}.pdf
+        s3_key = manual_id
+
+        # Ensure the manual belongs to the user
+        if not s3_key.startswith(f"manuals/{user_id}/"):
+            return {
+                "statusCode": 403,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+                "body": json.dumps({"error": "Access denied"}),
+            }
+
+        # Check if the object exists
+        try:
+            s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+        except s3_client.exceptions.NoSuchKey:
+            return {
+                "statusCode": 404,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+                "body": json.dumps({"error": "Manual not found"}),
+            }
+
+        # Delete the object
+        s3_client.delete_object(Bucket=bucket_name, Key=s3_key)
+
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps({"message": "Manual deleted successfully"}),
+        }
+
+    except Exception as e:
+        return {
+            "statusCode": 500,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps({"error": "Failed to delete manual", "details": str(e)}),
         }

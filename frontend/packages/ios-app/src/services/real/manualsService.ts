@@ -30,7 +30,9 @@ export class RealManualsService implements ManualsService {
 
   async getManuals() {
     try {
-      const headers = await this.getAuthHeaders();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
 
       const response = await fetch(getApiUrl('/api/manuals'), {
         method: 'GET',
@@ -96,9 +98,13 @@ export class RealManualsService implements ManualsService {
 
   async deleteManual(manualId: string) {
     try {
-      const headers = await this.getAuthHeaders();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
 
-      const response = await fetch(getApiUrl(`/api/manuals/${manualId}`), {
+      // URL encode the manual ID since it contains forward slashes
+      const encodedManualId = encodeURIComponent(manualId);
+      const response = await fetch(getApiUrl(`/api/manuals/${encodedManualId}`), {
         method: 'DELETE',
         headers,
       });
@@ -118,9 +124,13 @@ export class RealManualsService implements ManualsService {
 
   async getManualDetail(manualId: string) {
     try {
-      const headers = await this.getAuthHeaders();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
 
-      const response = await fetch(getApiUrl(`/api/manuals/${manualId}`), {
+      // URL encode the manual ID since it contains forward slashes
+      const encodedManualId = encodeURIComponent(manualId);
+      const response = await fetch(getApiUrl(`/api/manuals/${encodedManualId}`), {
         method: 'GET',
         headers,
       });

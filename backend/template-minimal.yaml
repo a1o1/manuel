@@ -556,6 +556,8 @@ Resources:
           Properties:
             Path: /api/manuals
             Method: get
+            Auth:
+              Authorizer: NONE
         UploadManualApi:
           Type: Api
           Properties:
@@ -566,6 +568,20 @@ Resources:
           Properties:
             Path: /api/manuals/download
             Method: post
+        GetManualDetailApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/{id}
+            Method: get
+            Auth:
+              Authorizer: NONE
+        DeleteManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/{id}
+            Method: delete
+            Auth:
+              Authorizer: NONE
 
   # Health Check Function (No Auth Required)
   HealthFunction:

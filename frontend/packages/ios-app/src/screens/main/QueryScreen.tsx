@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { queryService } from '../../services';
+import { queryService, manualsService } from '../../services';
 import { showErrorToUser, ManuelError } from '../../services/real/errorHandler';
 import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
 import { RateLimitIndicator } from '../../components/RateLimitIndicator';
+import { EnhancedSourceCard } from '../../components/EnhancedSourceCard';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -18,6 +19,9 @@ interface QueryResult {
     manual_name: string;
     page_number?: number;
     chunk_text: string;
+    score?: number;
+    pdf_url?: string;
+    pdf_id?: string;
   }>;
   cost: number;
   responseTime: number;
@@ -29,6 +33,51 @@ export function QueryScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<QueryResult | null>(null);
   const [includeSources, setIncludeSources] = useState(true);
+  const [manuals, setManuals] = useState<any[]>([]);
+
+  // Load manuals list to help with PDF URL lookup
+  useEffect(() => {
+    const loadManuals = async () => {
+      try {
+        const manualsList = await manualsService.getManuals();
+        setManuals(manualsList);
+      } catch (error) {
+        console.error('Error loading manuals for PDF lookup:', error);
+      }
+    };
+
+    loadManuals();
+  }, []);
+
+  // Function to get PDF URL for a source by trying to match the manual name
+  const getPDFUrl = async (source: any): Promise<string | null> => {
+    try {
+      // Try to find a manual that matches the source manual_name
+      const matchedManual = manuals.find(manual => {
+        // Try exact match first
+        if (manual.name === source.manual_name) return true;
+
+        // Try to match by manual ID if the manual_name looks like a UUID
+        if (manual.id && manual.id.includes(source.manual_name.replace(/\s+/g, '-'))) return true;
+
+        // Try to match by partial name
+        if (manual.name.toLowerCase().includes(source.manual_name.toLowerCase())) return true;
+
+        return false;
+      });
+
+      if (matchedManual) {
+        // Get the manual detail which should include the PDF URL
+        const manualDetail = await manualsService.getManualDetail(matchedManual.id);
+        return manualDetail.pdfUrl || null;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error getting PDF URL for source:', error);
+      return null;
+    }
+  };
 
   const handleSubmit = async () => {
     if (!query.trim()) {
@@ -157,17 +206,12 @@ export function QueryScreen() {
                 <View style={styles.sourcesSection}>
                   <Text style={styles.sourcesTitle}>Sources</Text>
                   {result.sources.map((source, index) => (
-                    <View key={index} style={styles.sourceCard}>
-                      <View style={styles.sourceHeader}>
-                        <Text style={styles.sourceName}>{source.manual_name}</Text>
-                        {source.page_number && (
-                          <Text style={styles.pageNumber}>Page {source.page_number}</Text>
-                        )}
-                      </View>
-                      <Text style={styles.sourceText} numberOfLines={3}>
-                        {source.chunk_text}
-                      </Text>
-                    </View>
+                    <EnhancedSourceCard
+                      key={index}
+                      source={source}
+                      index={index}
+                      onGetPDFUrl={getPDFUrl}
+                    />
                   ))}
                 </View>
               )}
@@ -346,33 +390,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#000000',
     marginBottom: 12,
-  },
-  sourceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  sourceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sourceName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#000000',
-    flex: 1,
-  },
-  pageNumber: {
-    fontSize: 12,
-    color: '#8E8E93',
-    fontWeight: '500',
-  },
-  sourceText: {
-    fontSize: 14,
-    color: '#8E8E93',
-    lineHeight: 20,
   },
 });

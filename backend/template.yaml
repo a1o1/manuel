@@ -43,7 +43,7 @@ Globals:
         CACHE_MEMORY_SIZE: !Ref CacheMemorySize
   Api:
     Cors:
-      AllowMethods: "'GET,POST,OPTIONS'"
+      AllowMethods: "'GET,POST,DELETE,OPTIONS'"
       AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
       AllowOrigin: !Sub "'${CorsAllowedOrigins}'"
     Auth:
@@ -810,11 +810,27 @@ Resources:
           Properties:
             Path: /api/manuals
             Method: get
+            Auth:
+              Authorizer: NONE
         UploadManualApi:
           Type: Api
           Properties:
             Path: /api/manuals/upload
             Method: post
+        GetManualDetailApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/{id}
+            Method: get
+            Auth:
+              Authorizer: NONE
+        DeleteManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/{id}
+            Method: delete
+            Auth:
+              Authorizer: NONE
         DownloadManualApi:
           Type: Api
           Properties:

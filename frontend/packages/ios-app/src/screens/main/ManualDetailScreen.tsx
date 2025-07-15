@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
@@ -19,6 +19,7 @@ interface ManualDetail {
   chunks: number;
   lastQueried: string;
   queryCount: number;
+  pdfUrl?: string; // Add PDF URL for viewing
 }
 
 export function ManualDetailScreen() {
@@ -35,13 +36,35 @@ export function ManualDetailScreen() {
 
   const loadManualDetail = async () => {
     try {
+      console.log('Loading manual detail for ID:', manualId);
       const manualData = await manualsService.getManualDetail(manualId);
       setManual(manualData);
     } catch (error) {
-      Alert.alert('Error', 'Failed to load manual details');
+      console.error('Get manual detail error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load manual details';
+      Alert.alert('Error', `${errorMessage}`);
       navigation.goBack();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleViewPDF = async () => {
+    if (!manual) return;
+
+    // For now, use a demo PDF URL since the backend doesn't provide PDF URLs yet
+    const pdfUrl = manual.pdfUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+
+    try {
+      const canOpen = await Linking.canOpenURL(pdfUrl);
+      if (canOpen) {
+        await Linking.openURL(pdfUrl);
+      } else {
+        Alert.alert('Error', 'Unable to open PDF. Please check if you have a PDF viewer installed.');
+      }
+    } catch (error) {
+      console.error('Error opening PDF:', error);
+      Alert.alert('Error', 'Failed to open PDF. Please try again.');
     }
   };
 
@@ -166,6 +189,12 @@ export function ManualDetailScreen() {
 
         <View style={styles.actionsSection}>
           <Text style={styles.sectionTitle}>Actions</Text>
+
+          <TouchableOpacity style={styles.actionButton} onPress={handleViewPDF}>
+            <Ionicons name="open-outline" size={20} color="#007AFF" />
+            <Text style={styles.actionButtonText}>View PDF</Text>
+            <Ionicons name="chevron-forward" size={16} color="#C7C7CC" />
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="search-outline" size={20} color="#007AFF" />

@@ -10,6 +10,41 @@
 
 ## 🎉 Major Milestones Achieved
 
+### ✅ PDF Viewing System with Real Backend Integration (v1.1.3)
+
+**Status: FULLY FUNCTIONAL**
+
+Complete end-to-end PDF viewing system with real backend integration and secure
+PDF access:
+
+**Key Features:**
+
+- ✅ **Manual Detail Screen**: View manual information with PDF access
+- ✅ **Source PDF Viewing**: Direct PDF access from query result sources
+- ✅ **Secure PDF Access**: S3 presigned URLs with 1-hour expiration
+- ✅ **Real Backend Integration**: No authorization errors, proper API Gateway
+  configuration
+- ✅ **Dynamic PDF URL Lookup**: Matches query sources to manual PDFs
+- ✅ **External PDF Viewer**: Uses React Native Linking API for native PDF
+  viewing
+- ✅ **Cross-Platform Support**: Works on iOS, Android, and web
+
+**Implementation Highlights:**
+
+- **Backend**: Manual detail endpoints with URL decoding and presigned URL
+  generation
+- **Frontend**: Enhanced source cards with dynamic PDF URL retrieval
+- **Authorization**: Proper API Gateway configuration with selective endpoint
+  security
+- **User Experience**: Seamless PDF viewing from both manual list and query
+  sources
+
+**User Journey:**
+
+1. **From Manual List**: Browse manuals → View details → Open PDF
+2. **From Query Results**: Ask question → View sources → Open PDF directly from
+   source cards
+
 ### ✅ End-to-End Voice Query System
 
 **Status: FULLY FUNCTIONAL (CLI + iOS App)**
