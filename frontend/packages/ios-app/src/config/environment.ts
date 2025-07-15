@@ -40,13 +40,14 @@ export const ENV_CONFIG = {
     API: {
       MAX_REQUEST_SIZE_MB: 50,
       TIMEOUT_MS: 30000,
+      VOICE_QUERY_TIMEOUT_MS: 120000, // 2 minutes for voice queries (transcription takes time)
       ENABLE_RETRY_ON_RATE_LIMIT: true,
     },
   },
 
   // Development settings
   DEV: {
-    LOG_API_CALLS: false,   // Disabled after fixing auth and FileSystem issues
+    LOG_API_CALLS: true,    // Temporarily enabled to monitor voice query timeout
     SHOW_DEV_INDICATORS: true,
     LOG_ERRORS: true,       // Keep error logging enabled
   }

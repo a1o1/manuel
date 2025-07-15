@@ -2,6 +2,7 @@ import { QueryService } from '../interfaces';
 import { BaseApi } from '../api/baseApi';
 import { API_ENDPOINTS } from '../../constants/api';
 import { handleApiError } from './errorHandler';
+import { ENV_CONFIG } from '../../config/environment';
 import * as FileSystem from 'expo-file-system';
 
 class QueryApi extends BaseApi {
@@ -14,12 +15,16 @@ class QueryApi extends BaseApi {
     console.log('Content type:', contentType);
     console.log('First 100 chars of base64:', audioBase64.substring(0, 100));
 
+    // Use longer timeout for voice queries since transcription takes time
+    const voiceQueryTimeout = ENV_CONFIG.SECURITY.API.VOICE_QUERY_TIMEOUT_MS;
+    console.log('Using voice query timeout:', voiceQueryTimeout, 'ms');
+
     return this.post(API_ENDPOINTS.QUERY.ASK, {
       question: '', // Will be filled by transcription
       file_data: audioBase64,
       content_type: contentType,
       include_sources: includeSources,
-    });
+    }, voiceQueryTimeout);
   }
 }
 

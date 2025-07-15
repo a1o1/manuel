@@ -40,7 +40,8 @@ export class BaseApi {
 
   protected async makeRequest<T = any>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    timeoutMs?: number
   ): Promise<ApiResponse<T>> {
     try {
       const token = await this.getAuthToken();
@@ -58,10 +59,27 @@ export class BaseApi {
       logger.log('Request headers:', headers);
       logger.log('Request body:', options.body);
 
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeout = timeoutMs || 30000; // Default 30 seconds
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+      let response;
+      try {
+        response = await fetch(url, {
+          ...options,
+          headers,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Endpoint request timed out');
+        }
+        throw error;
+      }
 
       logger.log('Raw response status:', response.status);
       const data = await response.json().catch(() => null);
@@ -101,12 +119,13 @@ export class BaseApi {
 
   protected async post<T = any>(
     endpoint: string,
-    body?: any
+    body?: any,
+    timeoutMs?: number
   ): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(endpoint, {
       method: 'POST',
       body: body ? JSON.stringify(body) : undefined,
-    });
+    }, timeoutMs);
   }
 
   protected async put<T = any>(

@@ -137,7 +137,7 @@ export function VoiceQueryScreen() {
   };
 
   const getRecordingButtonText = () => {
-    if (isProcessing) return 'Processing...';
+    if (isProcessing) return 'Transcribing audio... (this may take up to 2 minutes)';
     if (isRecording) return 'Tap to stop recording';
     if (isPaused) return 'Tap to resume';
     if (state === 'stopped') return 'Tap to record again';
