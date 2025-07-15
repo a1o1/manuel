@@ -12,9 +12,12 @@
 
 ### ✅ End-to-End Voice Query System
 
-**Status: FULLY FUNCTIONAL**
+**Status: FULLY FUNCTIONAL (CLI + iOS App)**
 
-The complete voice query pipeline is now working end-to-end:
+The complete voice query pipeline is now working end-to-end across all
+platforms:
+
+**CLI Implementation:**
 
 - ✅ Audio recording with CLI (sox integration)
 - ✅ AWS Transcribe speech-to-text conversion
@@ -22,7 +25,45 @@ The complete voice query pipeline is now working end-to-end:
 - ✅ Source attribution and cost tracking
 - ✅ Automatic cleanup and error handling
 
-**Test Command:** `manuel query voice`
+**iOS App Implementation:**
+
+- ✅ Native audio recording with expo-av
+- ✅ WAV format with Linear PCM encoding (16kHz, mono)
+- ✅ Direct URI-to-base64 conversion
+- ✅ Extended timeout handling (2 minutes for transcription)
+- ✅ Comprehensive error handling and user feedback
+- ✅ Full UI integration with transcription and answer display
+
+**Test Commands:**
+
+- CLI: `manuel query voice`
+- iOS App: Navigate to Voice Query screen and record
+
+### ✅ iOS App Voice Query Implementation (v1.1.2)
+
+**Status: FULLY FUNCTIONAL**
+
+Complete iOS app voice query implementation with native audio recording:
+
+**Key Features:**
+
+- React Native audio recording using expo-av
+- WAV format with Linear PCM encoding (optimal for speech)
+- 16kHz sample rate, mono channel, 16-bit depth
+- Direct file URI to base64 conversion (no blob issues)
+- Extended API timeout (2 minutes) for transcription processing
+- Comprehensive error handling and user feedback
+- Real-time recording controls (start/stop/pause/resume)
+- Minimum duration validation (1 second)
+- Full UI integration with transcription display
+
+**Technical Solutions:**
+
+- Fixed React Native blob compatibility issues
+- Resolved authentication token refresh problems
+- Implemented proper FileSystem import handling
+- Added AbortController-based timeout management
+- Enhanced error logging and user feedback
 
 ### ✅ Human-Friendly Manual Names (v1.1.0)
 
@@ -174,10 +215,17 @@ with sources
 - Frontend components: `frontend/src/components/`
 - Frontend iOS screens: `frontend/packages/ios-app/src/screens/main/`
   - `ManualsScreen.tsx` - Enhanced with FlatList for performance
+  - `VoiceQueryScreen.tsx` - Complete voice query UI with recording controls
+- Frontend iOS hooks: `frontend/packages/ios-app/src/hooks/`
+  - `useAudioRecording.ts` - Native audio recording with expo-av
+- Frontend iOS services: `frontend/packages/ios-app/src/services/real/`
+  - `queryService.ts` - Voice query implementation with timeout handling
+  - `authService.ts` - Enhanced token refresh handling
 - Frontend CLI: `frontend/packages/cli-app/src/commands/`
   - `ingestion.ts` - Ingestion monitoring commands
   - `bootstrap.ts` - Bootstrap system commands
   - `manuals.ts` - Enhanced manual management with display names
+  - `query.ts` - Voice query commands for CLI
 - Frontend mock services: `frontend/packages/ios-app/src/services/mock/`
 - AWS templates: `backend/template.yaml` + `backend/template-minimal.yaml`
 - Pipeline infrastructure: `backend/pipeline-template.yaml`

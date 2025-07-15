@@ -47,7 +47,7 @@ export const ENV_CONFIG = {
 
   // Development settings
   DEV: {
-    LOG_API_CALLS: true,    // Temporarily enabled to monitor voice query timeout
+    LOG_API_CALLS: false,   // Disabled for production release
     SHOW_DEV_INDICATORS: true,
     LOG_ERRORS: true,       // Keep error logging enabled
   }
