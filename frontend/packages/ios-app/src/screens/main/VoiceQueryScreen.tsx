@@ -82,6 +82,17 @@ export function VoiceQueryScreen() {
       if (recordingResult && recordingResult.audioUri) {
         console.log('Processing audio with query service...');
         console.log('Audio URI:', recordingResult.audioUri);
+        console.log('Recording duration:', recordingResult.duration, 'ms');
+
+        // Check if recording is long enough (minimum 1 second)
+        if (recordingResult.duration < 1000) {
+          Alert.alert(
+            'Recording Too Short',
+            'Please record for at least 1 second to ensure accurate transcription.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
 
         // Process the audio with our query service
         const queryResult = await queryService.voiceQuery(recordingResult, {

@@ -94,6 +94,23 @@ export class RealQueryService implements QueryService {
 
           console.log('Successfully converted audioUri to base64, length:', base64Data.length);
           console.log('First 50 chars of base64:', base64Data.substring(0, 50));
+
+          // Basic validation checks
+          if (base64Data.length < 1000) {
+            console.warn('Audio file seems very small, might be too short for transcription');
+          }
+
+          // Check if it looks like a valid WAV file
+          try {
+            const decoded = atob(base64Data.substring(0, 100)); // Just check header
+            const hasWavHeader = decoded.includes('RIFF') && decoded.includes('WAVE');
+            console.log('WAV header check:', hasWavHeader);
+            if (!hasWavHeader) {
+              console.warn('Audio file does not appear to have valid WAV headers');
+            }
+          } catch (e) {
+            console.warn('Could not validate audio headers:', e.message);
+          }
         } catch (conversionError) {
           console.error('Failed to convert audioUri to base64:', conversionError);
           throw new Error('Failed to process audio file for upload');
