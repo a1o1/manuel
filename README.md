@@ -1,9 +1,5 @@
 <div align="center">
-  <img src="docs/images/hero-banner.svg" alt="Manuel - Enterprise Voice Assistant" width="100%"/>
-</div>
-
-<div align="center">
-  <img src="docs/images/manuel-transparent.png" alt="Manuel - Your AI Manual Assistant" width="300" style="margin: 20px 0;"/>
+  <img src="docs/images/manuel-transparent.png" alt="Manuel - Your AI Manual Assistant" width="300" style="margin: 40px 0 20px 0;"/>
 </div>
 
 # Manuel - Enterprise Voice Assistant
