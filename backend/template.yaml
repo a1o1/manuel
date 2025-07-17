@@ -970,7 +970,7 @@ Resources:
           - EnableRedisCaching
           - !Ref RedisLayer
           - !Ref AWS::NoValue
-        - !Ref PdfProcessingLayer
+        - !Ref PDFProcessingLayer
       VpcConfig: !If
         - EnableRedisCaching
         - SecurityGroupIds:
