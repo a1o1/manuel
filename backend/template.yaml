@@ -1467,7 +1467,7 @@ Resources:
   # This breaks the circular dependency between bucket and function
   S3BucketNotificationCustomResource:
     Type: Custom::S3BucketNotification
-    DependsOn: 
+    DependsOn:
       - ProcessManualFunctionPermission
       - ManualsBucket
       - ProcessManualFunction
@@ -1475,7 +1475,7 @@ Resources:
       ServiceToken: !GetAtt S3BucketNotificationFunction.Arn
       BucketName: !Ref ManualsBucket
       FunctionArn: !GetAtt ProcessManualFunction.Arn
-      Events: 
+      Events:
         - s3:ObjectCreated:*
       FilterPrefix: manuals/
 
@@ -1493,11 +1493,11 @@ Resources:
           import boto3
           import json
           import cfnresponse
-          
+
           def lambda_handler(event, context):
               try:
                   s3 = boto3.client('s3')
-                  
+
                   if event['RequestType'] == 'Delete':
                       # Remove notification configuration
                       bucket_name = event['ResourceProperties']['BucketName']
@@ -1507,13 +1507,13 @@ Resources:
                       )
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
                       return
-                  
+
                   # Create or Update
                   bucket_name = event['ResourceProperties']['BucketName']
                   function_arn = event['ResourceProperties']['FunctionArn']
                   events = event['ResourceProperties']['Events']
                   filter_prefix = event['ResourceProperties'].get('FilterPrefix', '')
-                  
+
                   notification_config = {
                       'LambdaFunctionConfigurations': [{
                           'Id': 'ProcessManualTrigger',
@@ -1529,14 +1529,14 @@ Resources:
                           }
                       }]
                   }
-                  
+
                   s3.put_bucket_notification_configuration(
                       Bucket=bucket_name,
                       NotificationConfiguration=notification_config
                   )
-                  
+
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-                  
+
               except Exception as e:
                   print(f"Error: {str(e)}")
                   cfnresponse.send(event, context, cfnresponse.FAILED, {})

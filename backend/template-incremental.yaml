@@ -1,0 +1,316 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Manuel - Incremental Infrastructure Phase 1
+
+  Core resources only: Cognito, S3, DynamoDB, and basic APIs
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment stage
+
+  DailyQuotaLimit:
+    Type: Number
+    Default: 50
+    Description: Daily quota limit for requests
+
+  MonthlyQuotaLimit:
+    Type: Number
+    Default: 1000
+    Description: Monthly quota limit for requests
+
+  LambdaRuntime:
+    Type: String
+    Default: python3.11
+    Description: Python runtime version for Lambda functions
+
+  LambdaMemorySize:
+    Type: Number
+    Default: 512
+    Description: Memory allocation for Lambda functions (MB)
+
+  LambdaTimeout:
+    Type: Number
+    Default: 45
+    Description: Default timeout for Lambda functions (seconds)
+
+  CorsAllowedOrigins:
+    Type: String
+    Default: "*"
+    Description: CORS allowed origins
+
+  TokenValidityHours:
+    Type: Number
+    Default: 1
+    Description: Access token validity period (hours)
+
+  RefreshTokenValidityDays:
+    Type: Number
+    Default: 30
+    Description: Refresh token validity period (days)
+
+  EnableS3Versioning:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: Enable S3 versioning for manual storage
+
+  UsageDataRetentionDays:
+    Type: Number
+    Default: 32
+    Description: Usage data retention period (days)
+
+Conditions:
+  EnableVersioning: !Equals [!Ref EnableS3Versioning, "true"]
+
+Globals:
+  Function:
+    Runtime: !Ref LambdaRuntime
+    Timeout: !Ref LambdaTimeout
+    MemorySize: !Ref LambdaMemorySize
+    Environment:
+      Variables:
+        REGION: !Ref AWS::Region
+        USER_POOL_ID: !Ref CognitoUserPool
+        USER_POOL_CLIENT_ID: !Ref CognitoUserPoolClient
+        MANUALS_BUCKET: !Ref ManualsBucket
+        USAGE_TABLE_NAME: !Ref UsageTable
+        USAGE_DATA_RETENTION_DAYS: !Ref UsageDataRetentionDays
+        DAILY_QUOTA: !Ref DailyQuotaLimit
+        MONTHLY_QUOTA: !Ref MonthlyQuotaLimit
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: !Sub "'${CorsAllowedOrigins}'"
+    Auth:
+      DefaultAuthorizer: CognitoAuth
+      Authorizers:
+        CognitoAuth:
+          UserPoolArn: !GetAtt CognitoUserPool.Arn
+
+Resources:
+  # Cognito User Pool for Authentication
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub manuel-user-pool-${Stage}
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ClientName: !Sub manuel-app-client-${Stage}
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      RefreshTokenValidity: !Ref RefreshTokenValidityDays
+      AccessTokenValidity: !Ref TokenValidityHours
+      IdTokenValidity: !Ref TokenValidityHours
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  # S3 Bucket for Manual Storage
+  ManualsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub manuel-manuals-v2-${Stage}-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: !If [EnableVersioning, Enabled, Suspended]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # DynamoDB Table for Usage Tracking
+  UsageTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub manuel-usage-v2-${Stage}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+        - AttributeName: date
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+        - AttributeName: date
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: Manuel
+        - Key: Environment
+          Value: !Ref Stage
+
+  # Health Check Function
+  HealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-health-${Stage}
+      CodeUri: src/functions/health/
+      Handler: app.lambda_handler
+      Description: System health checks
+      Events:
+        HealthApi:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+            Auth:
+              Authorizer: NONE
+
+  # Manuals Management Function
+  ManualsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-manuals-${Stage}
+      CodeUri: src/functions/manuals/
+      Handler: app.lambda_handler
+      Description: Manage product manuals
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - S3WritePolicy:
+            BucketName: !Ref ManualsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+      Events:
+        ListManualsApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals
+            Method: get
+        UploadManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/upload
+            Method: post
+        DownloadManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/download
+            Method: post
+        GetManualDetailApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/{id}
+            Method: get
+        DeleteManualApi:
+          Type: Api
+          Properties:
+            Path: /api/manuals/{id}
+            Method: delete
+
+  # Usage Tracking Function
+  UsageFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-usage-${Stage}
+      CodeUri: src/functions/usage/
+      Handler: app.lambda_handler
+      Description: Track and report usage
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+      Events:
+        GetUsageApi:
+          Type: Api
+          Properties:
+            Path: /api/usage
+            Method: get
+        GetQuotaApi:
+          Type: Api
+          Properties:
+            Path: /api/quotas
+            Method: get
+
+  # Process Manual Function (for S3 trigger later)
+  ProcessManualFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub manuel-process-manual-${Stage}
+      CodeUri: src/functions/process-manual-simple/
+      Handler: app.lambda_handler
+      Description: Process uploaded manuals
+      Timeout: 300
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref ManualsBucket
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsageTable
+
+  # Lambda permission for S3 to invoke ProcessManualFunction
+  ProcessManualFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ProcessManualFunction
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt ManualsBucket.Arn
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref CognitoUserPoolClient
+
+  ManualsBucketName:
+    Description: S3 bucket for storing manuals
+    Value: !Ref ManualsBucket
+
+  UsageTableName:
+    Description: DynamoDB table for usage tracking
+    Value: !Ref UsageTable
+
+  ProcessManualFunctionArn:
+    Description: ARN of the process manual function
+    Value: !GetAtt ProcessManualFunction.Arn

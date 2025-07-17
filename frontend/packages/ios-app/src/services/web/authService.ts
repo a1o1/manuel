@@ -8,13 +8,10 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthService } from '../interfaces';
 import { handleApiError } from '../real/errorHandler';
+import { ENV_CONFIG } from '../../config/environment';
 
-// Cognito configuration (matches the CLI)
-const COGNITO_CONFIG = {
-  USER_POOL_ID: 'eu-west-1_DQt2MDcmp',
-  CLIENT_ID: '3ai5dri6105vaut9bie6ku5omb',
-  REGION: 'eu-west-1',
-};
+// Use the configuration from environment.ts
+const COGNITO_CONFIG = ENV_CONFIG.COGNITO;
 
 export class WebAuthService implements AuthService {
   private userPool: CognitoUserPool;

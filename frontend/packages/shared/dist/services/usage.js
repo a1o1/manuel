@@ -5,32 +5,32 @@ const api_1 = require("./api");
 class UsageService {
     // Get current usage statistics
     async getUsageStats() {
-        const response = await api_1.apiService.get('/api/usage');
-        return response.data;
+        const response = await api_1.apiService.get('/api/user/usage');
+        return response;
     }
     // Get usage for a specific date range
     async getUsageHistory(startDate, endDate) {
-        const response = await api_1.apiService.get(`/api/usage/history?start=${startDate}&end=${endDate}`);
+        const response = await api_1.apiService.get(`/api/user/usage/history?start=${startDate}&end=${endDate}`);
         return response.data;
     }
     // Get cost breakdown
     async getCostBreakdown(period = 'daily') {
-        const response = await api_1.apiService.get(`/api/usage/costs?period=${period}`);
+        const response = await api_1.apiService.get(`/api/user/usage/costs?period=${period}`);
         return response.data;
     }
     // Get quota limits
     async getQuotaLimits() {
-        const response = await api_1.apiService.get('/api/usage/quotas');
+        const response = await api_1.apiService.get('/api/user/usage/quotas');
         return response.data;
     }
     // Get recent query history
     async getRecentQueries(limit = 10) {
-        const response = await api_1.apiService.get(`/api/usage/recent?limit=${limit}`);
+        const response = await api_1.apiService.get(`/api/user/usage/recent?limit=${limit}`);
         return response.data?.queries || [];
     }
     // Export usage data
     async exportUsageData(startDate, endDate, format = 'csv') {
-        const response = await api_1.apiService.get(`/api/usage/export?start=${startDate}&end=${endDate}&format=${format}`, { responseType: 'blob' });
+        const response = await api_1.apiService.get(`/api/user/usage/export?start=${startDate}&end=${endDate}&format=${format}`, { responseType: 'blob' });
         return response;
     }
 }

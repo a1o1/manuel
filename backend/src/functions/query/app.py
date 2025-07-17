@@ -132,14 +132,14 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
         job_name = f"transcribe-{uuid.uuid4()}"
         bucket_name = os.environ.get("AUDIO_BUCKET", "manuel-temp-audio")
         audio_key = f"temp-audio/{job_name}.wav"
-        
+
         print(f"DEBUG: Using bucket: {bucket_name}")
         print(f"DEBUG: Audio key: {audio_key}")
 
         # Decode and upload audio to S3
         audio_bytes = base64.b64decode(audio_data)
         print(f"DEBUG: Audio data length: {len(audio_bytes)} bytes")
-        
+
         put_response = s3_client.put_object(
             Bucket=bucket_name,
             Key=audio_key,
@@ -164,7 +164,7 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
         audio_uri = f"s3://{bucket_name}/{audio_key}"
         print(f"DEBUG: Audio URI for transcribe: {audio_uri}")
         print(f"DEBUG: Media format: {media_format}")
-        
+
         transcribe_client.start_transcription_job(
             TranscriptionJobName=job_name,
             Media={"MediaFileUri": audio_uri},

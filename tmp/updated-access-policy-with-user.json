@@ -1,0 +1,21 @@
+[
+  {
+    "Rules": [
+      {
+        "ResourceType": "index",
+        "Resource": ["index/manuel-vectors-dev/*"],
+        "Permission": ["aoss:*"]
+      },
+      {
+        "ResourceType": "collection",
+        "Resource": ["collection/manuel-vectors-dev"],
+        "Permission": ["aoss:*"]
+      }
+    ],
+    "Principal": [
+      "arn:aws:iam::455574531460:role/manuel-bedrock-kb-role-dev",
+      "arn:aws:iam::455574531460:role/manuel-dev-CreateOpenSearchIndexFunctionRole-7EIzu2vTilnT",
+      "arn:aws:iam::455574531460:user/manuel-developer"
+    ]
+  }
+]

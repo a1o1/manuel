@@ -1,0 +1,21 @@
+Product Manual - Test Device
+
+Welcome to the Test Device user manual.
+
+The Test Device is a simple electronic device with the following features:
+- Power button: Press to turn on/off
+- LED indicator: Shows device status (green=on, red=off)
+- Battery life: Up to 8 hours of continuous use
+- Charging: Use the included USB cable
+
+Troubleshooting:
+- If device won't turn on, check battery level
+- If LED is blinking red, device needs charging
+- For reset, hold power button for 10 seconds
+
+Safety Information:
+- Do not expose to water
+- Keep away from extreme temperatures
+- Use only approved charging cables
+
+For support, contact: support@testdevice.com

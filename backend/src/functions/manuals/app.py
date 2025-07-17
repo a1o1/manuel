@@ -66,7 +66,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         except Exception as e:
             print(f"Error extracting user ID: {e}")
             user_id = "default-user"
-            
+
         print(f"DEBUG: Final user_id: {user_id}")
 
         s3_client = boto3.client("s3")
@@ -360,7 +360,9 @@ def handle_get_manual_detail(
 
         # Generate presigned URL for PDF viewing
         try:
-            print(f"DEBUG: Generating presigned URL for bucket={bucket_name}, key={s3_key}")
+            print(
+                f"DEBUG: Generating presigned URL for bucket={bucket_name}, key={s3_key}"
+            )
             pdf_url = s3_client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": bucket_name, "Key": s3_key},

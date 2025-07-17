@@ -68,10 +68,12 @@ def handle_get_usage(user_id: str) -> Dict[str, Any]:
             "current_usage": {
                 "daily_queries": current_stats.get("daily_used", 0),
                 "daily_limit": current_stats.get("daily_limit", 50),
-                "daily_remaining": current_stats.get("daily_limit", 50) - current_stats.get("daily_used", 0),
+                "daily_remaining": current_stats.get("daily_limit", 50)
+                - current_stats.get("daily_used", 0),
                 "monthly_queries": current_stats.get("monthly_used", 0),
                 "monthly_limit": current_stats.get("monthly_limit", 1000),
-                "monthly_remaining": current_stats.get("monthly_limit", 1000) - current_stats.get("monthly_used", 0),
+                "monthly_remaining": current_stats.get("monthly_limit", 1000)
+                - current_stats.get("monthly_used", 0),
             },
             "daily_costs": {
                 "total_cost": 0.0,  # TODO: Calculate actual costs
@@ -83,7 +85,7 @@ def handle_get_usage(user_id: str) -> Dict[str, Any]:
             "historical": historical_usage,
             "breakdown": operation_breakdown,
         }
-        
+
         return create_response(200, response_data)
 
     except Exception as e:
@@ -162,7 +164,7 @@ def get_historical_usage(user_id: str, days: int = 7) -> List[Dict[str, Any]]:
         # Build batch request keys for better performance
         batch_keys = []
         date_list = []
-        
+
         for i in range(days):
             query_date = (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
             date_list.append(query_date)
@@ -172,18 +174,14 @@ def get_historical_usage(user_id: str, days: int = 7) -> List[Dict[str, Any]]:
             # Use batch_get_item for better performance (up to 100 items)
             if len(batch_keys) <= 100:
                 response = dynamodb.batch_get_item(
-                    RequestItems={
-                        table.name: {
-                            "Keys": batch_keys
-                        }
-                    }
+                    RequestItems={table.name: {"Keys": batch_keys}}
                 )
-                
+
                 # Create lookup dict for retrieved items
                 items_by_date = {}
                 for item in response.get("Responses", {}).get(table.name, []):
                     items_by_date[item["date"]] = item
-                
+
                 # Build historical data with retrieved items
                 for query_date in date_list:
                     if query_date in items_by_date:
@@ -203,10 +201,12 @@ def get_historical_usage(user_id: str, days: int = 7) -> List[Dict[str, Any]]:
                 # Fallback to individual queries for very large ranges
                 for i in range(days):
                     query_date = (start_date + timedelta(days=i)).strftime("%Y-%m-%d")
-                    
+
                     try:
-                        response = table.get_item(Key={"user_id": user_id, "date": query_date})
-                        
+                        response = table.get_item(
+                            Key={"user_id": user_id, "date": query_date}
+                        )
+
                         if "Item" in response:
                             item = response["Item"]
                             historical_data.append(
@@ -231,8 +231,10 @@ def get_historical_usage(user_id: str, days: int = 7) -> List[Dict[str, Any]]:
             # Fallback to individual queries
             for query_date in date_list:
                 try:
-                    response = table.get_item(Key={"user_id": user_id, "date": query_date})
-                    
+                    response = table.get_item(
+                        Key={"user_id": user_id, "date": query_date}
+                    )
+
                     if "Item" in response:
                         item = response["Item"]
                         historical_data.append(
