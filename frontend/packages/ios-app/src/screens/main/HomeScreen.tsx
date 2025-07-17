@@ -91,7 +91,7 @@ export function HomeScreen() {
               </View>
               <View style={styles.usageDivider} />
               <View style={styles.usageStat}>
-                <Text style={styles.usageNumber}>${usage.dailyCost?.toFixed(2) || '0.00'}</Text>
+                <Text style={styles.usageNumber}>€{usage.dailyCost?.toFixed(2) || '0.00'}</Text>
                 <Text style={styles.usageLabel}>Cost</Text>
               </View>
             </View>

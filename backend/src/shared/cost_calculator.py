@@ -7,7 +7,7 @@ import json
 import os
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import boto3
 
@@ -22,7 +22,7 @@ class ServiceCost:
     unit: str
     unit_cost: float
     total_cost: float
-    currency: str = "USD"
+    currency: str = "EUR"
 
 
 @dataclass
@@ -35,7 +35,7 @@ class RequestCost:
     operation: str
     service_costs: list
     total_cost: float
-    currency: str = "USD"
+    currency: str = "EUR"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for API responses"""
@@ -70,44 +70,61 @@ class ManuelCostCalculator:
         self.region = region
         self.cloudwatch = boto3.client("cloudwatch")
 
-        # AWS Pricing (EU-West-1) - Updated Jan 2025
-        # These should be updated periodically or fetched from AWS Pricing API
+        # AWS Pricing (EU-West-1) - Updated Jan 2025 - EUR converted from USD
+        # USD to EUR conversion rate: ~0.85 (update periodically)
+        self.usd_to_eur_rate = 0.85
         self.pricing = {
             "bedrock": {
-                # Claude 3.5 Sonnet pricing
+                # Claude 3.5 Sonnet pricing (EUR)
                 "anthropic.claude-3-5-sonnet-20241022-v2:0": {
-                    "input_tokens": 0.000003,  # $3 per 1M input tokens
-                    "output_tokens": 0.000015,  # $15 per 1M output tokens
+                    "input_tokens": 0.000003
+                    * self.usd_to_eur_rate,  # €2.55 per 1M input tokens
+                    "output_tokens": 0.000015
+                    * self.usd_to_eur_rate,  # €12.75 per 1M output tokens
                 },
-                # Claude 4 Sonnet pricing (estimated)
+                # Claude 4 Sonnet pricing (EUR, estimated)
                 "us.anthropic.claude-sonnet-4-20250514-v1:0": {
-                    "input_tokens": 0.000006,  # $6 per 1M input tokens
-                    "output_tokens": 0.000030,  # $30 per 1M output tokens
+                    "input_tokens": 0.000006
+                    * self.usd_to_eur_rate,  # €5.10 per 1M input tokens
+                    "output_tokens": 0.000030
+                    * self.usd_to_eur_rate,  # €25.50 per 1M output tokens
                 },
-                # Titan Embeddings pricing
+                # Titan Embeddings pricing (EUR)
                 "amazon.titan-embed-text-v2:0": {
-                    "input_tokens": 0.0000002  # $0.2 per 1M tokens
+                    "input_tokens": 0.0000002
+                    * self.usd_to_eur_rate  # €0.17 per 1M tokens
                 },
             },
-            "transcribe": {"standard": 0.0004},  # $0.0004 per second
+            "transcribe": {
+                "standard": 0.0004 * self.usd_to_eur_rate
+            },  # €0.00034 per second
             "lambda": {
-                "requests": 0.0000002,  # $0.20 per 1M requests
-                "compute_gb_second": 0.0000166667,  # $0.0000166667 per GB-second
+                "requests": 0.0000002 * self.usd_to_eur_rate,  # €0.17 per 1M requests
+                "compute_gb_second": 0.0000166667
+                * self.usd_to_eur_rate,  # €0.0000141667 per GB-second
             },
             "dynamodb": {
-                "read_request_unit": 0.0000000556,  # $0.0556 per million RRUs
-                "write_request_unit": 0.0000001111,  # $0.1111 per million WRUs
+                "read_request_unit": 0.0000000556
+                * self.usd_to_eur_rate,  # €0.0473 per million RRUs
+                "write_request_unit": 0.0000001111
+                * self.usd_to_eur_rate,  # €0.0944 per million WRUs
             },
             "s3": {
-                "standard_storage": 0.023,  # $0.023 per GB per month
-                "standard_requests_put": 0.0000054,  # $0.0054 per 1000 PUT requests
-                "standard_requests_get": 0.0000004,  # $0.0004 per 1000 GET requests
+                "standard_storage": 0.023
+                * self.usd_to_eur_rate,  # €0.0196 per GB per month
+                "standard_requests_put": 0.0000054
+                * self.usd_to_eur_rate,  # €0.00459 per 1000 PUT requests
+                "standard_requests_get": 0.0000004
+                * self.usd_to_eur_rate,  # €0.00034 per 1000 GET requests
             },
-            "api_gateway": {"requests": 0.0000035},  # $3.50 per million requests
+            "api_gateway": {
+                "requests": 0.0000035 * self.usd_to_eur_rate
+            },  # €2.98 per million requests
             "cloudwatch": {
-                "logs_ingestion": 0.50,  # $0.50 per GB ingested
-                "logs_storage": 0.03,  # $0.03 per GB per month
-                "custom_metrics": 0.30,  # $0.30 per metric per month
+                "logs_ingestion": 0.50 * self.usd_to_eur_rate,  # €0.425 per GB ingested
+                "logs_storage": 0.03 * self.usd_to_eur_rate,  # €0.0255 per GB per month
+                "custom_metrics": 0.30
+                * self.usd_to_eur_rate,  # €0.255 per metric per month
             },
         }
 
@@ -427,7 +444,9 @@ class ManuelCostCalculator:
             table = dynamodb.Table(os.environ["USAGE_TABLE_NAME"])
 
             response = table.query(
-                KeyConditionExpression="user_id = :user_id AND begins_with(#date, :date)",
+                KeyConditionExpression=(
+                    "user_id = :user_id AND begins_with(#date, :date)"
+                ),
                 ExpressionAttributeNames={"#date": "date"},
                 ExpressionAttributeValues={
                     ":user_id": f"cost#{user_id}",

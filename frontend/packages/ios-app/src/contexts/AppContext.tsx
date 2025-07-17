@@ -82,6 +82,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsUsageLoading(true);
     try {
       const usageData = await usageService.getUsage();
+      console.log('AppContext setting usage data:', usageData);
       setUsage(usageData);
     } catch (error) {
       console.error('Failed to load usage:', error);

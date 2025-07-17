@@ -10,8 +10,95 @@ export interface AuthService {
 }
 
 export interface UsageService {
-  getUsage(): Promise<any>;
-  refreshUsage(): Promise<any>;
+  // Legacy method for backward compatibility
+  getUsage(): Promise<{
+    dailyQueries: number;
+    dailyLimit: number;
+    dailyRemaining: number;
+    monthlyQueries: number;
+    monthlyLimit: number;
+    monthlyRemaining: number;
+    dailyCost: number;
+    monthlyCost: number;
+    currency: string;
+    costBreakdown?: {
+      transcribe: number;
+      bedrock: number;
+      lambda: number;
+      s3: number;
+      apiGateway: number;
+    };
+    recentQueries?: Array<{
+      timestamp: string;
+      operation: string;
+      cost: number;
+      currency: string;
+    }>;
+    historicalData?: Array<{
+      date: string;
+      count: number;
+      operations: Record<string, number>;
+    }>;
+    operationBreakdown?: {
+      transcribe: number;
+      query: number;
+      total: number;
+    };
+  }>;
+
+  // Enhanced method with additional parameters
+  getUsageData?(period?: string): Promise<{
+    dailyQueries: number;
+    dailyLimit: number;
+    dailyRemaining: number;
+    monthlyQueries: number;
+    monthlyLimit: number;
+    monthlyRemaining: number;
+    dailyCost: number;
+    monthlyCost: number;
+    currency: string;
+    costBreakdown?: {
+      transcribe: number;
+      bedrock: number;
+      lambda: number;
+      s3: number;
+      apiGateway: number;
+    };
+    recentQueries?: Array<{
+      timestamp: string;
+      operation: string;
+      cost: number;
+      currency: string;
+    }>;
+    historicalData?: Array<{
+      date: string;
+      count: number;
+      operations: Record<string, number>;
+    }>;
+    operationBreakdown?: {
+      transcribe: number;
+      query: number;
+      total: number;
+    };
+  }>;
+
+  getQuotas?(): Promise<{
+    daily: {
+      limit: number;
+      used: number;
+      remaining: number;
+      percentUsed: number;
+    };
+    monthly: {
+      limit: number;
+      used: number;
+      remaining: number;
+      percentUsed: number;
+    };
+    status: string;
+    lastOperation?: string;
+    lastUpdated?: string;
+  }>;
 }
 
 export interface QueryService {

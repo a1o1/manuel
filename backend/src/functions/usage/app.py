@@ -8,6 +8,7 @@ import sys
 from typing import Any, Dict, List
 
 import boto3
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 sys.path.append("/opt/python")
@@ -63,6 +64,10 @@ def handle_get_usage(user_id: str) -> Dict[str, Any]:
         # Get usage by operation type
         operation_breakdown = get_operation_breakdown(user_id)
 
+        # Calculate actual costs
+        daily_costs = get_daily_costs(user_id)
+        monthly_costs = get_monthly_costs(user_id)
+
         # Format response to match frontend expectations
         response_data = {
             "current_usage": {
@@ -76,11 +81,20 @@ def handle_get_usage(user_id: str) -> Dict[str, Any]:
                 - current_stats.get("monthly_used", 0),
             },
             "daily_costs": {
-                "total_cost": 0.0,  # TODO: Calculate actual costs
-                "transcribe_cost": 0.0,
-                "bedrock_cost": 0.0,
+                "total_cost": daily_costs.get("total", 0.0),
+                "transcribe_cost": daily_costs.get("transcribe", 0.0),
+                "bedrock_cost": daily_costs.get("bedrock", 0.0),
+                "lambda_cost": daily_costs.get("lambda", 0.0),
+                "s3_cost": daily_costs.get("s3", 0.0),
+                "api_gateway_cost": daily_costs.get("api_gateway", 0.0),
+                "currency": "EUR",
             },
-            "recent_queries": [],  # TODO: Add recent queries
+            "monthly_costs": {
+                "total_cost": monthly_costs.get("total", 0.0),
+                "service_breakdown": monthly_costs.get("services", {}),
+                "currency": "EUR",
+            },
+            "recent_queries": get_recent_queries(user_id, limit=5),
             "user_id": user_id,
             "historical": historical_usage,
             "breakdown": operation_breakdown,
@@ -353,6 +367,141 @@ def reset_daily_quota(user_id: str) -> bool:
     except Exception as e:
         print(f"Error resetting daily quota: {str(e)}")
         return False
+
+
+def get_daily_costs(user_id: str) -> Dict[str, float]:
+    """Get daily cost breakdown for user."""
+    try:
+        from datetime import datetime
+
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+
+        # Get cost records for today
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table(os.environ["USAGE_TABLE_NAME"])
+
+        response = table.query(
+            KeyConditionExpression=Key("user_id").eq(f"cost#{user_id}")
+            & Key("date").begins_with(today)
+        )
+
+        service_costs = {
+            "transcribe": 0.0,
+            "bedrock": 0.0,
+            "lambda": 0.0,
+            "s3": 0.0,
+            "api_gateway": 0.0,
+            "total": 0.0,
+        }
+
+        for item in response.get("Items", []):
+            total_cost = float(item.get("total_cost", 0))
+            service_costs["total"] += total_cost
+
+            # Parse service costs from JSON if available
+            import json
+
+            if "service_costs" in item:
+                try:
+                    service_breakdown = json.loads(item["service_costs"])
+                    for service in service_breakdown:
+                        service_name = service.get("service", "unknown")
+                        service_cost = float(service.get("total_cost", 0))
+                        if service_name in service_costs:
+                            service_costs[service_name] += service_cost
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        return service_costs
+
+    except Exception as e:
+        print(f"Error calculating daily costs: {e}")
+        return {
+            "total": 0.0,
+            "transcribe": 0.0,
+            "bedrock": 0.0,
+            "lambda": 0.0,
+            "s3": 0.0,
+            "api_gateway": 0.0,
+        }
+
+
+def get_monthly_costs(user_id: str) -> Dict[str, Any]:
+    """Get monthly cost breakdown for user."""
+    try:
+        from datetime import datetime
+
+        current_month = datetime.utcnow().strftime("%Y-%m")
+
+        # Get cost records for current month
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table(os.environ["USAGE_TABLE_NAME"])
+
+        response = table.query(
+            KeyConditionExpression=Key("user_id").eq(f"cost#{user_id}")
+            & Key("date").begins_with(current_month)
+        )
+
+        monthly_total = 0.0
+        service_breakdown = {}
+
+        for item in response.get("Items", []):
+            total_cost = float(item.get("total_cost", 0))
+            monthly_total += total_cost
+
+            # Parse service costs
+            import json
+
+            if "service_costs" in item:
+                try:
+                    service_costs = json.loads(item["service_costs"])
+                    for service in service_costs:
+                        service_name = service.get("service", "unknown")
+                        service_cost = float(service.get("total_cost", 0))
+                        if service_name not in service_breakdown:
+                            service_breakdown[service_name] = 0.0
+                        service_breakdown[service_name] += service_cost
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
+        return {
+            "total": monthly_total,
+            "services": service_breakdown,
+        }
+
+    except Exception as e:
+        print(f"Error calculating monthly costs: {e}")
+        return {"total": 0.0, "services": {}}
+
+
+def get_recent_queries(user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    """Get recent query records for user."""
+    try:
+        dynamodb = boto3.resource("dynamodb")
+        table = dynamodb.Table(os.environ["USAGE_TABLE_NAME"])
+
+        # Query recent cost records to get query information
+        response = table.query(
+            KeyConditionExpression=Key("user_id").eq(f"cost#{user_id}"),
+            ScanIndexForward=False,  # Descending order
+            Limit=limit,
+        )
+
+        recent_queries = []
+        for item in response.get("Items", []):
+            query_info = {
+                "timestamp": item.get("date", ""),
+                "operation": item.get("operation", "unknown"),
+                "cost": float(item.get("total_cost", 0)),
+                "currency": "EUR",
+            }
+            recent_queries.append(query_info)
+
+        return recent_queries
+
+    except Exception as e:
+        print(f"Error getting recent queries: {e}")
+        return []
 
 
 def get_quota_limits() -> Dict[str, int]:

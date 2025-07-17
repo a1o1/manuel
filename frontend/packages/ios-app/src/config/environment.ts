@@ -21,7 +21,7 @@ export const ENV_CONFIG = {
   // Feature flags
   FEATURES: {
     MOCK_AUTH: false,      // Use real authentication in production
-    MOCK_USAGE: true,      // Keep usage as mock for now
+    MOCK_USAGE: true,      // Use mock service to demonstrate EUR formatting
     MOCK_QUERIES: false,   // Use real query service to connect to backend
     MOCK_MANUALS: false,   // Use real manuals service in production
     ENABLE_VOICE_RECORDING: true,
