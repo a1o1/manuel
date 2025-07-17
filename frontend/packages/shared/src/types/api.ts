@@ -32,6 +32,7 @@ export interface Manual {
   name: string;
   size: number;
   upload_date: string;  // Changed from last_modified to match backend response
+  pages?: number;  // Optional page count
 }
 
 export interface ManualUploadRequest {

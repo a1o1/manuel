@@ -15,6 +15,34 @@ from typing import Any, Dict
 import boto3
 
 
+def get_pdf_page_count(s3_client, bucket_name: str, s3_key: str) -> int:
+    """
+    Get the number of pages in a PDF file using PyMuPDF
+    Returns 0 if unable to determine page count
+    """
+    try:
+        # Try to import PyMuPDF
+        import fitz  # PyMuPDF
+        
+        # Download PDF content temporarily
+        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key)
+        pdf_content = response['Body'].read()
+        
+        # Open PDF with PyMuPDF
+        pdf_doc = fitz.open(stream=pdf_content, filetype="pdf")
+        page_count = pdf_doc.page_count
+        pdf_doc.close()
+        
+        return page_count
+        
+    except ImportError:
+        print("PyMuPDF not available, cannot determine page count")
+        return 0
+    except Exception as e:
+        print(f"Error getting page count for {s3_key}: {str(e)}")
+        return 0
+
+
 def cleanup_manual_comprehensive(
     s3_client, bucket_name: str, s3_key: str, user_id: str
 ) -> Dict[str, Any]:
@@ -388,12 +416,16 @@ def handle_list_manuals(s3_client, bucket_name: str, user_id: str) -> Dict[str, 
                     print(f"Error getting metadata for {key}: {e}")
                     display_name = key.split("/")[-1]
 
+                # Get actual page count from PDF
+                page_count = get_pdf_page_count(s3_client, bucket_name, key)
+
                 manuals.append(
                     {
                         "id": key,
                         "name": display_name,
                         "upload_date": obj["LastModified"].isoformat(),
                         "size": obj["Size"],
+                        "pages": page_count,
                     }
                 )
 
@@ -582,13 +614,16 @@ def handle_get_manual_detail(
             print(f"ERROR: Failed to generate presigned URL: {str(e)}")
             pdf_url = None
 
+        # Get actual page count from PDF
+        page_count = get_pdf_page_count(s3_client, bucket_name, s3_key)
+        
         # For now, return mock data for fields we don't track yet
         # TODO: Connect to knowledge base to get real stats
         manual_detail = {
             "id": s3_key,
             "name": display_name,
             "uploadDate": upload_date,
-            "pages": 42,  # Mock - would need PDF parsing
+            "pages": page_count,
             "size": f"{size / (1024 * 1024):.1f}MB",
             "status": "processed",
             "chunks": 25,  # Mock - would get from knowledge base
