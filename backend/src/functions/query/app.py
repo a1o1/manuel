@@ -223,21 +223,21 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
         error_type = type(e).__name__
         error_message = str(e)
         print(f"Transcription error [{error_type}]: {error_message}")
-        
+
         # Cleanup on error
         try:
             s3_client.delete_object(Bucket=bucket_name, Key=audio_key)
             print(f"Cleaned up audio file: {audio_key}")
         except Exception as cleanup_error:
             print(f"Failed to cleanup audio file: {cleanup_error}")
-        
+
         # Try to cleanup transcription job if it exists
         try:
             transcribe_client.delete_transcription_job(TranscriptionJobName=job_name)
             print(f"Cleaned up transcription job: {job_name}")
         except Exception as job_cleanup_error:
             print(f"Failed to cleanup transcription job: {job_cleanup_error}")
-        
+
         return ""
 
 
@@ -294,27 +294,31 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Extract user ID from Cognito JWT
         user_id = "default-user"
-        
+
         # Try to get user ID from Cognito claims first (API Gateway integration)
         try:
-            claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+            claims = (
+                event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+            )
             if claims and "sub" in claims:
                 user_id = claims["sub"]
                 print(f"Using user ID from API Gateway claims: {user_id}")
             else:
                 # If no claims, try to decode JWT from Authorization header
                 headers = event.get("headers", {})
-                auth_header = headers.get("Authorization") or headers.get("authorization")
+                auth_header = headers.get("Authorization") or headers.get(
+                    "authorization"
+                )
                 if auth_header and auth_header.startswith("Bearer "):
                     # Simple JWT payload decoding (without signature verification)
                     try:
                         jwt_token = auth_header[7:]  # Remove 'Bearer '
-                        parts = jwt_token.split('.')
+                        parts = jwt_token.split(".")
                         if len(parts) == 3:
                             payload_encoded = parts[1]
-                            payload_encoded += '=' * (4 - len(payload_encoded) % 4)
+                            payload_encoded += "=" * (4 - len(payload_encoded) % 4)
                             payload_bytes = base64.b64decode(payload_encoded)
-                            payload = json.loads(payload_bytes.decode('utf-8'))
+                            payload = json.loads(payload_bytes.decode("utf-8"))
                             if "sub" in payload:
                                 user_id = payload["sub"]
                                 print(f"Using user ID from JWT token: {user_id}")
@@ -322,7 +326,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         print(f"Failed to decode JWT: {jwt_error}")
         except Exception as e:
             print(f"Error extracting user ID: {e}")
-            
+
         print(f"Final user_id: {user_id}")
 
         # Parse and validate request body
@@ -496,10 +500,34 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         # Parse S3 URI to extract manual name
                         if "/manuals/" in source_uri:
                             try:
-                                # Extract filename from S3 path
-                                filename = source_uri.split("/")[-1]
-                                if filename.endswith(".pdf"):
-                                    manual_name = filename[:-4]  # Remove .pdf extension
+                                # Extract S3 bucket and key from URI
+                                s3_parts = source_uri.replace("s3://", "").split("/", 1)
+                                if len(s3_parts) == 2:
+                                    bucket_name, s3_key = s3_parts
+                                    
+                                    # Get object metadata to retrieve display name
+                                    try:
+                                        s3_client = boto3.client("s3")
+                                        metadata_response = s3_client.head_object(
+                                            Bucket=bucket_name, Key=s3_key
+                                        )
+                                        display_name = metadata_response.get("Metadata", {}).get("display_name")
+                                        
+                                        if display_name:
+                                            manual_name = display_name
+                                            print(f"Using display name from S3 metadata: {manual_name}")
+                                        else:
+                                            # Fallback to filename
+                                            filename = source_uri.split("/")[-1]
+                                            if filename.endswith(".pdf"):
+                                                manual_name = filename[:-4]  # Remove .pdf extension
+                                            print(f"Using filename fallback: {manual_name}")
+                                    except Exception as metadata_error:
+                                        print(f"Failed to get S3 metadata: {metadata_error}")
+                                        # Fallback to filename
+                                        filename = source_uri.split("/")[-1]
+                                        if filename.endswith(".pdf"):
+                                            manual_name = filename[:-4]  # Remove .pdf extension
 
                                 # Look for page number in URI fragment
                                 if "#page=" in source_uri:
@@ -609,7 +637,7 @@ Assistant: I'll help you with that based on the provided context."""
         error_type = type(e).__name__
         error_message = str(e)
         print(f"Error processing query [{error_type}]: {error_message}")
-        
+
         # Determine appropriate status code based on error type
         if "Authentication" in error_message or "Unauthorized" in error_message:
             status_code = 401
@@ -626,7 +654,7 @@ Assistant: I'll help you with that based on the provided context."""
         else:
             status_code = 500
             user_message = "An error occurred while processing your request."
-        
+
         return {
             "statusCode": status_code,
             "headers": {

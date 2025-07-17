@@ -21,21 +21,21 @@ def decode_jwt_payload(jwt_token: str) -> Dict[str, Any]:
         # Remove 'Bearer ' prefix if present
         if jwt_token.startswith("Bearer "):
             jwt_token = jwt_token[7:]
-        
+
         # JWT has 3 parts separated by dots: header.payload.signature
-        parts = jwt_token.split('.')
+        parts = jwt_token.split(".")
         if len(parts) != 3:
             raise ValueError("Invalid JWT format")
-        
+
         # Decode the payload (second part)
         payload_encoded = parts[1]
         # Add padding if needed
-        payload_encoded += '=' * (4 - len(payload_encoded) % 4)
-        
+        payload_encoded += "=" * (4 - len(payload_encoded) % 4)
+
         # Base64 decode
         payload_bytes = base64.b64decode(payload_encoded)
-        payload = json.loads(payload_bytes.decode('utf-8'))
-        
+        payload = json.loads(payload_bytes.decode("utf-8"))
+
         return payload
     except Exception as e:
         print(f"Failed to decode JWT: {e}")
@@ -167,7 +167,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         error_type = type(e).__name__
         error_message = str(e)
         print(f"Error in manuals function [{error_type}]: {error_message}")
-        
+
         # Determine appropriate status code based on error type
         if "Authentication" in error_message or "Unauthorized" in error_message:
             status_code = 401
@@ -177,14 +177,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             user_message = "Manual not found."
         elif "AccessDenied" in error_type:
             status_code = 403
-            user_message = "Access denied. You don't have permission to access this manual."
+            user_message = (
+                "Access denied. You don't have permission to access this manual."
+            )
         elif "ValidationException" in error_type:
             status_code = 400
             user_message = "Invalid request. Please check your input."
         else:
             status_code = 500
             user_message = "An error occurred while processing your request."
-        
+
         return {
             "statusCode": status_code,
             "headers": {

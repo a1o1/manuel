@@ -231,15 +231,14 @@ export function EnhancedSourceCard({ source, index, onPDFView, onGetPDFUrl }: En
       const hasSearchTerms = normalizedSource.chunk_text && typeof normalizedSource.chunk_text === 'string';
 
       // Generate enhanced URLs for different viewers
-      const googleDocsUrl = generateGoogleDocsUrl(pdfUrl);
+      // const googleDocsUrl = generateGoogleDocsUrl(pdfUrl); // Removed as requested
 
       // Log the URLs for debugging
       console.log('📄 Opening PDF:', {
         manual: normalizedSource.manual_name,
         page: normalizedSource.page_number,
         hasSearchTerms: hasSearchTerms,
-        pdfUrl: pdfUrl,
-        googleDocsUrl: googleDocsUrl
+        pdfUrl: pdfUrl
       });
 
       try {
@@ -261,26 +260,14 @@ export function EnhancedSourceCard({ source, index, onPDFView, onGetPDFUrl }: En
               onPress: () => viewPDFPageInline(pdfUrl, normalizedSource.page_number, normalizedSource.chunk_text),
             });
 
-            // Option 2: Try different PDF viewer apps for full PDF
+            // Option 2: Open full PDF without page navigation
             options.push({
-              text: `Open Full PDF at Page ${normalizedSource.page_number}`,
-              onPress: () => tryPdfViewerApps(pdfUrl, normalizedSource.page_number),
-            });
-
-            // Option 3: Open full PDF without page navigation
-            options.push({
-              text: 'Open Full PDF (Start at Beginning)',
+              text: 'Open Full PDF',
               onPress: () => Linking.openURL(pdfUrl),
             });
 
-            // Option 4: Google Docs viewer
-            options.push({
-              text: 'Google Docs Viewer',
-              onPress: () => Linking.openURL(googleDocsUrl),
-            });
-
             const alertTitle = `View "${normalizedSource.manual_name}" (Page ${normalizedSource.page_number})`;
-            const alertMessage = `Choose your viewing option:\n\n• Highlighted Page: Server-processed page with text highlighting\n• Full PDF (Page ${normalizedSource.page_number}): Attempts page navigation in PDF app\n• Full PDF (Beginning): Opens complete PDF normally\n• Google Docs: Online viewer fallback`;
+            const alertMessage = `Choose your viewing option:\n\n• Highlighted Page: Server-processed page with text highlighting\n• Full PDF: Opens complete PDF normally`;
 
             Alert.alert(alertTitle, alertMessage, options);
           } else {
