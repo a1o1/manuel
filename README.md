@@ -38,8 +38,19 @@ your manuals inside and out!
 ## 🚀 Quick Start
 
 <div align="center">
-  <img src="docs/images/ios-app-mockup.svg" alt="iOS App Interface" width="45%" style="margin: 0 2.5%"/>
-  <img src="docs/images/cli-example.svg" alt="CLI Interface" width="45%" style="margin: 0 2.5%"/>
+  <img src="docs/images/ios-home-screen.png" alt="iOS App Home Screen" width="45%" style="margin: 0 2.5%"/>
+  <img src="docs/images/cli-query-example.png" alt="CLI Query Example" width="45%" style="margin: 0 2.5%"/>
+</div>
+
+### 📱 Key Features in Action
+
+<div align="center">
+  <img src="docs/images/ios-result-sources.png" alt="iOS Query Results with Sources" width="30%" style="margin: 0 1.5%"/>
+  <img src="docs/images/ios-pdf-highlight.png" alt="PDF Page Highlighting" width="30%" style="margin: 0 1.5%"/>
+</div>
+
+<div align="center">
+  <em>Left: Query results with source attribution | Right: PDF page highlighting with text search</em>
 </div>
 
 ### Prerequisites
