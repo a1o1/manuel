@@ -2,14 +2,27 @@
   <img src="docs/images/hero-banner.svg" alt="Manuel - Enterprise Voice Assistant" width="100%"/>
 </div>
 
+<div align="center">
+  <img src="docs/images/manuel-transparent.png" alt="Manuel - Your AI Manual Assistant" width="300" style="margin: 20px 0;"/>
+</div>
+
 # Manuel - Enterprise Voice Assistant
 
-> Enterprise-grade voice assistant for product manuals using AWS Bedrock
+> Meet Manuel, your AI-powered voice assistant for product manuals using AWS
+> Bedrock
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![AWS](https://img.shields.io/badge/AWS-Bedrock-orange.svg)](https://aws.amazon.com/bedrock/)
 [![React Native](https://img.shields.io/badge/React%20Native-iOS-blue.svg)](https://reactnative.dev/)
+
+---
+
+**Manuel is your friendly AI assistant who specializes in helping you find
+answers in your product manuals.** Whether you're setting up a new device,
+troubleshooting an issue, or learning advanced features, Manuel is here to help
+with both text and voice queries. Just like a helpful concierge, Manuel knows
+your manuals inside and out!
 
 ## 🚀 Quick Start
 
