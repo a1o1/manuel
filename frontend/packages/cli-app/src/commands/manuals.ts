@@ -326,7 +326,7 @@ export class ManualsCommand {
     const spinner = ora('Deleting manual...').start();
 
     try {
-      const result = await manualService.deleteManual(key);
+      const result: any = await manualService.deleteManual(key);
       spinner.succeed(chalk.green('Manual deleted successfully!'));
       
       // Display cleanup summary if available
