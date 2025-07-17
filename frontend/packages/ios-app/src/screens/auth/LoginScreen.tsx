@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AppContext';
 import { handleCognitoError, getActionButtonText } from '../../utils/cognitoErrors';
+import { graphicsService } from '../../services/graphicsService';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/AuthNavigator';
 
@@ -27,7 +28,7 @@ export function LoginScreen() {
       await login(email.trim(), password);
     } catch (error) {
       const cognitoError = handleCognitoError(error);
-      
+
       Alert.alert(
         cognitoError.title,
         cognitoError.message,
@@ -117,6 +118,16 @@ export function LoginScreen() {
         </View>
 
         <View style={styles.form}>
+          <View style={styles.heroContainer}>
+            <Image
+              source={graphicsService.getSplashImage()}
+              style={styles.heroImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.heroTitle}>Welcome to Manuel</Text>
+            <Text style={styles.heroSubtitle}>Your AI-powered manual assistant</Text>
+          </View>
+
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -263,5 +274,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#007AFF',
     fontWeight: '500',
+  },
+  heroContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  heroImage: {
+    width: 120,
+    height: 120,
+    marginBottom: 16,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#000000',
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    textAlign: 'center',
   },
 });

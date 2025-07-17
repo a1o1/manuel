@@ -35,15 +35,9 @@ export function ManuelBanner({
       <View style={styles.content}>
         {showCharacter && (
           <View style={styles.characterContainer}>
-            {/* Manuel character image - will be replaced with AI-generated graphics */}
-            <Image
-              source={graphicsService.getManuelCharacter(compact ? 'compact' : 'default')}
-              style={[styles.characterImage, compact && styles.characterImageCompact]}
-              defaultSource={{ uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' }}
-            />
-            {/* Fallback placeholder */}
-            <View style={[styles.characterPlaceholder, compact && styles.characterPlaceholderCompact]}>
-              <Text style={styles.characterEmoji}>👨‍🍳</Text>
+            {/* Book icon */}
+            <View style={[styles.bookIconContainer, compact && styles.bookIconContainerCompact]}>
+              <Text style={[styles.bookIcon, compact && styles.bookIconCompact]}>📖</Text>
             </View>
           </View>
         )}
@@ -55,12 +49,6 @@ export function ManuelBanner({
           )}
         </View>
 
-        <View style={styles.decorationContainer}>
-          {/* Floating book/manual decoration */}
-          <View style={styles.bookDecoration}>
-            <Text style={styles.bookEmoji}>📖</Text>
-          </View>
-        </View>
       </View>
     </LinearGradient>
   );
@@ -82,37 +70,26 @@ const styles = StyleSheet.create({
   characterContainer: {
     marginRight: 15,
   },
-  characterImage: {
+  bookIconContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  characterImageCompact: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  characterPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    position: 'absolute',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  characterPlaceholderCompact: {
+  bookIconContainerCompact: {
     width: 36,
     height: 36,
     borderRadius: 18,
   },
-  characterEmoji: {
-    fontSize: 20,
+  bookIcon: {
+    fontSize: 24,
+  },
+  bookIconCompact: {
+    fontSize: 18,
   },
   textContainer: {
     flex: 1,
@@ -133,18 +110,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 2,
     fontWeight: '500',
-  },
-  decorationContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bookDecoration: {
-    opacity: 0.6,
-    transform: [{ rotate: '15deg' }],
-  },
-  bookEmoji: {
-    fontSize: 20,
-    color: '#F59E0B',
   },
 });
 

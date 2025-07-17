@@ -27,12 +27,25 @@ export class GraphicsService {
       return this.loadedAssets.get(key)!;
     }
 
-    // Placeholder until AI-generated images are ready
-    // TODO: Replace with actual AI-generated Manuel character images
-    const placeholderSource = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' };
+    // Use actual Manuel character images
+    let imageSource: ImageSourcePropType;
 
-    this.loadedAssets.set(key, placeholderSource);
-    return placeholderSource;
+    switch (variant) {
+      case 'default':
+        imageSource = require('../assets/images/character/manuel-face-50x50.png');
+        break;
+      case 'compact':
+        imageSource = require('../assets/images/character/manuel-face-36x36.png');
+        break;
+      case 'icon':
+        imageSource = require('../assets/images/character/manuel-180x180.png');
+        break;
+      default:
+        imageSource = require('../assets/images/character/manuel-face-50x50.png');
+    }
+
+    this.loadedAssets.set(key, imageSource);
+    return imageSource;
   }
 
   /**
@@ -54,6 +67,21 @@ export class GraphicsService {
   }
 
   /**
+   * Get splash/hero image for auth screens
+   */
+  public getSplashImage(): ImageSourcePropType {
+    const key = 'manuel-splash';
+
+    if (this.loadedAssets.has(key)) {
+      return this.loadedAssets.get(key)!;
+    }
+
+    const imageSource = require('../assets/images/character/manuel-256x256.png');
+    this.loadedAssets.set(key, imageSource);
+    return imageSource;
+  }
+
+  /**
    * Get app icon image
    */
   public getAppIcon(size: number = 180): ImageSourcePropType {
@@ -63,12 +91,19 @@ export class GraphicsService {
       return this.loadedAssets.get(key)!;
     }
 
-    // Placeholder until AI-generated images are ready
-    // TODO: Replace with actual AI-generated app icon
-    const placeholderSource = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' };
+    // Use actual Manuel character images based on size
+    let imageSource: ImageSourcePropType;
 
-    this.loadedAssets.set(key, placeholderSource);
-    return placeholderSource;
+    if (size <= 120) {
+      imageSource = require('../assets/images/character/manuel-120x120.png');
+    } else if (size <= 180) {
+      imageSource = require('../assets/images/character/manuel-180x180.png');
+    } else {
+      imageSource = require('../assets/images/character/manuel-256x256.png');
+    }
+
+    this.loadedAssets.set(key, imageSource);
+    return imageSource;
   }
 
   /**
@@ -76,17 +111,18 @@ export class GraphicsService {
    */
   public async preloadAssets(): Promise<void> {
     try {
-      // TODO: Implement asset preloading when AI-generated images are ready
       console.log('Graphics assets preloading...');
 
-      // Example of how to preload assets:
-      // const assets = [
-      //   require('../../assets/icons/manuel-icon-180.png'),
-      //   require('../../assets/banners/manuel-banner@2x.png'),
-      //   require('../../assets/graphics/manuel-character.png'),
-      // ];
+      // Preload Manuel character images
+      const assets = [
+        require('../assets/images/character/manuel-face-50x50.png'),
+        require('../assets/images/character/manuel-face-36x36.png'),
+        require('../assets/images/character/manuel-180x180.png'),
+        require('../assets/images/character/manuel-120x120.png'),
+        require('../assets/images/character/manuel-256x256.png'),
+      ];
 
-      // await Promise.all(assets.map(asset => Asset.loadAsync(asset)));
+      await Promise.all(assets.map(asset => Asset.loadAsync(asset)));
       console.log('Graphics assets preloaded successfully');
     } catch (error) {
       console.error('Failed to preload graphics assets:', error);
