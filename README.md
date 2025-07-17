@@ -13,15 +13,19 @@
   <img src="docs/images/manuel-transparent.png" alt="Manuel - Your AI Manual Assistant" width="300" style="margin: 40px 0 20px 0;"/>
 </div>
 
-# Manuel - AI Powered Studio Assistant 
+# Manuel - AI Powered Studio Assistant
 
-> Meet Manuel, your AI-powered voice assistant managing all product manuals using AWS
-> Bedrock
+> Meet Manuel, your AI-powered voice assistant managing all product manuals
+> using AWS Bedrock
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/Version-v1.4.0-blue.svg)](https://github.com/a1o1/manuel/releases)
+[![Performance](https://img.shields.io/badge/Performance-83%25%20Redis%20Boost-green.svg)](backend/REDIS_CACHE_IMPLEMENTATION.md)
+[![Model](https://img.shields.io/badge/AI-Claude%20Sonnet%204-purple.svg)](https://www.anthropic.com/claude)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 [![AWS](https://img.shields.io/badge/AWS-Bedrock-orange.svg)](https://aws.amazon.com/bedrock/)
 [![React Native](https://img.shields.io/badge/React%20Native-iOS-blue.svg)](https://reactnative.dev/)
+[![Redis Cache](https://img.shields.io/badge/Cache-Redis-red.svg)](https://redis.io/)
 
 ---
 
