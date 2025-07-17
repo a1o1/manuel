@@ -2,9 +2,9 @@
   <img src="docs/images/manuel-transparent.png" alt="Manuel - Your AI Manual Assistant" width="300" style="margin: 40px 0 20px 0;"/>
 </div>
 
-# Manuel - Enterprise Voice Assistant
+# Manuel - AI Powered Studio Assistant 
 
-> Meet Manuel, your AI-powered voice assistant for product manuals using AWS
+> Meet Manuel, your AI-powered voice assistant managing all product manuals using AWS
 > Bedrock
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
