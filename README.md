@@ -6,10 +6,10 @@
 
 > Enterprise-grade voice assistant for product manuals using AWS Bedrock
 
-[![CI/CD](https://github.com/a1o1/manuel/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/a1o1/manuel/actions/workflows/backend-ci.yml)
-[![Security](https://github.com/a1o1/manuel/actions/workflows/security.yml/badge.svg)](https://github.com/a1o1/manuel/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
+[![AWS](https://img.shields.io/badge/AWS-Bedrock-orange.svg)](https://aws.amazon.com/bedrock/)
+[![React Native](https://img.shields.io/badge/React%20Native-iOS-blue.svg)](https://reactnative.dev/)
 
 ## 🚀 Quick Start
 

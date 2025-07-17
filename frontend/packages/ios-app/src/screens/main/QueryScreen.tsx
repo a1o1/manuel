@@ -7,6 +7,7 @@ import { queryService, manualsService } from '../../services';
 import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
 import { RateLimitIndicator } from '../../components/RateLimitIndicator';
 import { EnhancedSourceCard } from '../../components/EnhancedSourceCard';
+import { ManuelCompactBanner } from '../../components/ManuelBanner';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -151,7 +152,8 @@ export function QueryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <ManuelCompactBanner />
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -295,7 +297,7 @@ export function QueryScreen() {
           })()}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

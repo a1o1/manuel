@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, useUsage } from '../../contexts/AppContext';
+import { ManuelCompactBanner } from '../../components/ManuelBanner';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -39,7 +40,8 @@ export function HomeScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <ManuelCompactBanner />
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
           <View>
@@ -47,6 +49,24 @@ export function HomeScreen() {
               Hello{user?.name ? `, ${user.name}` : ''}!
             </Text>
             <Text style={styles.subtitle}>How can Manuel help you today?</Text>
+          </View>
+        </View>
+
+        <View style={styles.quickActionsContainer}>
+          <View style={styles.quickActionsGrid}>
+            {quickActions.map((action, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.quickActionCard}
+                onPress={action.onPress}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}15` }]}>
+                  <Ionicons name={action.icon} size={24} color={action.color} />
+                </View>
+                <Text style={styles.quickActionTitle}>{action.title}</Text>
+                <Text style={styles.quickActionSubtitle}>{action.subtitle}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -94,25 +114,6 @@ export function HomeScreen() {
           </View>
         )}
 
-        <View style={styles.quickActionsContainer}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.quickActionCard}
-                onPress={action.onPress}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}15` }]}>
-                  <Ionicons name={action.icon} size={24} color={action.color} />
-                </View>
-                <Text style={styles.quickActionTitle}>{action.title}</Text>
-                <Text style={styles.quickActionSubtitle}>{action.subtitle}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
         <View style={styles.tipsContainer}>
           <Text style={styles.sectionTitle}>Tips</Text>
           <View style={styles.tipCard}>
@@ -129,7 +130,7 @@ export function HomeScreen() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

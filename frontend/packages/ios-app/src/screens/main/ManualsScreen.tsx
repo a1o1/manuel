@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { manualsService } from '../../services';
 import { UrlUploadModal } from '../../components/UrlUploadModal';
+import { ManuelCompactBanner } from '../../components/ManuelBanner';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -210,16 +211,18 @@ export function ManualsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
+        <ManuelCompactBanner />
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading manuals...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <ManuelCompactBanner />
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.title}>Manuals</Text>
@@ -283,7 +286,7 @@ export function ManualsScreen() {
         onClose={() => setShowUrlUpload(false)}
         onSuccess={handleUrlUploadSuccess}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 

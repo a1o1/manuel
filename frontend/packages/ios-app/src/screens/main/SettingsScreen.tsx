@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth, useUsage } from '../../contexts/AppContext';
+import { ManuelCompactBanner } from '../../components/ManuelBanner';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../../navigation/MainNavigator';
 
@@ -170,7 +171,8 @@ export function SettingsScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <ManuelCompactBanner />
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Settings</Text>
@@ -241,7 +243,7 @@ export function SettingsScreen() {
           <Text style={styles.footerSubtext}>Voice assistant for product manuals</Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 

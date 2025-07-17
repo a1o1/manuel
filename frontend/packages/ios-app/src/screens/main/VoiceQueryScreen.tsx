@@ -7,6 +7,7 @@ import { useAudioRecording } from '../../hooks/useAudioRecording';
 import { queryService, manualsService } from '../../services';
 import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
 import { EnhancedSourceCard } from '../../components/EnhancedSourceCard';
+import { ManuelCompactBanner } from '../../components/ManuelBanner';
 
 interface VoiceQueryResult {
   transcription: string;
@@ -216,7 +217,8 @@ export function VoiceQueryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <ManuelCompactBanner />
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.closeButton}
@@ -330,7 +332,7 @@ export function VoiceQueryScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
