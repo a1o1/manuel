@@ -10,6 +10,49 @@
 
 ## 🎉 Major Milestones Achieved
 
+### ✅ EUR Currency Display & Real-Time Usage Tracking (v1.4.0)
+
+**Status: FULLY FUNCTIONAL**
+
+Complete EUR currency display and real-time usage tracking system with immediate
+updates:
+
+**Key Features:**
+
+- ✅ **EUR Currency Display**: All costs and usage displayed in EUR (€)
+  throughout iOS app
+- ✅ **Real-Time Usage Updates**: Usage statistics refresh immediately after
+  each query
+- ✅ **Backend Integration**: Real usage and cost tracking connected to AWS
+  services
+- ✅ **Automatic Refresh**: Usage data refreshes after text and voice queries
+- ✅ **Cost Calculation**: Accurate EUR cost tracking with 0.85 USD-to-EUR
+  conversion
+- ✅ **HomeScreen Integration**: Updated usage statistics displayed on home
+  screen
+- ✅ **DynamoDB Integration**: Usage data stored and retrieved from backend
+  properly
+
+**Technical Implementation:**
+
+- **Frontend**: Fixed hardcoded USD symbols, added EUR formatting throughout
+- **Backend**: Implemented usage tracking in query function with cost
+  calculation
+- **JSON Serialization**: Fixed DynamoDB Decimal object serialization for API
+  responses
+- **Real-Time Updates**: Added refreshUsage() calls to QueryScreen and
+  VoiceQueryScreen
+- **Usage Service**: Complete RealUsageService implementation with
+  refreshUsage() method
+
+**User Experience:**
+
+- All costs displayed in EUR (€) symbols instead of USD ($)
+- Usage statistics update immediately after making queries
+- Daily/monthly query counts and costs refresh in real-time
+- Backend tracks 5 total queries with accurate cost calculation
+- HomeScreen shows current usage without requiring app refresh
+
 ### ✅ PDF Viewing System with Real Backend Integration (v1.1.3)
 
 **Status: FULLY FUNCTIONAL**

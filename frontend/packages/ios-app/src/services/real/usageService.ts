@@ -198,4 +198,9 @@ export class RealUsageService extends BaseApi implements UsageService {
       };
     }
   }
+
+  async refreshUsage() {
+    // Refresh usage calls the same endpoint as getUsageData
+    return this.getUsageData();
+  }
 }

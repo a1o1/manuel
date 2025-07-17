@@ -99,6 +99,42 @@ export interface UsageService {
     lastOperation?: string;
     lastUpdated?: string;
   }>;
+
+  // Method to refresh usage data
+  refreshUsage?(): Promise<{
+    dailyQueries: number;
+    dailyLimit: number;
+    dailyRemaining: number;
+    monthlyQueries: number;
+    monthlyLimit: number;
+    monthlyRemaining: number;
+    dailyCost: number;
+    monthlyCost: number;
+    currency: string;
+    costBreakdown?: {
+      transcribe: number;
+      bedrock: number;
+      lambda: number;
+      s3: number;
+      apiGateway: number;
+    };
+    recentQueries?: Array<{
+      timestamp: string;
+      operation: string;
+      cost: number;
+      currency: string;
+    }>;
+    historicalData?: Array<{
+      date: string;
+      count: number;
+      operations: Record<string, number>;
+    }>;
+    operationBreakdown?: {
+      transcribe: number;
+      query: number;
+      total: number;
+    };
+  }>;
 }
 
 export interface QueryService {

@@ -1,6 +1,6 @@
 {
   "name": "manuel",
-  "version": "1.0.2",
+  "version": "1.4.0",
   "description": "Manuel - iOS app with AWS backend",
   "private": true,
   "workspaces": [

@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAudioRecording } from '../../hooks/useAudioRecording';
 import { queryService, manualsService } from '../../services';
+import { useUsage } from '../../contexts/AppContext';
 import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
 import { EnhancedSourceCard } from '../../components/EnhancedSourceCard';
 import { ManuelCompactBanner } from '../../components/ManuelBanner';
@@ -26,6 +27,7 @@ interface VoiceQueryResult {
 
 export function VoiceQueryScreen() {
   const navigation = useNavigation();
+  const { refreshUsage } = useUsage();
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState<VoiceQueryResult | null>(null);
   const [manuals, setManuals] = useState<any[]>([]);
@@ -150,6 +152,13 @@ export function VoiceQueryScreen() {
 
         console.log('Query result received:', queryResult);
         setResult(queryResult);
+
+        // Refresh usage data after successful voice query
+        try {
+          await refreshUsage();
+        } catch (refreshError) {
+          console.error('Failed to refresh usage after voice query:', refreshError);
+        }
       } else {
         console.log('No audio data available from recording');
         Alert.alert('Recording Error', 'No audio data was captured. Please try recording again.');

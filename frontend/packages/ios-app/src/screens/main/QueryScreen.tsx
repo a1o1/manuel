@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { queryService, manualsService } from '../../services';
+import { useUsage } from '../../contexts/AppContext';
 import { isEnhancedErrorHandlingEnabled } from '../../config/environment';
 import { RateLimitIndicator } from '../../components/RateLimitIndicator';
 import { EnhancedSourceCard } from '../../components/EnhancedSourceCard';
@@ -29,6 +30,7 @@ interface QueryResult {
 
 export function QueryScreen() {
   const navigation = useNavigation<QueryScreenNavigationProp>();
+  const { refreshUsage } = useUsage();
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<QueryResult | null>(null);
@@ -122,6 +124,13 @@ export function QueryScreen() {
       };
 
       setResult(sanitizedResponse);
+
+      // Refresh usage data after successful query
+      try {
+        await refreshUsage();
+      } catch (refreshError) {
+        console.error('Failed to refresh usage after query:', refreshError);
+      }
     } catch (error) {
       console.error('Query error:', error);
 

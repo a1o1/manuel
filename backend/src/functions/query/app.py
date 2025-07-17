@@ -21,8 +21,9 @@ sys.path.append("../../../shared")  # Local development path
 
 # Import usage tracking utilities
 try:
-    from utils import UsageTracker, get_user_id_from_event
     from cost_calculator import get_cost_calculator
+    from utils import UsageTracker, get_user_id_from_event
+
     USAGE_TRACKING_AVAILABLE = True
 except ImportError:
     print("Usage tracking modules not available")
@@ -311,11 +312,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         "Content-Type": "application/json",
                         "Access-Control-Allow-Origin": "*",
                     },
-                    "body": json.dumps({"error": "Unauthorized - valid JWT token required"}),
+                    "body": json.dumps(
+                        {"error": "Unauthorized - valid JWT token required"}
+                    ),
                 }
         else:
             user_id = "default-user"  # Fallback for minimal deployment
-        
+
         print(f"Using user_id: {user_id}")
 
         # Parse and validate request body
@@ -430,8 +433,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             try:
                 usage_tracker = UsageTracker()
                 operation = "transcribe" if file_data else "query"
-                can_proceed, usage_info = usage_tracker.check_and_increment_usage(user_id, operation)
-                
+                can_proceed, usage_info = usage_tracker.check_and_increment_usage(
+                    user_id, operation
+                )
+
                 if not can_proceed:
                     return {
                         "statusCode": 429,
@@ -439,12 +444,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             "Content-Type": "application/json",
                             "Access-Control-Allow-Origin": "*",
                         },
-                        "body": json.dumps({
-                            "error": "Usage limit exceeded. Please try again later.",
-                            "usage_info": usage_info
-                        }),
+                        "body": json.dumps(
+                            {
+                                "error": "Usage limit exceeded. Please try again later.",
+                                "usage_info": usage_info,
+                            }
+                        ),
                     }
-                
+
                 print(f"Usage tracking: {usage_info}")
             except Exception as e:
                 print(f"Error in usage tracking: {e}")
@@ -647,13 +654,13 @@ Assistant: I'll help you with that based on the provided context."""
             try:
                 cost_calculator = get_cost_calculator()
                 operation_type = "transcribe" if file_data else "query"
-                
+
                 # Estimate token counts
                 input_tokens = cost_calculator.estimate_tokens_from_text(
                     question + " ".join(context_pieces)
                 )
                 output_tokens = cost_calculator.estimate_tokens_from_text(answer)
-                
+
                 # Calculate costs
                 request_id = str(uuid.uuid4())
                 request_cost = cost_calculator.calculate_request_cost(
@@ -665,22 +672,24 @@ Assistant: I'll help you with that based on the provided context."""
                     output_tokens=output_tokens,
                     audio_duration_seconds=30 if file_data else 0,  # Estimate
                     context_chunks=len(context_pieces),
-                    response_time_ms=response_time_ms
+                    response_time_ms=response_time_ms,
                 )
-                
+
                 # Store cost data
                 cost_calculator.store_cost_data(request_cost)
-                
+
                 # Add cost info to response for debugging
                 response_data["cost_info"] = {
                     "total_cost_eur": request_cost.total_cost,
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
-                    "operation": operation_type
+                    "operation": operation_type,
                 }
-                
-                print(f"Cost tracking: {request_cost.total_cost:.4f} EUR for {operation_type}")
-                
+
+                print(
+                    f"Cost tracking: {request_cost.total_cost:.4f} EUR for {operation_type}"
+                )
+
             except Exception as e:
                 print(f"Error in cost tracking: {e}")
                 # Continue processing even if cost tracking fails

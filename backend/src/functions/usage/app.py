@@ -165,7 +165,7 @@ def handle_get_quota(user_id: str) -> Dict[str, Any]:
             "last_operation": stats.get("last_operation"),
             "last_updated": stats.get("last_updated"),
         }
-        
+
         # Convert Decimal objects to regular numbers for JSON serialization
         response_data = convert_decimal_to_number(response_data)
         return create_response(200, response_data)
