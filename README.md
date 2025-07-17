@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="docs/images/hero-banner.svg" alt="Manuel - Enterprise Voice Assistant" width="100%"/>
+</div>
+
 # Manuel - Enterprise Voice Assistant
 
 > Enterprise-grade voice assistant for product manuals using AWS Bedrock
@@ -8,6 +12,11 @@
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg)](https://conventionalcommits.org)
 
 ## 🚀 Quick Start
+
+<div align="center">
+  <img src="docs/images/ios-app-mockup.svg" alt="iOS App Interface" width="45%" style="margin: 0 2.5%"/>
+  <img src="docs/images/cli-example.svg" alt="CLI Interface" width="45%" style="margin: 0 2.5%"/>
+</div>
 
 ### Prerequisites
 
