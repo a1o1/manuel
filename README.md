@@ -2,6 +2,17 @@
   <img src="docs/images/manuel-transparent.png" alt="Manuel - Your AI Manual Assistant" width="300" style="margin: 40px 0 20px 0;"/>
 </div>
 
+<div align="center">
+  <table>
+    <tr>
+      <td align="center" style="background-color: #e3f2fd; border: 1px solid #2196f3; border-radius: 5px; padding: 10px;">
+        <strong>📚 Personal Learning Project</strong><br/>
+        This repository is developed for educational purposes and personal skill development.
+      </td>
+    </tr>
+  </table>
+</div>
+
 # Manuel - AI Powered Studio Assistant 
 
 > Meet Manuel, your AI-powered voice assistant managing all product manuals using AWS
