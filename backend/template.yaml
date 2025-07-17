@@ -845,14 +845,14 @@ Resources:
           - EnableRedisCaching
           - !Ref RedisLayer
           - !Ref AWS::NoValue
-# VpcConfig: !If
-      #   - EnableRedisCaching
-      #   - SecurityGroupIds:
-      #       - !Ref LambdaSecurityGroup
-      #     SubnetIds:
-      #       - !Ref PrivateSubnet1
-      #       - !Ref PrivateSubnet2
-      #   - !Ref AWS::NoValue
+      VpcConfig: !If
+        - EnableRedisCaching
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+        - !Ref AWS::NoValue
       Environment:
         Variables:
           DAILY_QUOTA: !Ref DailyQuotaLimit

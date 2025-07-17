@@ -403,47 +403,82 @@ with sources
 - Historical cost data stored in DynamoDB
 - Service-specific cost attribution (Bedrock, Transcribe, Lambda, etc.)
 
-## Redis Caching System ✅ PRODUCTION READY
+## Redis Caching System ✅ FULLY OPERATIONAL
 
 ### Overview
 
 High-performance Redis caching system providing significant cost savings and
-response time improvements for repeated queries.
+response time improvements for repeated queries. **Successfully deployed and
+tested in development environment.**
 
 ### Key Features
 
 - **ElastiCache Redis**: `cache.t3.micro` cluster with 1-hour TTL
 - **User Isolation**: Cache keys include user ID for data security
-- **VPC Endpoints**: Cost-effective connectivity (~$35/month vs $73-88 NAT
-  Gateway)
-- **Lambda Layer**: Redis client library deployment strategy
-- **Health Monitoring**: Real-time connectivity validation
-- **Performance**: 95%+ response time improvement for cached queries (5ms vs
-  2-5s)
+- **VPC Integration**: Lambda functions properly deployed in VPC with Redis
+- **Lambda Layer**: Redis client library (redis-5.0.1) deployment strategy
+- **Proven Performance**: 70-85% response time improvement for cached queries
+
+### Verified Performance Results
+
+**Real-world testing results from CLI:**
+
+- **Cache Miss Response Time**: 6-11 seconds (varies by query complexity)
+- **Cache Hit Response Time**: ~1.8 seconds (consistent)
+- **Performance Improvement**: 70-85% faster for repeated queries
+- **Cache Isolation**: Each user gets independent cache namespace
+- **Cache TTL**: 1 hour automatic expiration
+
+**Test Examples:**
+```bash
+# First query: "How do I test this system?" - 11.5s (Cache MISS)
+# Second query: "How do I test this system?" - 1.9s (Cache HIT) = 83% improvement
+
+# First query: "What is the power requirements?" - 6.9s (Cache MISS)  
+# Second query: "What is the power requirements?" - 1.8s (Cache HIT) = 74% improvement
+```
 
 ### Architecture
 
-- **VPC Integration**: Private subnets with security groups
-- **Interface Endpoints**: Bedrock, Transcribe, Agent Runtime ($7.30/month each)
+- **VPC Integration**: Private subnets with proper security groups
+- **Interface Endpoints**: Bedrock, Transcribe, Agent Runtime ($21.90/month)
 - **Gateway Endpoint**: S3 access (free)
 - **Cache Strategy**: SHA256-based keys with user isolation
+- **Lambda VPC Fix**: QueryFunction now properly deployed in VPC for Redis access
 - **Fallback**: Graceful degradation when cache unavailable
 
 ### Configuration
 
-```bash
+```yaml
 EnableRedisCache: "true"
 RedisCacheNodeType: "cache.t3.micro"
-REDIS_ENDPOINT: Auto-configured via CloudFormation
+REDIS_ENDPOINT: "manuel-redis-dev.rll5ac.0001.euw1.cache.amazonaws.com"
+REDIS_PORT: "6379"
 Cache TTL: 3600 seconds (1 hour)
+VPC Integration: Required for Lambda-to-Redis connectivity
 ```
 
-### Monitoring
+### Monitoring & Debugging
 
-- Health endpoint: `/health` includes Redis connectivity tests
-- CloudWatch logs: Cache hit/miss tracking
-- Performance metrics: Response time comparison
-- Cost analysis: Detailed documentation in `REDIS_CACHE_IMPLEMENTATION.md`
+- **CloudWatch Logs**: Cache hit/miss tracking in `/aws/lambda/manuel-query-dev`
+- **Performance Metrics**: Response time comparison via CLI timing
+- **Cache Status**: Included in API response (`cache_status: "hit"|"miss"`)
+- **VPC Connectivity**: Lambda functions deployed in private subnets
+- **Cost Tracking**: Reduced Bedrock API calls for repeated queries
+
+### Implementation Notes
+
+**Key Fix Applied**: The QueryFunction VPC configuration was initially commented
+out in the CloudFormation template, preventing Lambda-to-Redis connectivity.
+Fixed by enabling VPC configuration:
+
+```yaml
+VpcConfig: !If
+  - EnableRedisCaching
+  - SecurityGroupIds: [!Ref LambdaSecurityGroup]
+    SubnetIds: [!Ref PrivateSubnet1, !Ref PrivateSubnet2]
+  - !Ref AWS::NoValue
+```
 
 ## Key Environment Variables (Lambda)
 
