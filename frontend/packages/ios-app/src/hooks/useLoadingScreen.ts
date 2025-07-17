@@ -65,13 +65,13 @@ export const LOADING_SEQUENCES = {
     { text: "Checking authentication...", duration: 600 },
     { text: "Almost ready...", duration: 500 },
   ],
-  
+
   AUTHENTICATION: [
     { text: "Authenticating...", duration: 1000 },
     { text: "Verifying credentials...", duration: 800 },
     { text: "Loading user data...", duration: 600 },
   ],
-  
+
   DATA_LOADING: [
     { text: "Loading your data...", duration: 800 },
     { text: "Syncing manuals...", duration: 700 },
@@ -86,18 +86,18 @@ export function useSequentialLoading() {
 
   const startSequence = async (sequence: typeof LOADING_SEQUENCES.APP_STARTUP) => {
     setLoadingState({ isLoading: true });
-    
+
     for (let i = 0; i < sequence.length; i++) {
       const step = sequence[i];
       setCurrentStep(i);
-      setLoadingState({ 
+      setLoadingState({
         loadingText: step.text,
         progress: ((i + 1) / sequence.length) * 100,
       });
-      
+
       await new Promise(resolve => setTimeout(resolve, step.duration));
     }
-    
+
     hideLoading();
     setCurrentStep(0);
   };

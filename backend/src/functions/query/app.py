@@ -220,12 +220,24 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
         raise Exception("Transcription timeout - please try with a shorter audio clip")
 
     except Exception as e:
-        print(f"Transcription error: {str(e)}")
+        error_type = type(e).__name__
+        error_message = str(e)
+        print(f"Transcription error [{error_type}]: {error_message}")
+        
         # Cleanup on error
         try:
             s3_client.delete_object(Bucket=bucket_name, Key=audio_key)
-        except:
-            pass
+            print(f"Cleaned up audio file: {audio_key}")
+        except Exception as cleanup_error:
+            print(f"Failed to cleanup audio file: {cleanup_error}")
+        
+        # Try to cleanup transcription job if it exists
+        try:
+            transcribe_client.delete_transcription_job(TranscriptionJobName=job_name)
+            print(f"Cleaned up transcription job: {job_name}")
+        except Exception as job_cleanup_error:
+            print(f"Failed to cleanup transcription job: {job_cleanup_error}")
+        
         return ""
 
 
@@ -280,11 +292,38 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "body": "",
             }
 
-        # Extract user ID from Cognito JWT (simplified)
-        user_id = "default-user"  # For testing, we'll use a default user
-        claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
-        if claims and "sub" in claims:
-            user_id = claims["sub"]
+        # Extract user ID from Cognito JWT
+        user_id = "default-user"
+        
+        # Try to get user ID from Cognito claims first (API Gateway integration)
+        try:
+            claims = event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
+            if claims and "sub" in claims:
+                user_id = claims["sub"]
+                print(f"Using user ID from API Gateway claims: {user_id}")
+            else:
+                # If no claims, try to decode JWT from Authorization header
+                headers = event.get("headers", {})
+                auth_header = headers.get("Authorization") or headers.get("authorization")
+                if auth_header and auth_header.startswith("Bearer "):
+                    # Simple JWT payload decoding (without signature verification)
+                    try:
+                        jwt_token = auth_header[7:]  # Remove 'Bearer '
+                        parts = jwt_token.split('.')
+                        if len(parts) == 3:
+                            payload_encoded = parts[1]
+                            payload_encoded += '=' * (4 - len(payload_encoded) % 4)
+                            payload_bytes = base64.b64decode(payload_encoded)
+                            payload = json.loads(payload_bytes.decode('utf-8'))
+                            if "sub" in payload:
+                                user_id = payload["sub"]
+                                print(f"Using user ID from JWT token: {user_id}")
+                    except Exception as jwt_error:
+                        print(f"Failed to decode JWT: {jwt_error}")
+        except Exception as e:
+            print(f"Error extracting user ID: {e}")
+            
+        print(f"Final user_id: {user_id}")
 
         # Parse and validate request body
         body = event.get("body", "{}")
@@ -567,18 +606,39 @@ Assistant: I'll help you with that based on the provided context."""
         }
 
     except Exception as e:
-        print(f"Error processing query: {str(e)}")
+        error_type = type(e).__name__
+        error_message = str(e)
+        print(f"Error processing query [{error_type}]: {error_message}")
+        
+        # Determine appropriate status code based on error type
+        if "Authentication" in error_message or "Unauthorized" in error_message:
+            status_code = 401
+            user_message = "Authentication required. Please sign in."
+        elif "quota" in error_message.lower() or "limit" in error_message.lower():
+            status_code = 429
+            user_message = "Usage limit exceeded. Please try again later."
+        elif "timeout" in error_message.lower():
+            status_code = 408
+            user_message = "Request timeout. Please try again with a shorter query."
+        elif "ValidationException" in error_type:
+            status_code = 400
+            user_message = "Invalid request. Please check your input."
+        else:
+            status_code = 500
+            user_message = "An error occurred while processing your request."
+        
         return {
-            "statusCode": 500,
+            "statusCode": status_code,
             "headers": {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
             },
             "body": json.dumps(
                 {
-                    "error": "Failed to process query",
-                    "details": str(e),
+                    "error": user_message,
+                    "error_type": error_type,
                     "timestamp": int(time.time()),
+                    "request_id": context.aws_request_id if context else "unknown",
                 }
             ),
         }

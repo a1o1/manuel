@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: >
   Manuel - Knowledge Base Phase 2
-  
+
   Adds OpenSearch and Bedrock Knowledge Base to existing infrastructure
 
 Parameters:

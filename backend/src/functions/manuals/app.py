@@ -3,6 +3,7 @@ Manuel - Manuals Management Function (Minimal Version)
 Simple manual management without complex dependencies
 """
 
+import base64
 import json
 import os
 import time
@@ -12,6 +13,33 @@ import uuid
 from typing import Any, Dict
 
 import boto3
+
+
+def decode_jwt_payload(jwt_token: str) -> Dict[str, Any]:
+    """Decode JWT payload without signature verification (for user ID extraction)"""
+    try:
+        # Remove 'Bearer ' prefix if present
+        if jwt_token.startswith("Bearer "):
+            jwt_token = jwt_token[7:]
+        
+        # JWT has 3 parts separated by dots: header.payload.signature
+        parts = jwt_token.split('.')
+        if len(parts) != 3:
+            raise ValueError("Invalid JWT format")
+        
+        # Decode the payload (second part)
+        payload_encoded = parts[1]
+        # Add padding if needed
+        payload_encoded += '=' * (4 - len(payload_encoded) % 4)
+        
+        # Base64 decode
+        payload_bytes = base64.b64decode(payload_encoded)
+        payload = json.loads(payload_bytes.decode('utf-8'))
+        
+        return payload
+    except Exception as e:
+        print(f"Failed to decode JWT: {e}")
+        return {}
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -39,35 +67,37 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "body": "",
             }
 
-        # Extract user ID from Cognito JWT or use fallback
+        # Extract user ID from Cognito JWT
         user_id = "default-user"
 
-        # Try to get user ID from Cognito claims
+        # Try to get user ID from Cognito claims first (API Gateway integration)
         try:
             claims = (
                 event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
             )
-            print(f"DEBUG: Claims: {claims}")
             if claims and "sub" in claims:
                 user_id = claims["sub"]
-                print(f"DEBUG: Using user ID from claims: {user_id}")
+                print(f"Using user ID from API Gateway claims: {user_id}")
             else:
-                # If no claims, try to get from Authorization header
+                # If no claims, try to decode JWT from Authorization header
                 headers = event.get("headers", {})
                 auth_header = headers.get("Authorization") or headers.get(
                     "authorization"
                 )
-                print(f"DEBUG: Auth header present: {bool(auth_header)}")
                 if auth_header and auth_header.startswith("Bearer "):
-                    # For now, use the actual user ID from S3 structure
-                    # TODO: Decode JWT token to get actual user ID
-                    user_id = "5285d454-a091-7019-0088-443a8377b6f5"
-                    print(f"DEBUG: Using actual user ID: {user_id}")
+                    jwt_payload = decode_jwt_payload(auth_header)
+                    if jwt_payload and "sub" in jwt_payload:
+                        user_id = jwt_payload["sub"]
+                        print(f"Using user ID from JWT token: {user_id}")
+                    else:
+                        print("Failed to extract user ID from JWT token")
+                else:
+                    print("No valid Authorization header found")
         except Exception as e:
             print(f"Error extracting user ID: {e}")
             user_id = "default-user"
 
-        print(f"DEBUG: Final user_id: {user_id}")
+        print(f"Final user_id: {user_id}")
 
         s3_client = boto3.client("s3")
 
@@ -134,17 +164,39 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
 
     except Exception as e:
+        error_type = type(e).__name__
+        error_message = str(e)
+        print(f"Error in manuals function [{error_type}]: {error_message}")
+        
+        # Determine appropriate status code based on error type
+        if "Authentication" in error_message or "Unauthorized" in error_message:
+            status_code = 401
+            user_message = "Authentication required. Please sign in."
+        elif "NoSuchKey" in error_type:
+            status_code = 404
+            user_message = "Manual not found."
+        elif "AccessDenied" in error_type:
+            status_code = 403
+            user_message = "Access denied. You don't have permission to access this manual."
+        elif "ValidationException" in error_type:
+            status_code = 400
+            user_message = "Invalid request. Please check your input."
+        else:
+            status_code = 500
+            user_message = "An error occurred while processing your request."
+        
         return {
-            "statusCode": 500,
+            "statusCode": status_code,
             "headers": {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
             },
             "body": json.dumps(
                 {
-                    "error": "Internal server error",
-                    "details": str(e),
+                    "error": user_message,
+                    "error_type": error_type,
                     "timestamp": int(time.time()),
+                    "request_id": context.aws_request_id if context else "unknown",
                 }
             ),
         }

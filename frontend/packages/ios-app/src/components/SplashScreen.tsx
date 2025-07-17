@@ -11,10 +11,10 @@ interface SplashScreenProps {
   onLoadingComplete?: () => void;
 }
 
-export function SplashScreen({ 
-  isLoading, 
-  loadingText = "Loading...", 
-  onLoadingComplete 
+export function SplashScreen({
+  isLoading,
+  loadingText = "Loading...",
+  onLoadingComplete
 }: SplashScreenProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;

@@ -13,18 +13,18 @@ interface ManuelBannerProps {
   compact?: boolean;
 }
 
-export function ManuelBanner({ 
-  title = "Manuel", 
-  subtitle = "Your AI Manual Assistant", 
+export function ManuelBanner({
+  title = "Manuel",
+  subtitle = "Your AI Manual Assistant",
   showCharacter = true,
-  compact = false 
+  compact = false
 }: ManuelBannerProps) {
   const insets = useSafeAreaInsets();
   const bannerHeight = compact ? 44 : 60;
   const totalHeight = bannerHeight + insets.top;
   const colors = graphicsService.getColorPalette();
   const typography = graphicsService.getTypographyStyles();
-  
+
   return (
     <LinearGradient
       colors={colors.gradients.primaryBlue}
@@ -47,14 +47,14 @@ export function ManuelBanner({
             </View>
           </View>
         )}
-        
+
         <View style={styles.textContainer}>
           <Text style={[styles.title, compact && styles.titleCompact]}>{title}</Text>
           {!compact && subtitle && (
             <Text style={styles.subtitle}>{subtitle}</Text>
           )}
         </View>
-        
+
         <View style={styles.decorationContainer}>
           {/* Floating book/manual decoration */}
           <View style={styles.bookDecoration}>
@@ -151,8 +151,8 @@ const styles = StyleSheet.create({
 // Export additional banner variants
 export function ManuelHeaderBanner() {
   return (
-    <ManuelBanner 
-      title="Manuel" 
+    <ManuelBanner
+      title="Manuel"
       subtitle="Voice Assistant for Product Manuals"
       showCharacter={true}
       compact={false}
@@ -162,8 +162,8 @@ export function ManuelHeaderBanner() {
 
 export function ManuelCompactBanner() {
   return (
-    <ManuelBanner 
-      title="Manuel" 
+    <ManuelBanner
+      title="Manuel"
       showCharacter={true}
       compact={true}
     />
@@ -172,8 +172,8 @@ export function ManuelCompactBanner() {
 
 export function ManuelTextOnlyBanner({ title }: { title?: string }) {
   return (
-    <ManuelBanner 
-      title={title || "Manuel"} 
+    <ManuelBanner
+      title={title || "Manuel"}
       showCharacter={false}
       compact={true}
     />

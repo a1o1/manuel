@@ -1,6 +1,7 @@
 # Manuel App Graphics Assets
 
-This directory contains all graphics assets for the Manuel voice assistant application.
+This directory contains all graphics assets for the Manuel voice assistant
+application.
 
 ## Directory Structure
 
@@ -10,15 +11,19 @@ This directory contains all graphics assets for the Manuel voice assistant appli
 
 ## Asset Generation
 
-All graphics are generated using AI image generation tools based on the Manuel character from Fawlty Towers. See `GRAPHICS_IMPLEMENTATION_GUIDE.md` for detailed prompts and specifications.
+All graphics are generated using AI image generation tools based on the Manuel
+character from Fawlty Towers. See `GRAPHICS_IMPLEMENTATION_GUIDE.md` for
+detailed prompts and specifications.
 
 ## Usage
 
-Graphics are optimized for React Native and Expo applications with support for multiple screen densities (@1x, @2x, @3x).
+Graphics are optimized for React Native and Expo applications with support for
+multiple screen densities (@1x, @2x, @3x).
 
 ## Character Design
 
 The Manuel character features:
+
 - Traditional black and white waiter uniform
 - Distinctive thick black mustache
 - Friendly, helpful expression

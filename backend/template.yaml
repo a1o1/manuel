@@ -880,6 +880,11 @@ Resources:
             BucketName: !Ref AudioBucket
         - S3ReadPolicy:
             BucketName: !Ref AudioBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:DeleteObject
+              Resource: !Sub "arn:aws:s3:::${AudioBucket}/*"
         - !If
           - EnableAdvancedSecurityMiddleware
           - DynamoDBCrudPolicy:

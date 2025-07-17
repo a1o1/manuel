@@ -29,7 +29,7 @@ jest.mock('../../services/graphicsService', () => ({
 describe('ManuelBanner', () => {
   it('renders default banner correctly', () => {
     const { getByText } = render(<ManuelBanner />);
-    
+
     expect(getByText('Manuel')).toBeTruthy();
     expect(getByText('Your AI Manual Assistant')).toBeTruthy();
   });
@@ -38,21 +38,21 @@ describe('ManuelBanner', () => {
     const { getByText } = render(
       <ManuelBanner title="Custom Title" subtitle="Custom Subtitle" />
     );
-    
+
     expect(getByText('Custom Title')).toBeTruthy();
     expect(getByText('Custom Subtitle')).toBeTruthy();
   });
 
   it('renders header banner variant', () => {
     const { getByText } = render(<ManuelHeaderBanner />);
-    
+
     expect(getByText('Manuel')).toBeTruthy();
     expect(getByText('Voice Assistant for Product Manuals')).toBeTruthy();
   });
 
   it('renders compact banner variant', () => {
     const { getByText } = render(<ManuelCompactBanner />);
-    
+
     expect(getByText('Manuel')).toBeTruthy();
     // Compact version should not show subtitle
     expect(() => getByText('Your AI Manual Assistant')).toThrow();
@@ -60,7 +60,7 @@ describe('ManuelBanner', () => {
 
   it('hides character when showCharacter is false', () => {
     const { queryByTestId } = render(<ManuelBanner showCharacter={false} />);
-    
+
     // Since we don't have testID on the character container, we test by checking
     // that the component still renders the text parts
     expect(queryByTestId('character-container')).toBeFalsy();

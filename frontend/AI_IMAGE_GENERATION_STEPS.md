@@ -5,6 +5,7 @@
 ### Step 1: Choose Your AI Image Generation Tool
 
 **Recommended Options:**
+
 - **DALL-E 3** (via ChatGPT Plus) - $20/month, best for detailed prompts
 - **Midjourney** - $10/month, excellent image quality
 - **Stable Diffusion** - Free (self-hosted) or various paid services
@@ -12,11 +13,13 @@
 ### Step 2: Generate Application Icon
 
 #### Primary Icon Prompt (Use this first):
+
 ```
 A cheerful Spanish waiter character in the style of 1970s British comedy, wearing a traditional black and white waiter's uniform with bow tie. He has a distinctive thick black mustache, dark hair, and an expressive friendly face. The character is holding out his hand with an open book floating above his palm, glowing softly with warm light. The book has pages that appear to be manual pages with technical diagrams visible. The style should be clean, modern illustration suitable for an iOS app icon, with a circular or rounded square background in warm colors (deep blue or burgundy). The character should look helpful and approachable, with a slight smile. Professional digital illustration style, clean lines, suitable for mobile app icon at various sizes from 29x29 to 1024x1024 pixels.
 ```
 
 #### Alternative Icon Prompt (if first doesn't work well):
+
 ```
 A modern, stylized icon featuring a friendly waiter character silhouette with a distinctive mustache, holding an open book with pages that transform into floating help symbols (question marks, lightbulbs, gears). The design should be minimalist and clean, suitable for iOS app icon guidelines. Use a blue and orange color scheme with the character in navy blue and the book elements in warm orange. The background should be a subtle gradient circle. The style should be flat design with subtle shadows, optimized for scalability from 29x29 to 1024x1024 pixels.
 ```
@@ -24,11 +27,13 @@ A modern, stylized icon featuring a friendly waiter character silhouette with a 
 ### Step 3: Generate Application Banner
 
 #### Primary Banner Prompt:
+
 ```
 A horizontal banner illustration featuring the same cheerful Spanish waiter character from the app icon, positioned on the left side of the composition. He's wearing his traditional black and white waiter's uniform with bow tie and has a thick black mustache. The character is gesturing welcomingly toward the right side of the banner where elegant typography reads "Manuel" in a classic serif font. The background should be a subtle gradient from warm blue to light gray, with floating book pages and technical manual diagrams softly illustrated in the background. The style should be professional, clean, and suitable for mobile app headers. Dimensions should be optimized for mobile screens, approximately 16:9 aspect ratio. The overall mood should be welcoming, professional, and suggest expertise in manual assistance.
 ```
 
 #### Alternative Banner Prompt:
+
 ```
 A horizontal app banner with a retro-modern aesthetic, featuring a stylized waiter character with a black mustache on the left, extending his hand toward floating manual pages and technical diagrams that spiral across the banner. The text "Manuel" appears in elegant lettering on the right side. The color palette should include navy blue, warm orange, and cream colors. The style should blend 1970s British comedy aesthetic with modern mobile app design principles. Suitable for mobile app headers and marketing materials.
 ```
@@ -36,6 +41,7 @@ A horizontal app banner with a retro-modern aesthetic, featuring a stylized wait
 ### Step 4: Generate Character Variations
 
 #### Character Only Prompt:
+
 ```
 A friendly Spanish waiter character from 1970s British comedy, wearing traditional black and white waiter's uniform with bow tie, thick black mustache, dark hair, smiling warmly while holding an open book with glowing pages. Clean illustration style suitable for mobile app, transparent background, 512x512 pixels minimum.
 ```
@@ -43,6 +49,7 @@ A friendly Spanish waiter character from 1970s British comedy, wearing tradition
 ### Step 5: Image Processing and Optimization
 
 #### Tools You'll Need:
+
 - **Image editing software**: Photoshop, GIMP, or Canva
 - **Icon generator**: Icon Set Creator (Mac) or online generators
 - **Image compression**: TinyPNG or ImageOptim
@@ -50,11 +57,13 @@ A friendly Spanish waiter character from 1970s British comedy, wearing tradition
 #### Processing Steps:
 
 1. **Clean up generated images**:
+
    - Remove backgrounds if needed
    - Adjust colors to match brand palette
    - Ensure proper contrast and readability
 
 2. **Create icon sizes**:
+
    - Start with 1024x1024 master file
    - Generate all required iOS sizes (see GRAPHICS_IMPLEMENTATION_GUIDE.md)
    - Ensure clarity at smallest sizes (29x29)
@@ -67,6 +76,7 @@ A friendly Spanish waiter character from 1970s British comedy, wearing tradition
 ### Step 6: File Organization
 
 Save generated images in this structure:
+
 ```
 frontend/assets/
 ├── icons/
@@ -92,6 +102,7 @@ frontend/assets/
 ### Step 7: Integration into React Native App
 
 #### Update app.json:
+
 ```json
 {
   "expo": {
@@ -104,7 +115,9 @@ frontend/assets/
 ```
 
 #### Update GraphicsService:
-Replace the placeholder URIs in `src/services/graphicsService.ts` with actual image imports:
+
+Replace the placeholder URIs in `src/services/graphicsService.ts` with actual
+image imports:
 
 ```typescript
 // Replace placeholder with actual images
@@ -123,11 +136,13 @@ public getManuelCharacter(variant: 'default' | 'compact' | 'icon' = 'default'): 
 ### Step 8: Testing and Validation
 
 1. **Test on devices**:
+
    - iPhone (various sizes)
    - iPad
    - Different iOS versions
 
 2. **Validate quality**:
+
    - Icons remain clear at all sizes
    - Banners scale properly
    - Colors match brand guidelines
@@ -140,6 +155,7 @@ public getManuelCharacter(variant: 'default' | 'compact' | 'icon' = 'default'): 
 ### Step 9: App Store Preparation
 
 1. **Create marketing assets**:
+
    - App Store screenshots
    - Feature graphics
    - Marketing banners
@@ -152,18 +168,21 @@ public getManuelCharacter(variant: 'default' | 'compact' | 'icon' = 'default'): 
 ## Tips for Best Results
 
 ### AI Generation Tips:
+
 - Be specific about style and mood
 - Include technical requirements (sizes, formats)
 - Generate multiple variations
 - Iterate based on results
 
 ### Quality Considerations:
+
 - Test at minimum required sizes
 - Ensure good contrast for accessibility
 - Keep designs simple and recognizable
 - Maintain consistency across all graphics
 
 ### Brand Consistency:
+
 - Use the same character across all graphics
 - Maintain color palette consistency
 - Keep the "helpful assistant" theme

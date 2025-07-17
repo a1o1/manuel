@@ -26,7 +26,7 @@ describe('SplashScreen', () => {
     const { getByText } = render(
       <SplashScreen isLoading={true} />
     );
-    
+
     expect(getByText('Loading...')).toBeTruthy();
   });
 
@@ -34,19 +34,19 @@ describe('SplashScreen', () => {
     const { getByText } = render(
       <SplashScreen isLoading={true} loadingText="Custom loading text" />
     );
-    
+
     expect(getByText('Custom loading text')).toBeTruthy();
   });
 
   it('renders app loading splash variant', () => {
     const { getByText } = render(<AppLoadingSplash />);
-    
+
     expect(getByText('Initializing Manuel...')).toBeTruthy();
   });
 
   it('renders auth loading splash variant', () => {
     const { getByText } = render(<AuthLoadingSplash />);
-    
+
     expect(getByText('Authenticating...')).toBeTruthy();
   });
 
@@ -54,7 +54,7 @@ describe('SplashScreen', () => {
     const { getByText } = render(
       <SplashScreen isLoading={true} />
     );
-    
+
     expect(getByText('Manuel')).toBeTruthy();
     expect(getByText('Voice Assistant for Product Manuals')).toBeTruthy();
   });
@@ -63,7 +63,7 @@ describe('SplashScreen', () => {
     const { queryByText } = render(
       <SplashScreen isLoading={false} />
     );
-    
+
     // Should not render the loading text when not loading
     expect(queryByText('Loading...')).toBeFalsy();
   });

@@ -65,24 +65,24 @@ export class GraphicsService {
   public async preloadAssets(): Promise<void> {
     try {
       console.log('Preloading Manuel graphics assets...');
-      
+
       // Preload all essential graphics
       const assets = [
         // Character images
         require('../../assets/graphics/manuel-character.png'),
         require('../../assets/graphics/manuel-character-compact.png'),
-        
+
         // Banner images
         require('../../assets/banners/manuel-banner@2x.png'),
         require('../../assets/banners/manuel-banner-compact@2x.png'),
-        
+
         // Icon images (most commonly used sizes)
         require('../../assets/icons/icon-1024.png'),
         require('../../assets/icons/icon-180.png'),
         require('../../assets/icons/icon-120.png'),
         require('../../assets/icons/icon-87.png'),
       ];
-      
+
       await Promise.all(assets.map(asset => Asset.loadAsync(asset)));
       console.log('Manuel graphics assets preloaded successfully');
     } catch (error) {

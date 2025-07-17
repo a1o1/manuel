@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import boto3
+
 # import magic  # Disabled for Lambda compatibility
 from botocore.exceptions import ClientError
 from logger import get_logger
@@ -321,7 +322,12 @@ class FileSecurityValidator:
             return FileType.AUDIO
         elif mime_type.startswith("image/"):
             return FileType.IMAGE
-        elif mime_type in {"application/pdf", "application/octet-stream", "text/plain", "application/msword"}:
+        elif mime_type in {
+            "application/pdf",
+            "application/octet-stream",
+            "text/plain",
+            "application/msword",
+        }:
             return FileType.DOCUMENT
         else:
             return FileType.UNKNOWN

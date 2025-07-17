@@ -22,7 +22,7 @@ export class GraphicsService {
    */
   public getManuelCharacter(variant: 'default' | 'compact' | 'icon' = 'default'): ImageSourcePropType {
     const key = `manuel-character-${variant}`;
-    
+
     if (this.loadedAssets.has(key)) {
       return this.loadedAssets.get(key)!;
     }
@@ -30,7 +30,7 @@ export class GraphicsService {
     // Placeholder until AI-generated images are ready
     // TODO: Replace with actual AI-generated Manuel character images
     const placeholderSource = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' };
-    
+
     this.loadedAssets.set(key, placeholderSource);
     return placeholderSource;
   }
@@ -40,7 +40,7 @@ export class GraphicsService {
    */
   public getBanner(variant: 'full' | 'compact' = 'full'): ImageSourcePropType {
     const key = `manuel-banner-${variant}`;
-    
+
     if (this.loadedAssets.has(key)) {
       return this.loadedAssets.get(key)!;
     }
@@ -48,7 +48,7 @@ export class GraphicsService {
     // Placeholder until AI-generated images are ready
     // TODO: Replace with actual AI-generated banner images
     const placeholderSource = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' };
-    
+
     this.loadedAssets.set(key, placeholderSource);
     return placeholderSource;
   }
@@ -58,7 +58,7 @@ export class GraphicsService {
    */
   public getAppIcon(size: number = 180): ImageSourcePropType {
     const key = `manuel-icon-${size}`;
-    
+
     if (this.loadedAssets.has(key)) {
       return this.loadedAssets.get(key)!;
     }
@@ -66,7 +66,7 @@ export class GraphicsService {
     // Placeholder until AI-generated images are ready
     // TODO: Replace with actual AI-generated app icon
     const placeholderSource = { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==' };
-    
+
     this.loadedAssets.set(key, placeholderSource);
     return placeholderSource;
   }
@@ -78,14 +78,14 @@ export class GraphicsService {
     try {
       // TODO: Implement asset preloading when AI-generated images are ready
       console.log('Graphics assets preloading...');
-      
+
       // Example of how to preload assets:
       // const assets = [
       //   require('../../assets/icons/manuel-icon-180.png'),
       //   require('../../assets/banners/manuel-banner@2x.png'),
       //   require('../../assets/graphics/manuel-character.png'),
       // ];
-      
+
       // await Promise.all(assets.map(asset => Asset.loadAsync(asset)));
       console.log('Graphics assets preloaded successfully');
     } catch (error) {
