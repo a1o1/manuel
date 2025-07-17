@@ -988,11 +988,11 @@ Resources:
           CACHE_BUCKET: !Ref ManualsBucket  # Use same bucket for caching
           REDIS_ENDPOINT: !If 
             - EnableRedisCaching
-            - !GetAtt RedisCluster.PrimaryEndpoint.Address
+            - !GetAtt RedisCache.RedisEndpoint.Address
             - ""
           REDIS_PORT: !If
             - EnableRedisCaching
-            - !GetAtt RedisCluster.PrimaryEndpoint.Port
+            - !GetAtt RedisCache.RedisEndpoint.Port
             - "6379"
           ENABLE_REDIS_CACHE: !If
             - EnableRedisCaching
