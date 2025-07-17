@@ -19,6 +19,15 @@ import boto3
 sys.path.append("/opt/python")  # Lambda layer path
 sys.path.append("../../../shared")  # Local development path
 
+# Import usage tracking utilities
+try:
+    from utils import UsageTracker, get_user_id_from_event
+    from cost_calculator import get_cost_calculator
+    USAGE_TRACKING_AVAILABLE = True
+except ImportError:
+    print("Usage tracking modules not available")
+    USAGE_TRACKING_AVAILABLE = False
+
 try:
     from input_validation import InputType, InputValidator, ValidationRule
     from security_headers import SecurityLevel, security_headers
@@ -292,42 +301,22 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 "body": "",
             }
 
-        # Extract user ID from Cognito JWT
-        user_id = "default-user"
-
-        # Try to get user ID from Cognito claims first (API Gateway integration)
-        try:
-            claims = (
-                event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
-            )
-            if claims and "sub" in claims:
-                user_id = claims["sub"]
-                print(f"Using user ID from API Gateway claims: {user_id}")
-            else:
-                # If no claims, try to decode JWT from Authorization header
-                headers = event.get("headers", {})
-                auth_header = headers.get("Authorization") or headers.get(
-                    "authorization"
-                )
-                if auth_header and auth_header.startswith("Bearer "):
-                    # Simple JWT payload decoding (without signature verification)
-                    try:
-                        jwt_token = auth_header[7:]  # Remove 'Bearer '
-                        parts = jwt_token.split(".")
-                        if len(parts) == 3:
-                            payload_encoded = parts[1]
-                            payload_encoded += "=" * (4 - len(payload_encoded) % 4)
-                            payload_bytes = base64.b64decode(payload_encoded)
-                            payload = json.loads(payload_bytes.decode("utf-8"))
-                            if "sub" in payload:
-                                user_id = payload["sub"]
-                                print(f"Using user ID from JWT token: {user_id}")
-                    except Exception as jwt_error:
-                        print(f"Failed to decode JWT: {jwt_error}")
-        except Exception as e:
-            print(f"Error extracting user ID: {e}")
-
-        print(f"Final user_id: {user_id}")
+        # Extract user ID from Cognito JWT using utility
+        if USAGE_TRACKING_AVAILABLE:
+            user_id = get_user_id_from_event(event)
+            if not user_id:
+                return {
+                    "statusCode": 401,
+                    "headers": {
+                        "Content-Type": "application/json",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                    "body": json.dumps({"error": "Unauthorized - valid JWT token required"}),
+                }
+        else:
+            user_id = "default-user"  # Fallback for minimal deployment
+        
+        print(f"Using user_id: {user_id}")
 
         # Parse and validate request body
         body = event.get("body", "{}")
@@ -435,6 +424,31 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 },
                 "body": json.dumps({"error": "Question or audio data is required"}),
             }
+
+        # Check usage quota and track usage
+        if USAGE_TRACKING_AVAILABLE:
+            try:
+                usage_tracker = UsageTracker()
+                operation = "transcribe" if file_data else "query"
+                can_proceed, usage_info = usage_tracker.check_and_increment_usage(user_id, operation)
+                
+                if not can_proceed:
+                    return {
+                        "statusCode": 429,
+                        "headers": {
+                            "Content-Type": "application/json",
+                            "Access-Control-Allow-Origin": "*",
+                        },
+                        "body": json.dumps({
+                            "error": "Usage limit exceeded. Please try again later.",
+                            "usage_info": usage_info
+                        }),
+                    }
+                
+                print(f"Usage tracking: {usage_info}")
+            except Exception as e:
+                print(f"Error in usage tracking: {e}")
+                # Continue processing even if usage tracking fails
 
         # Initialize cache client
         cache_client = get_cache_client()
@@ -627,6 +641,49 @@ Assistant: I'll help you with that based on the provided context."""
             "cache_status": "miss",
             "response_time_ms": response_time_ms,
         }
+
+        # Calculate and store costs
+        if USAGE_TRACKING_AVAILABLE:
+            try:
+                cost_calculator = get_cost_calculator()
+                operation_type = "transcribe" if file_data else "query"
+                
+                # Estimate token counts
+                input_tokens = cost_calculator.estimate_tokens_from_text(
+                    question + " ".join(context_pieces)
+                )
+                output_tokens = cost_calculator.estimate_tokens_from_text(answer)
+                
+                # Calculate costs
+                request_id = str(uuid.uuid4())
+                request_cost = cost_calculator.calculate_request_cost(
+                    request_id=request_id,
+                    user_id=user_id,
+                    operation=operation_type,
+                    model_id=text_model_id,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    audio_duration_seconds=30 if file_data else 0,  # Estimate
+                    context_chunks=len(context_pieces),
+                    response_time_ms=response_time_ms
+                )
+                
+                # Store cost data
+                cost_calculator.store_cost_data(request_cost)
+                
+                # Add cost info to response for debugging
+                response_data["cost_info"] = {
+                    "total_cost_eur": request_cost.total_cost,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "operation": operation_type
+                }
+                
+                print(f"Cost tracking: {request_cost.total_cost:.4f} EUR for {operation_type}")
+                
+            except Exception as e:
+                print(f"Error in cost tracking: {e}")
+                # Continue processing even if cost tracking fails
 
         # Cache the response for future requests
         cache_success = cache_response(cache_client, cache_key, response_data)
