@@ -63,15 +63,28 @@ def handle_get_usage(user_id: str) -> Dict[str, Any]:
         # Get usage by operation type
         operation_breakdown = get_operation_breakdown(user_id)
 
-        return create_response(
-            200,
-            {
-                "user_id": user_id,
-                "current": current_stats,
-                "historical": historical_usage,
-                "breakdown": operation_breakdown,
+        # Format response to match frontend expectations
+        response_data = {
+            "current_usage": {
+                "daily_queries": current_stats.get("daily_used", 0),
+                "daily_limit": current_stats.get("daily_limit", 50),
+                "daily_remaining": current_stats.get("daily_limit", 50) - current_stats.get("daily_used", 0),
+                "monthly_queries": current_stats.get("monthly_used", 0),
+                "monthly_limit": current_stats.get("monthly_limit", 1000),
+                "monthly_remaining": current_stats.get("monthly_limit", 1000) - current_stats.get("monthly_used", 0),
             },
-        )
+            "daily_costs": {
+                "total_cost": 0.0,  # TODO: Calculate actual costs
+                "transcribe_cost": 0.0,
+                "bedrock_cost": 0.0,
+            },
+            "recent_queries": [],  # TODO: Add recent queries
+            "user_id": user_id,
+            "historical": historical_usage,
+            "breakdown": operation_breakdown,
+        }
+        
+        return create_response(200, response_data)
 
     except Exception as e:
         print(f"Error getting usage stats: {str(e)}")

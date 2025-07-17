@@ -38,6 +38,8 @@ export function ManualDetailScreen() {
     try {
       console.log('Loading manual detail for ID:', manualId);
       const manualData = await manualsService.getManualDetail(manualId);
+      console.log('Manual detail response:', JSON.stringify(manualData, null, 2));
+      console.log('PDF URL from response:', manualData.pdfUrl);
       setManual(manualData);
     } catch (error) {
       console.error('Get manual detail error:', error);
@@ -52,11 +54,16 @@ export function ManualDetailScreen() {
   const handleViewPDF = async (pageNumber?: number) => {
     if (!manual) return;
 
-    // For now, use a demo PDF URL since the backend doesn't provide PDF URLs yet
-    let pdfUrl = manual.pdfUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf';
+    // Use the actual PDF URL from the backend
+    let pdfUrl = manual.pdfUrl;
+    
+    if (!pdfUrl) {
+      Alert.alert('Error', 'PDF URL not available for this manual');
+      return;
+    }
 
-    // Add page navigation if page number is provided
-    if (pageNumber) {
+    // Add page navigation if page number is provided and is a valid number
+    if (pageNumber && typeof pageNumber === 'number' && pageNumber > 0) {
       const separator = pdfUrl.includes('#') ? '&' : '#';
       pdfUrl = `${pdfUrl}${separator}page=${pageNumber}`;
     }

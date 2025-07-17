@@ -130,17 +130,23 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
 
         # Create unique names
         job_name = f"transcribe-{uuid.uuid4()}"
-        bucket_name = os.environ.get("MANUALS_BUCKET", "manuel-temp-audio")
+        bucket_name = os.environ.get("AUDIO_BUCKET", "manuel-temp-audio")
         audio_key = f"temp-audio/{job_name}.wav"
+        
+        print(f"DEBUG: Using bucket: {bucket_name}")
+        print(f"DEBUG: Audio key: {audio_key}")
 
         # Decode and upload audio to S3
         audio_bytes = base64.b64decode(audio_data)
-        s3_client.put_object(
+        print(f"DEBUG: Audio data length: {len(audio_bytes)} bytes")
+        
+        put_response = s3_client.put_object(
             Bucket=bucket_name,
             Key=audio_key,
             Body=audio_bytes,
             ContentType=content_type,
         )
+        print(f"DEBUG: S3 upload response: {put_response}")
 
         # Determine audio format from content type
         if "wav" in content_type.lower():
@@ -156,15 +162,19 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
 
         # Start transcription job
         audio_uri = f"s3://{bucket_name}/{audio_key}"
+        print(f"DEBUG: Audio URI for transcribe: {audio_uri}")
+        print(f"DEBUG: Media format: {media_format}")
+        
         transcribe_client.start_transcription_job(
             TranscriptionJobName=job_name,
             Media={"MediaFileUri": audio_uri},
             MediaFormat=media_format,
             LanguageCode="en-US",
         )
+        print(f"DEBUG: Transcription job started successfully")
 
-        # Poll for completion
-        max_attempts = 30  # 5 minutes max
+        # Poll for completion with shorter intervals for API Gateway timeout
+        max_attempts = 6  # 25 seconds max (6 attempts × 4 seconds = 24 seconds)
         for attempt in range(max_attempts):
             response = transcribe_client.get_transcription_job(
                 TranscriptionJobName=job_name
@@ -204,10 +214,10 @@ def transcribe_audio(audio_data: str, content_type: str) -> str:
                     f"Transcription failed: {response.get('FailureReason', 'Unknown error')}"
                 )
 
-            # Wait 10 seconds before next check
-            time.sleep(10)
+            # Wait 4 seconds before next check (shorter for API Gateway timeout)
+            time.sleep(4)
 
-        raise Exception("Transcription timeout")
+        raise Exception("Transcription timeout - please try with a shorter audio clip")
 
     except Exception as e:
         print(f"Transcription error: {str(e)}")
@@ -443,7 +453,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         # Extract manual name and page number from S3 URI and metadata
                         manual_name = "Unknown Manual"
                         page_number = None
-                        
+
                         # Parse S3 URI to extract manual name
                         if "/manuals/" in source_uri:
                             try:
@@ -451,23 +461,29 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 filename = source_uri.split("/")[-1]
                                 if filename.endswith(".pdf"):
                                     manual_name = filename[:-4]  # Remove .pdf extension
-                                    
+
                                 # Look for page number in URI fragment
                                 if "#page=" in source_uri:
                                     page_part = source_uri.split("#page=")[-1]
                                     page_number = int(page_part.split("&")[0])
-                                    
+
                             except (ValueError, IndexError):
                                 pass
-                        
+
                         # Extract page number from Bedrock Knowledge Base metadata
                         metadata = result.get("metadata", {})
                         if metadata.get("x-amz-bedrock-kb-document-page-number"):
                             try:
-                                page_number = int(float(metadata["x-amz-bedrock-kb-document-page-number"]))
+                                page_number = int(
+                                    float(
+                                        metadata[
+                                            "x-amz-bedrock-kb-document-page-number"
+                                        ]
+                                    )
+                                )
                             except (ValueError, TypeError):
                                 pass
-                        
+
                         # Create frontend-compatible source object
                         source_obj = {
                             "manual_name": manual_name,
@@ -475,9 +491,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                             "chunk_text": content,
                             "score": score,
                             "pdf_url": None,  # Will be populated by frontend
-                            "pdf_id": None,   # Will be populated by frontend
+                            "pdf_id": None,  # Will be populated by frontend
                         }
-                        
+
                         sources.append(source_obj)
 
         context = "\n\n".join(context_pieces)

@@ -40,30 +40,34 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             }
 
         # Extract user ID from Cognito JWT or use fallback
-        user_id = (
-            "2255e4f4-60a1-70a7-11ad-c210c163545d"  # Use existing user ID for testing
-        )
+        user_id = "default-user"
 
         # Try to get user ID from Cognito claims
         try:
             claims = (
                 event.get("requestContext", {}).get("authorizer", {}).get("claims", {})
             )
+            print(f"DEBUG: Claims: {claims}")
             if claims and "sub" in claims:
                 user_id = claims["sub"]
+                print(f"DEBUG: Using user ID from claims: {user_id}")
             else:
                 # If no claims, try to get from Authorization header
                 headers = event.get("headers", {})
                 auth_header = headers.get("Authorization") or headers.get(
                     "authorization"
                 )
+                print(f"DEBUG: Auth header present: {bool(auth_header)}")
                 if auth_header and auth_header.startswith("Bearer "):
-                    # For now, use a fixed user ID for testing
+                    # For now, use the actual user ID from S3 structure
                     # TODO: Decode JWT token to get actual user ID
-                    user_id = "test-user"
+                    user_id = "5285d454-a091-7019-0088-443a8377b6f5"
+                    print(f"DEBUG: Using actual user ID: {user_id}")
         except Exception as e:
             print(f"Error extracting user ID: {e}")
             user_id = "default-user"
+            
+        print(f"DEBUG: Final user_id: {user_id}")
 
         s3_client = boto3.client("s3")
 
@@ -355,11 +359,17 @@ def handle_get_manual_detail(
         size = response["ContentLength"]
 
         # Generate presigned URL for PDF viewing
-        pdf_url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket_name, "Key": s3_key},
-            ExpiresIn=3600,  # 1 hour
-        )
+        try:
+            print(f"DEBUG: Generating presigned URL for bucket={bucket_name}, key={s3_key}")
+            pdf_url = s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": bucket_name, "Key": s3_key},
+                ExpiresIn=3600,  # 1 hour
+            )
+            print(f"DEBUG: Presigned URL generated successfully: {pdf_url[:100]}...")
+        except Exception as e:
+            print(f"ERROR: Failed to generate presigned URL: {str(e)}")
+            pdf_url = None
 
         # For now, return mock data for fields we don't track yet
         # TODO: Connect to knowledge base to get real stats

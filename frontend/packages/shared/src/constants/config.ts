@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://83bcch9z1c.execute-api.eu-west-1.amazonaws.com/Prod',
+  BASE_URL: 'https://lkhscz74wf.execute-api.eu-west-1.amazonaws.com/Prod',
   TIMEOUT: 30000, // 30 seconds
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000, // 1 second
@@ -20,8 +20,8 @@ export const API_CONFIG = {
 
 // AWS Cognito Configuration
 export const COGNITO_CONFIG = {
-  USER_POOL_ID: 'eu-west-1_DQt2MDcmp', // Deployed User Pool ID
-  CLIENT_ID: '3ai5dri6105vaut9bie6ku5omb', // Deployed Client ID
+  USER_POOL_ID: 'eu-west-1_NGg1IA6Kk', // Deployed User Pool ID
+  CLIENT_ID: '767lm40vrsq92bdsr9k7i774k1', // Deployed Client ID
   REGION: 'eu-west-1',
   IDENTITY_POOL_ID: 'eu-west-1:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', // Not needed for our use case
 };

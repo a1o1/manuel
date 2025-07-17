@@ -10,8 +10,8 @@ import {
 class UsageService {
   // Get current usage statistics
   async getUsageStats(): Promise<UsageStats> {
-    const response = await apiService.get<ApiResponse<UsageStats>>('/api/usage');
-    return response.data!;
+    const response = await apiService.get<UsageStats>('/api/user/usage');
+    return response;
   }
 
   // Get usage for a specific date range
@@ -32,7 +32,7 @@ class UsageService {
       }>;
       total_queries: number;
       total_cost: number;
-    }>>(`/api/usage/history?start=${startDate}&end=${endDate}`);
+    }>>(`/api/user/usage/history?start=${startDate}&end=${endDate}`);
     return response.data!;
   }
 
@@ -68,7 +68,7 @@ class UsageService {
         manual_upload: number;
         manual_download: number;
       };
-    }>>(`/api/usage/costs?period=${period}`);
+    }>>(`/api/user/usage/costs?period=${period}`);
     return response.data!;
   }
 
@@ -92,14 +92,14 @@ class UsageService {
         daily_reset: string;
         monthly_reset: string;
       };
-    }>>('/api/usage/quotas');
+    }>>('/api/user/usage/quotas');
     return response.data!;
   }
 
   // Get recent query history
   async getRecentQueries(limit = 10): Promise<RecentQuery[]> {
     const response = await apiService.get<ApiResponse<{ queries: RecentQuery[] }>>(
-      `/api/usage/recent?limit=${limit}`
+      `/api/user/usage/recent?limit=${limit}`
     );
     return response.data?.queries || [];
   }
@@ -111,7 +111,7 @@ class UsageService {
     format: 'csv' | 'json' = 'csv'
   ): Promise<Blob> {
     const response = await apiService.get(
-      `/api/usage/export?start=${startDate}&end=${endDate}&format=${format}`,
+      `/api/user/usage/export?start=${startDate}&end=${endDate}&format=${format}`,
       { responseType: 'blob' }
     );
     return response as unknown as Blob;
