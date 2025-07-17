@@ -1,8 +1,4 @@
 <div align="center">
-  <img src="docs/images/manuel-transparent.png" alt="Manuel - Your AI Manual Assistant" width="300" style="margin: 40px 0 20px 0;"/>
-</div>
-
-<div align="center">
   <table>
     <tr>
       <td align="center" style="background-color: #e3f2fd; border: 1px solid #2196f3; border-radius: 5px; padding: 10px;">
@@ -11,6 +7,10 @@
       </td>
     </tr>
   </table>
+</div>
+
+<div align="center">
+  <img src="docs/images/manuel-transparent.png" alt="Manuel - Your AI Manual Assistant" width="300" style="margin: 40px 0 20px 0;"/>
 </div>
 
 # Manuel - AI Powered Studio Assistant 
