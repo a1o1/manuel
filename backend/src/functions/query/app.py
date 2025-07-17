@@ -504,30 +504,42 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 s3_parts = source_uri.replace("s3://", "").split("/", 1)
                                 if len(s3_parts) == 2:
                                     bucket_name, s3_key = s3_parts
-                                    
+
                                     # Get object metadata to retrieve display name
                                     try:
                                         s3_client = boto3.client("s3")
                                         metadata_response = s3_client.head_object(
                                             Bucket=bucket_name, Key=s3_key
                                         )
-                                        display_name = metadata_response.get("Metadata", {}).get("display_name")
-                                        
+                                        display_name = metadata_response.get(
+                                            "Metadata", {}
+                                        ).get("display_name")
+
                                         if display_name:
                                             manual_name = display_name
-                                            print(f"Using display name from S3 metadata: {manual_name}")
+                                            print(
+                                                f"Using display name from S3 metadata: {manual_name}"
+                                            )
                                         else:
                                             # Fallback to filename
                                             filename = source_uri.split("/")[-1]
                                             if filename.endswith(".pdf"):
-                                                manual_name = filename[:-4]  # Remove .pdf extension
-                                            print(f"Using filename fallback: {manual_name}")
+                                                manual_name = filename[
+                                                    :-4
+                                                ]  # Remove .pdf extension
+                                            print(
+                                                f"Using filename fallback: {manual_name}"
+                                            )
                                     except Exception as metadata_error:
-                                        print(f"Failed to get S3 metadata: {metadata_error}")
+                                        print(
+                                            f"Failed to get S3 metadata: {metadata_error}"
+                                        )
                                         # Fallback to filename
                                         filename = source_uri.split("/")[-1]
                                         if filename.endswith(".pdf"):
-                                            manual_name = filename[:-4]  # Remove .pdf extension
+                                            manual_name = filename[
+                                                :-4
+                                            ]  # Remove .pdf extension
 
                                 # Look for page number in URI fragment
                                 if "#page=" in source_uri:

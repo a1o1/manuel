@@ -15,6 +15,161 @@ from typing import Any, Dict
 import boto3
 
 
+def cleanup_manual_comprehensive(
+    s3_client, bucket_name: str, s3_key: str, user_id: str
+) -> Dict[str, Any]:
+    """
+    Perform comprehensive cleanup of all manual-related data
+    Returns cleanup summary with results from each step
+    """
+    cleanup_results = {
+        "s3_deletion": False,
+        "knowledge_base_sync": False, 
+        "file_tracking_cleanup": False,
+        "cache_invalidation": False,
+        "pdf_page_cleanup": False,
+        "errors": []
+    }
+    
+    try:
+        # 1. Delete from S3 storage
+        print(f"Starting comprehensive cleanup for manual: {s3_key}")
+        s3_client.delete_object(Bucket=bucket_name, Key=s3_key)
+        cleanup_results["s3_deletion"] = True
+        print(f"✅ S3 deletion successful: {s3_key}")
+        
+        # 2. Trigger Knowledge Base sync to remove vector embeddings
+        try:
+            knowledge_base_id = os.environ.get("KNOWLEDGE_BASE_ID")
+            if knowledge_base_id:
+                bedrock_agent = boto3.client("bedrock-agent")
+                
+                # Get data source ID - for now we'll use the first one
+                # In production, you might want to store this in environment variables
+                data_sources = bedrock_agent.list_data_sources(
+                    knowledgeBaseId=knowledge_base_id
+                )
+                
+                if data_sources.get("dataSourceSummaries"):
+                    data_source_id = data_sources["dataSourceSummaries"][0]["dataSourceId"]
+                    
+                    # Start ingestion job to sync the deletion
+                    sync_response = bedrock_agent.start_ingestion_job(
+                        knowledgeBaseId=knowledge_base_id,
+                        dataSourceId=data_source_id,
+                        description=f"Cleanup sync after manual deletion: {s3_key}"
+                    )
+                    
+                    cleanup_results["knowledge_base_sync"] = True
+                    cleanup_results["sync_job_id"] = sync_response["ingestionJob"]["ingestionJobId"]
+                    print(f"✅ Knowledge Base sync triggered: {sync_response['ingestionJob']['ingestionJobId']}")
+                else:
+                    print("⚠️  No data sources found for Knowledge Base")
+                    cleanup_results["errors"].append("No data sources found for Knowledge Base")
+            else:
+                print("⚠️  Knowledge Base ID not configured")
+                cleanup_results["errors"].append("Knowledge Base ID not configured")
+                
+        except Exception as kb_error:
+            print(f"❌ Knowledge Base sync failed: {str(kb_error)}")
+            cleanup_results["errors"].append(f"Knowledge Base sync: {str(kb_error)}")
+        
+        # 3. Clean up DynamoDB file tracking records
+        try:
+            usage_table = os.environ.get("USAGE_TABLE")
+            if usage_table:
+                dynamodb = boto3.resource("dynamodb")
+                table = dynamodb.Table(usage_table)
+                
+                # Delete file tracking record
+                file_tracking_key = f"file_tracker#{s3_key}"
+                table.delete_item(
+                    Key={"user_id": file_tracking_key, "date": "metadata"}
+                )
+                
+                cleanup_results["file_tracking_cleanup"] = True
+                print(f"✅ File tracking cleanup successful: {file_tracking_key}")
+            else:
+                print("⚠️  Usage table not configured")
+                cleanup_results["errors"].append("Usage table not configured")
+                
+        except Exception as dynamo_error:
+            print(f"❌ DynamoDB cleanup failed: {str(dynamo_error)}")
+            cleanup_results["errors"].append(f"DynamoDB cleanup: {str(dynamo_error)}")
+        
+        # 4. Invalidate Redis cache entries related to this manual
+        try:
+            redis_endpoint = os.environ.get("REDIS_ENDPOINT")
+            enable_redis = os.environ.get("ENABLE_REDIS_CACHE", "false").lower() == "true"
+            
+            if enable_redis and redis_endpoint:
+                import redis
+                redis_client = redis.Redis(
+                    host=redis_endpoint,
+                    port=int(os.environ.get("REDIS_PORT", "6379")),
+                    socket_connect_timeout=5,
+                    decode_responses=True,
+                )
+                
+                # Invalidate cache entries that might contain this manual
+                manual_filename = s3_key.split("/")[-1].replace(".pdf", "")
+                cache_patterns = [
+                    f"query:{user_id}:*",  # All user queries
+                    f"*{manual_filename}*",  # Any cache containing manual name
+                ]
+                
+                deleted_keys = 0
+                for pattern in cache_patterns:
+                    keys = redis_client.keys(pattern)
+                    if keys:
+                        deleted_keys += redis_client.delete(*keys)
+                
+                cleanup_results["cache_invalidation"] = True
+                cleanup_results["cache_keys_deleted"] = deleted_keys
+                print(f"✅ Cache invalidation successful: {deleted_keys} keys deleted")
+            else:
+                print("⚠️  Redis cache not enabled or configured")
+                
+        except Exception as redis_error:
+            print(f"❌ Redis cache cleanup failed: {str(redis_error)}")
+            cleanup_results["errors"].append(f"Redis cleanup: {str(redis_error)}")
+        
+        # 5. Clean up processed PDF page cache in S3
+        try:
+            # Look for cached PDF pages in the cache bucket
+            cache_bucket = os.environ.get("CACHE_BUCKET", bucket_name)
+            manual_filename = s3_key.split("/")[-1].replace(".pdf", "")
+            cache_prefix = f"pdf-pages/{user_id}/{manual_filename}/"
+            
+            # List and delete cached page files
+            cache_objects = s3_client.list_objects_v2(
+                Bucket=cache_bucket,
+                Prefix=cache_prefix
+            )
+            
+            deleted_pages = 0
+            if cache_objects.get("Contents"):
+                for obj in cache_objects["Contents"]:
+                    s3_client.delete_object(Bucket=cache_bucket, Key=obj["Key"])
+                    deleted_pages += 1
+            
+            cleanup_results["pdf_page_cleanup"] = True
+            cleanup_results["cached_pages_deleted"] = deleted_pages
+            print(f"✅ PDF page cache cleanup successful: {deleted_pages} pages deleted")
+            
+        except Exception as page_error:
+            print(f"❌ PDF page cache cleanup failed: {str(page_error)}")
+            cleanup_results["errors"].append(f"PDF page cleanup: {str(page_error)}")
+        
+        print(f"🎉 Comprehensive cleanup completed for: {s3_key}")
+        return cleanup_results
+        
+    except Exception as e:
+        print(f"❌ Critical error in comprehensive cleanup: {str(e)}")
+        cleanup_results["errors"].append(f"Critical error: {str(e)}")
+        return cleanup_results
+
+
 def decode_jwt_payload(jwt_token: str) -> Dict[str, Any]:
     """Decode JWT payload without signature verification (for user ID extraction)"""
     try:
@@ -497,16 +652,28 @@ def handle_delete_manual(
                 "body": json.dumps({"error": "Manual not found"}),
             }
 
-        # Delete the object
-        s3_client.delete_object(Bucket=bucket_name, Key=s3_key)
-
+        # Perform comprehensive cleanup
+        cleanup_results = cleanup_manual_comprehensive(s3_client, bucket_name, s3_key, user_id)
+        
+        # Determine response based on cleanup success
+        success_count = sum(1 for key, value in cleanup_results.items() 
+                          if key != "errors" and isinstance(value, bool) and value)
+        
         return {
             "statusCode": 200,
             "headers": {
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
             },
-            "body": json.dumps({"message": "Manual deleted successfully"}),
+            "body": json.dumps({
+                "message": "Manual deletion completed",
+                "success": cleanup_results["s3_deletion"],  # Main success indicator
+                "cleanup_summary": {
+                    "completed_steps": success_count,
+                    "total_steps": 5,
+                    "details": cleanup_results
+                }
+            }),
         }
 
     except Exception as e:

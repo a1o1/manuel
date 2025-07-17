@@ -48,8 +48,9 @@ class ManualService {
     return this.downloadManual({ url, filename });
   }
   // Delete manual
-  async deleteManual(key: string): Promise<void> {
-    await apiService.delete(`/api/manuals/${encodeURIComponent(key)}`);
+  async deleteManual(key: string): Promise<any> {
+    const response = await apiService.delete(`/api/manuals/${encodeURIComponent(key)}`);
+    return response;
   }
 
   // Get manual metadata

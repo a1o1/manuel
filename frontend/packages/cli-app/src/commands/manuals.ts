@@ -326,8 +326,34 @@ export class ManualsCommand {
     const spinner = ora('Deleting manual...').start();
 
     try {
-      await manualService.deleteManual(key);
+      const result = await manualService.deleteManual(key);
       spinner.succeed(chalk.green('Manual deleted successfully!'));
+      
+      // Display cleanup summary if available
+      if (result && typeof result === 'object' && 'cleanup_summary' in result) {
+        const summary = (result as any).cleanup_summary;
+        console.log(chalk.bold('\n🧹 Cleanup Summary:'));
+        console.log(chalk.gray(`Completed: ${summary.completed_steps}/${summary.total_steps} steps`));
+        
+        const details = summary.details;
+        if (details.s3_deletion) console.log(chalk.green('✅ S3 file deleted'));
+        if (details.knowledge_base_sync) console.log(chalk.green('✅ Knowledge Base sync triggered'));
+        if (details.file_tracking_cleanup) console.log(chalk.green('✅ File tracking cleaned up'));
+        if (details.cache_invalidation) console.log(chalk.green(`✅ Cache invalidated (${details.cache_keys_deleted || 0} keys)`));
+        if (details.pdf_page_cleanup) console.log(chalk.green(`✅ PDF pages cleaned up (${details.cached_pages_deleted || 0} pages)`));
+        
+        if (details.errors && details.errors.length > 0) {
+          console.log(chalk.yellow('\n⚠️  Cleanup Warnings:'));
+          details.errors.forEach((error: string) => {
+            console.log(chalk.yellow(`  • ${error}`));
+          });
+        }
+        
+        if (details.sync_job_id) {
+          console.log(chalk.blue(`\n🔄 Knowledge Base sync job: ${details.sync_job_id}`));
+          console.log(chalk.gray('Note: It may take a few minutes for the manual to be completely removed from search results.'));
+        }
+      }
 
     } catch (error) {
       spinner.fail('Deletion failed');

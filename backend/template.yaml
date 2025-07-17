@@ -964,12 +964,39 @@ Resources:
       FunctionName: !Sub manuel-manuals-${Stage}
       CodeUri: src/functions/manuals/
       Handler: app.lambda_handler
-      Description: Manage product manuals
+      Description: Manage product manuals with comprehensive cleanup
+      Layers:
+        - !If
+          - EnableRedisCaching
+          - !Ref RedisLayer
+          - !Ref AWS::NoValue
+      VpcConfig: !If
+        - EnableRedisCaching
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+        - !Ref AWS::NoValue
       Environment:
         Variables:
           MAX_MANUAL_SIZE_MB: !Ref MaxManualSizeMB
           KNOWLEDGE_BASE_ID: !Ref BedrockKnowledgeBase
           MANUALS_BUCKET: !Ref ManualsBucket
+          USAGE_TABLE: !Ref UsageTable
+          CACHE_BUCKET: !Ref ManualsBucket  # Use same bucket for caching
+          REDIS_ENDPOINT: !If 
+            - EnableRedisCaching
+            - !GetAtt RedisCluster.PrimaryEndpoint.Address
+            - ""
+          REDIS_PORT: !If
+            - EnableRedisCaching
+            - !GetAtt RedisCluster.PrimaryEndpoint.Port
+            - "6379"
+          ENABLE_REDIS_CACHE: !If
+            - EnableRedisCaching
+            - "true"
+            - "false"
       Policies:
         - S3ReadPolicy:
             BucketName: !Ref ManualsBucket
@@ -982,6 +1009,18 @@ Resources:
           - DynamoDBCrudPolicy:
               TableName: !Ref RateLimitTable
           - !Ref AWS::NoValue
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:ListDataSources
+                - bedrock:GetDataSource
+                - bedrock:StartIngestionJob
+                - bedrock:GetIngestionJob
+              Resource: !GetAtt BedrockKnowledgeBase.KnowledgeBaseArn
+            - Effect: Allow
+              Action:
+                - bedrock:ListDataSources
+              Resource: "*"
         - Statement:
             - Effect: Allow
               Action:
