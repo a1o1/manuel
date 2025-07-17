@@ -5,6 +5,7 @@ Handles user usage statistics and quota information
 
 import os
 import sys
+from decimal import Decimal
 from typing import Any, Dict, List
 
 import boto3
@@ -20,6 +21,17 @@ from utils import (  # noqa: E402
     get_user_id_from_event,
     handle_options_request,
 )
+
+
+def convert_decimal_to_number(obj):
+    """Convert Decimal objects to regular numbers for JSON serialization"""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {k: convert_decimal_to_number(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_decimal_to_number(item) for item in obj]
+    return obj
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -100,6 +112,8 @@ def handle_get_usage(user_id: str) -> Dict[str, Any]:
             "breakdown": operation_breakdown,
         }
 
+        # Convert Decimal objects to regular numbers for JSON serialization
+        response_data = convert_decimal_to_number(response_data)
         return create_response(200, response_data)
 
     except Exception as e:
@@ -131,29 +145,30 @@ def handle_get_quota(user_id: str) -> Dict[str, Any]:
             else 0
         )
 
-        return create_response(
-            200,
-            {
-                "user_id": user_id,
-                "quotas": {
-                    "daily": {
-                        "limit": stats["daily_limit"],
-                        "used": stats["daily_used"],
-                        "remaining": daily_remaining,
-                        "percent_used": round(daily_percent, 1),
-                    },
-                    "monthly": {
-                        "limit": stats["monthly_limit"],
-                        "used": stats["monthly_used"],
-                        "remaining": monthly_remaining,
-                        "percent_used": round(monthly_percent, 1),
-                    },
+        response_data = {
+            "user_id": user_id,
+            "quotas": {
+                "daily": {
+                    "limit": stats["daily_limit"],
+                    "used": stats["daily_used"],
+                    "remaining": daily_remaining,
+                    "percent_used": round(daily_percent, 1),
                 },
-                "status": determine_quota_status(daily_percent, monthly_percent),
-                "last_operation": stats.get("last_operation"),
-                "last_updated": stats.get("last_updated"),
+                "monthly": {
+                    "limit": stats["monthly_limit"],
+                    "used": stats["monthly_used"],
+                    "remaining": monthly_remaining,
+                    "percent_used": round(monthly_percent, 1),
+                },
             },
-        )
+            "status": determine_quota_status(daily_percent, monthly_percent),
+            "last_operation": stats.get("last_operation"),
+            "last_updated": stats.get("last_updated"),
+        }
+        
+        # Convert Decimal objects to regular numbers for JSON serialization
+        response_data = convert_decimal_to_number(response_data)
+        return create_response(200, response_data)
 
     except Exception as e:
         print(f"Error getting quota info: {str(e)}")
