@@ -4,12 +4,12 @@ export const ENV_CONFIG = {
   MODE: 'production' as 'mock' | 'production',
 
   // API endpoints for production
-  API_BASE_URL: 'https://83bcch9z1c.execute-api.eu-west-1.amazonaws.com/Prod',
+  API_BASE_URL: 'https://lkhscz74wf.execute-api.eu-west-1.amazonaws.com/Prod',
 
   // AWS Cognito configuration
   COGNITO: {
-    USER_POOL_ID: 'eu-west-1_DQt2MDcmp',
-    CLIENT_ID: '3ai5dri6105vaut9bie6ku5omb',
+    USER_POOL_ID: 'eu-west-1_NGg1IA6Kk',
+    CLIENT_ID: '767lm40vrsq92bdsr9k7i774k1',
     REGION: 'eu-west-1',
     COGNITO_DOMAIN: 'https://cognito-idp.eu-west-1.amazonaws.com',
   },
