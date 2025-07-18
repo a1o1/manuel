@@ -35,23 +35,27 @@ troubleshooting an issue, or learning advanced features, Manuel is here to help
 with both text and voice queries. Just like a helpful concierge, Manuel knows
 your manuals inside and out!
 
-## 🚀 Quick Start
+## 📱 Key Features in Action
 
 <div align="center">
-  <img src="docs/images/ios-home-screen.png" alt="iOS App Home Screen" width="45%" style="margin: 0 2.5%"/>
-  <img src="docs/images/cli-query-example.png" alt="CLI Query Example" width="45%" style="margin: 0 2.5%"/>
-</div>
-
-### 📱 Key Features in Action
-
-<div align="center">
+  <img src="docs/images/ios-home-screen.png" alt="iOS App Home Screen" width="30%" style="margin: 0 1.5%"/>
   <img src="docs/images/ios-result-sources.png" alt="iOS Query Results with Sources" width="30%" style="margin: 0 1.5%"/>
   <img src="docs/images/ios-pdf-highlight.png" alt="PDF Page Highlighting" width="30%" style="margin: 0 1.5%"/>
 </div>
 
 <div align="center">
-  <em>Left: Query results with source attribution | Right: PDF page highlighting with text search</em>
+  <em>Home screen with usage stats | Query results with source attribution | PDF page highlighting with text search</em>
 </div>
+
+<div align="center">
+  <img src="docs/images/cli-query-example.png" alt="CLI Query Example" width="60%" style="margin: 20px 0"/>
+</div>
+
+<div align="center">
+  <em>CLI interface showing voice and text query capabilities</em>
+</div>
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
